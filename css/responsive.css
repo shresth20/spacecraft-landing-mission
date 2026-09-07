@@ -10,14 +10,14 @@
 /* ---------------------------------------------------------- wide desktop */
 /* ---------------------------------------------------------- tablet */
 @media (max-width: 900px) {
-  .launch__label { font-size: clamp(8px, 1.7vw, 16px); letter-spacing: .1em; }
+  .launch__body { --btn-w: clamp(122px, 22vw, 250px); }
 
   .subtitle { width: min(74%, 620px); }
 }
 
 /* ---------------------------------------------------------- phone */
 @media (max-width: 620px) {
-  .launch__label { font-size: clamp(7px, 2.1vw, 13px); letter-spacing: .06em; }
+  .launch__body { --btn-w: clamp(118px, 34vw, 210px); }
 
   .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
   .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
@@ -29,11 +29,12 @@
   .topbar__text { font-size: clamp(10px, 2.9vw, 16px); letter-spacing: .008em; }
 
   /* narrow: the artwork's clear band is the same fraction of the
-     image, but the controls in it can afford to be smaller */
-  .gate__inner { width: 84%; top: 75.5%; }
+     image, so the anchor holds — only the controls in it come down
+     in size */
+  .gate__inner { width: 84%; }
   .gate__slot { min-height: 52px; }
   .gate__load { width: min(74vw, 300px); }
-  .gate__status { font-size: 9px; letter-spacing: .12em; }
+  .gate__pct { font-size: 12px; letter-spacing: .08em; }
 }
 
 /* ---------------------------------------------------------- short / landscape phone */
@@ -42,6 +43,10 @@
   .stage { --btn-cy: 89.5%; }
   .hud__caption { bottom: 11%; font-size: clamp(10px, 2.6vh, 16px); }
   .hud__tally   { bottom: 5%; font-size: clamp(8px, 1.8vh, 12px); }
+
+  /* the feed's two ranks close up on each other, exactly as
+     css/rounds.css does it for a round screen */
+  .screen--drone { --far-y: 40%; --land-y: 68%; }
 
   /* almost no vertical room: the bar shrinks to a single tight line
      and the ship chip drops under it rather than beside it */
@@ -57,10 +62,15 @@
      30-unit island's apex, so the island row drops to open the
      gap back up rather than the craft rising into the bar. */
   .screen--landing { --ship-y: 30%; --land-y: 71%; }
-  /* barely any height: the band between the logo and the moon is
-     only a few dozen pixels, so the block starts higher in it */
-  .gate__inner { top: 74%; }
-  .gate__slot { min-height: 46px; }
+  /* barely any height: the band between the title and the moon's
+     limb is only a few dozen pixels tall, so the cap comes down to
+     what will sit inside it — and the slot floor stays above the
+     cap, or the block shifts as the loader hands over */
+  .gate__btn {
+    font-size: clamp(13px, 3.6vh, 19px);
+    min-width: clamp(118px, 21vh, 168px);
+  }
+  .gate__slot { min-height: 56px; }
 }
 
 /* ---------------------------------------------------------- very wide (letterbox-ish) */
@@ -74,7 +84,7 @@
    Portrait stretches the cockpit vertically. The button and the
    readout follow the artwork, so only sizes need easing. */
 @media (max-aspect-ratio: 3/4) {
-  .launch__label { font-size: clamp(8px, 2.6vw, 15px); }
+  .launch__body { --btn-w: clamp(130px, 38vw, 240px); }
   .flyout__drone { width: 34%; }
 
   /* In portrait the LANDING tableau is bound by width, not height:
@@ -89,12 +99,22 @@
     --ship-y: 40%;
     --land-y: 66%;
   }
+  /* both the fallback and the dealt stations, or a portrait frame
+     would spread only the islands the deal happened to miss */
   .pad--l { --cx: 20%; }
   .pad--m { --cx: 50%; }
   .pad--r { --cx: 80%; }
 
+  .pads .pad--s1 { --cx: 20%; }
+  .pads .pad--s2 { --cx: 50%; }
+  .pads .pad--s3 { --cx: 80%; }
+
   /* no room for tracking on a 50px-wide triangle */
   .pad__area i { letter-spacing: .02em; }
+
+  /* portrait has the height to spread the two ranks, and the same
+     figures a round screen uses here */
+  .screen--drone { --far-y: 46%; --land-y: 70%; }
 
   /* portrait stretches the feed tall: the bar can afford to wrap to
      two lines */
@@ -116,7 +136,9 @@
 
 /* ---------------------------------------------------------- pointer: coarse */
 @media (hover: none) {
-  .launch-slot.is-armed .launch:hover .launch__face { filter: none; }
+  .launch-slot.is-armed .launch:hover .launch__plate {
+    filter: drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6));
+  }
 
   /* a fat finger needs more than the image box on a small feed */
   .zone__hit { inset: -10%; }

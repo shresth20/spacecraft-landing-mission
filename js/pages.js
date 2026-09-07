@@ -83,55 +83,59 @@
 
   /* ---------------------------------------------------------- the land
      One entry per shape of island. `fill` and `c` come off the alpha
-     channel; `outline`, `clip` and `ring` are the silhouette traced
-     in the same box units, so the verdict outline is the actual
-     coastline, the tap target is the actual land, and the invitation
-     ring is a circle in the water that clears every corner.        */
+     channel; `outline` and `clip` are the silhouette traced in the
+     same box units, so the verdict outline is the actual coastline
+     and the tap target is the actual land.
+
+     There was a third figure here, `ring`: the radius of a CIRCLE
+     in the water around each island, worked out to clear every
+     corner of that shape's silhouette. The circle is gone (see THE
+     INVITATION in css/water.css — a round cue drawn around a shape
+     that is not round was half of what made the islands look stuck
+     onto the sea), and so is the figure, because js/water.js builds
+     the shore and its ripples off `clip` and `c` and works the
+     reach out for itself.                                          */
   var LAND = {
     triangle: {
       img: 'Triangle.png', fill: 40.857, cx: 0.4986, cy: 0.6332,
       outline: 'M50.1 7.7 98.6 91.4H1.1z',
       clip: 'polygon(50.1% 7.7%, 98.6% 91.4%, 1.1% 91.4%)',
-      ring: [49.9, 63.3, 118], label: [49.9, 62],
+      label: [49.9, 62],
       adjective: 'triangular'
     },
     square: {
       img: 'Square.png', fill: 62.728, cx: 0.4998, cy: 0.5001,
       outline: 'M10.3 10.5H89.7V89.5H10.3z',
       clip: 'polygon(10.3% 10.5%, 89.7% 10.5%, 89.7% 89.5%, 10.3% 89.5%)',
-      ring: [50, 50, 118], label: [50, 50],
+      label: [50, 50],
       adjective: 'square'
     },
     rectangle: {
       img: 'Rectangle.png', fill: 40.671, cx: 0.5000, cy: 0.4900,
       outline: 'M3.4 27.2H96.6V70.8H3.4z',
       clip: 'polygon(3.4% 27.2%, 96.6% 27.2%, 96.6% 70.8%, 3.4% 70.8%)',
-      /* a ring round a shape this flat only has to clear the two
-         far corners, 51.4 box units out — 112% rather than 118% */
-      ring: [50, 49, 112], label: [50, 49],
+      label: [50, 49],
       adjective: 'rectangular'
     },
     parallelogram: {
       img: 'Parallelogram.png', fill: 37.538, cx: 0.4955, cy: 0.4879,
       outline: 'M34.4 18.8H97L64.8 78.9H2.2z',
       clip: 'polygon(34.4% 18.8%, 97% 18.8%, 64.8% 78.9%, 2.2% 78.9%)',
-      ring: [49.6, 48.8, 118], label: [49.6, 48.8],
+      label: [49.6, 48.8],
       adjective: 'parallelogram'
     },
     trapezium: {
       img: 'Trapezium.png', fill: 42.410, cx: 0.4999, cy: 0.5566,
       outline: 'M36.3 15.7H63.7L99.2 82.9H0.8z',
       clip: 'polygon(36.3% 15.7%, 63.7% 15.7%, 99.2% 82.9%, 0.8% 82.9%)',
-      ring: [50, 55.7, 118], label: [50, 55],
+      label: [50, 55],
       adjective: 'trapezium'
     },
     rhombus: {
       img: 'Rhombus.png', fill: 38.159, cx: 0.4980, cy: 0.4921,
       outline: 'M49.9 4.6 92.5 48.9 49.9 93.1 7.2 48.9z',
       clip: 'polygon(49.9% 4.6%, 92.5% 48.9%, 49.9% 93.1%, 7.2% 48.9%)',
-      /* the far vertex is only 43.9 units out, so this ring is much
-         tighter than the others or it would float miles offshore */
-      ring: [49.8, 49.2, 96], label: [49.8, 49.2],
+      label: [49.8, 49.2],
       adjective: 'rhombus'
     }
   };
@@ -162,12 +166,20 @@
      Three primitives, so a callout is described by the points it
      measures rather than by a hand-written path:
 
-       across()  extension lines, an arrowed line and the number,
-                 measuring a horizontal side
+       across()  a tick-capped line and the number, measuring a
+                 horizontal side
        beside()  the same, turned down the left-hand side
        perp()    the perpendicular height dropped through the shape,
                  with the little square that says it is a right
-                 angle                                              */
+                 angle
+
+     The line runs the measured length and stops there: no witness
+     lines reaching back to the hull's corners. They put four more
+     strokes across open water for no reading the number does not
+     already give, and at this size they crowded the craft.        */
+
+  /* half-length of the tick that caps each end of a dimension line */
+  var CAP = 3.6;
 
   function path(cls, d) { return '<path class="' + cls + '" d="' + d + '" />'; }
 
@@ -181,34 +193,24 @@
   }
 
   /* o: x1, x2  the two points being measured
-        from    the y they sit on (the hull edge)
         y       where the dimension line goes — under the exhaust for
                 a base, over the nose for a top side
         ty      the number's baseline
         tx      only when the number should not sit at the midpoint */
   function across(o) {
-    var away = o.y > o.from ? 1 : -1;
-    var past = o.y + away * 4;
-    return path('dim__ext', 'M' + o.x1 + ' ' + o.from + 'V' + past +
-                            'M' + o.x2 + ' ' + o.from + 'V' + past) +
-           path('dim__line', 'M' + o.x1 + ' ' + o.y + 'H' + o.x2) +
-           path('dim__tip', 'M' + o.x1 + ' ' + o.y + 'l6.4-2.7v5.4z' +
-                            'M' + o.x2 + ' ' + o.y + 'l-6.4-2.7v5.4z') +
+    return path('dim__line', 'M' + o.x1 + ' ' + o.y + 'H' + o.x2) +
+           path('dim__tip', 'M' + o.x1 + ' ' + (o.y - CAP) + 'V' + (o.y + CAP) +
+                            'M' + o.x2 + ' ' + (o.y - CAP) + 'V' + (o.y + CAP)) +
            num(o.tx == null ? (o.x1 + o.x2) / 2 : o.tx, o.ty, o.text);
   }
 
   /* o: y1, y2  the two rows being measured
-        f1, f2  the x each of those rows starts at, so the extension
-                lines leave the hull rather than crossing it
         x       where the dimension line goes (negative: off to the
                 left of the craft, in open water)                    */
   function beside(o) {
-    var past = o.x - 5;
-    return path('dim__ext', 'M' + o.f1 + ' ' + o.y1 + 'H' + past +
-                            'M' + o.f2 + ' ' + o.y2 + 'H' + past) +
-           path('dim__line', 'M' + o.x + ' ' + o.y1 + 'V' + o.y2) +
-           path('dim__tip', 'M' + o.x + ' ' + o.y1 + 'l-2.7 6.4h5.4z' +
-                            'M' + o.x + ' ' + o.y2 + 'l-2.7-6.4h5.4z') +
+    return path('dim__line', 'M' + o.x + ' ' + o.y1 + 'V' + o.y2) +
+           path('dim__tip', 'M' + (o.x - CAP) + ' ' + o.y1 + 'H' + (o.x + CAP) +
+                            'M' + (o.x - CAP) + ' ' + o.y2 + 'H' + (o.x + CAP)) +
            numDown(o.x - 7, (o.y1 + o.y2) / 2, o.text);
   }
 
@@ -235,8 +237,8 @@
          are still called 6 units: the area is exact, the artwork is
          a little out of square. */
       dims:
-        across({ x1: 18.2, x2: 81.5, from: 67.3, y: 95, ty: 110, text: '6 units' }) +
-        beside({ x: -8, y1: 8.3, y2: 67.3, f1: 18.2, f2: 18.2, text: '6 units' })
+        across({ x1: 18.2, x2: 81.5, y: 95, ty: 110, text: '6 units' }) +
+        beside({ x: -8, y1: 8.3, y2: 67.3, text: '6 units' })
     },
 
     rectangle: {
@@ -245,8 +247,8 @@
       alt: 'Rectangular spaceship, 10 units long and 5 units wide',
       /* hull x 14.75..84.85, y 23.92..62.36 */
       dims:
-        across({ x1: 14.75, x2: 84.85, from: 62.36, y: 92, ty: 107, text: '10 units' }) +
-        beside({ x: -8, y1: 23.92, y2: 62.36, f1: 14.75, f2: 14.75, text: '5 units' })
+        across({ x1: 14.75, x2: 84.85, y: 92, ty: 107, text: '10 units' }) +
+        beside({ x: -8, y1: 23.92, y2: 62.36, text: '5 units' })
     },
 
     /* the parallelogram-hulled craft — the file called Trapezium */
@@ -261,8 +263,8 @@
          through the middle as well as measured down the side. */
       dims:
         perp(50, 14, 63.9) +
-        across({ x1: 7.3, x2: 64.5, from: 63.9, y: 92, ty: 107, text: '7 units' }) +
-        beside({ x: -8, y1: 14, y2: 63.9, f1: 35.7, f2: 7.3, text: '6 units' })
+        across({ x1: 7.3, x2: 64.5, y: 92, ty: 107, text: '7 units' }) +
+        beside({ x: -8, y1: 14, y2: 63.9, text: '6 units' })
     },
 
     /* the trapezium-hulled craft — the file called Parallelogram */
@@ -276,9 +278,9 @@
          printed on it are the numbers it is drawn at. */
       dims:
         perp(50, 14.2, 69.4) +
-        across({ x1: 27.2, x2: 72.8, from: 14.2, y: 9, ty: 4.5, text: '5 units' }) +
-        across({ x1: 2.4, x2: 97.3, from: 69.4, y: 100, ty: 115, text: '10 units' }) +
-        beside({ x: -8, y1: 14.2, y2: 69.4, f1: 27.2, f2: 2.4, text: '6 units' })
+        across({ x1: 27.2, x2: 72.8, y: 9, ty: 4.5, text: '5 units' }) +
+        across({ x1: 2.4, x2: 97.3, y: 100, ty: 115, text: '10 units' }) +
+        beside({ x: -8, y1: 14.2, y2: 69.4, text: '6 units' })
     },
 
     rhombus: {
@@ -290,7 +292,7 @@
          The short diagonal is measured ON ITSELF rather than from a
          line under the craft: this hull is only 21% of its box, so a
          box big enough to match the island's area puts anything
-         drawn below the exhaust down among the islands. Arrow tips
+         drawn below the exhaust down among the islands. Tick caps
          on the two side vertices, number under the line. The long
          diagonal is dashed through the middle and measured off to
          the left in the usual way.
@@ -304,9 +306,9 @@
       dims:
         path('dim__inner', 'M49.9 5.5V76.6') +
         path('dim__line', 'M20.2 41.4H79.7') +
-        path('dim__tip', 'M20.2 41.4l6.4-2.7v5.4zM79.7 41.4l-6.4-2.7v5.4z') +
+        path('dim__tip', 'M20.2 37.8V45M79.7 37.8V45') +
         num(32, 57, '6 units') +
-        beside({ x: -8, y1: 5.5, y2: 76.6, f1: 49.9, f2: 49.9, text: '7 units' })
+        beside({ x: -8, y1: 5.5, y2: 76.6, text: '7 units' })
     }
   };
 
@@ -464,6 +466,13 @@
      without ever looking at a shape, and the question stops being a
      question.
 
+     The survey feed asks that same question of that same five —
+     three matches and two decoys — so it lays its zones out through
+     the same strew() below, on the same stations, with the same
+     shuffle. It used to carry five hand-picked positions of its own,
+     which put its archipelago in a tighter band than every screen
+     after it and gave the mission two different-looking seas.
+
      Once the shape task is over the three survivors drop the scatter
      and go home to the row, which is the arrangement everything
      downstream — the craft's callouts, the HUD line, the fall
@@ -522,15 +531,22 @@
     return a;
   }
 
-  /* One island, measured: its box in px (offsetWidth is --k x --pu,
-     and the box is square so that is both axes), and how far its
-     painted silhouette reaches from its centre of area on each
-     side — which is what has to fit, not the box. */
-  function measure(pad) {
-    var land = LAND[pad.dataset.shape];
-    var w = pad.offsetWidth;
+  /* One island, measured: how far its painted silhouette reaches
+     from its centre of area on each side — which is what has to
+     fit, not the box.
+
+     All four come off offsetWidth and not offsetHeight: the box is
+     square by construction on every screen, and the width is the
+     axis that is always laid out even before the artwork has
+     decoded. */
+  function measure(el) {
+    var land = LAND[el.dataset.shape];
+    var w = el.offsetWidth;
     return {
-      pad: pad,
+      el: el,
+      cx: land.cx,
+      cy: land.cy,
+      w: w,
       left:  (land.cx - land.ext[0]) * w,
       right: (land.ext[2] - land.cx) * w,
       up:    (land.cy - land.ext[1]) * w,
@@ -538,7 +554,7 @@
     };
   }
 
-  function stations(sec, W, H) {
+  function stationsOf(sec, W, H) {
     var cs = global.getComputedStyle(sec);
     var far = parseFloat(cs.getPropertyValue('--far-y'));
     var land = parseFloat(cs.getPropertyValue('--land-y'));
@@ -566,21 +582,24 @@
     return false;
   }
 
-  function scatter(round) {
-    var sec = round.node;
+  /* Shuffle `els` across this section's five stations and hand each
+     placement to `place(el, x, y, m)`, where x/y are px within the
+     section and name the point the island's CENTRE OF AREA should
+     land on. `m` is that island's measurement, for a caller that
+     positions by its box rather than by that centre.
+
+     Returns the islands back to front, left to right — the order
+     they should breach in, so the archipelago comes out of the
+     distance instead of in document order — or null if no draw of
+     five fitted, which is the caller's cue to leave them wherever
+     its stylesheet put them. */
+  function strew(sec, els, place) {
     var W = sec.clientWidth;
     var H = sec.clientHeight;
-    var pads = round.el.padList;
+    if (!W || !H || !els.length) return null;
 
-    function home() {
-      pads.forEach(function (pad) { pad.classList.remove('is-scattered'); });
-      round.el.reveal = REVEAL.map(function (i) { return pads[i]; });
-    }
-
-    if (!W || !H) { home(); return; }
-
-    var art = pads.map(measure);
-    var spots = stations(sec, W, H);
+    var art = els.map(measure);
+    var spots = stationsOf(sec, W, H);
     var placed = null;
 
     for (var t = 0; t < DRAWS && !placed; t++) {
@@ -590,19 +609,96 @@
       if (!collides(draw, W, H)) placed = draw;
     }
 
-    if (!placed) { home(); return; }
+    if (!placed) return null;
 
-    placed.forEach(function (o) {
-      o.m.pad.style.setProperty('--sx', (o.x / W * 100).toFixed(3) + '%');
-      o.m.pad.style.setProperty('--sy', (o.y / H * 100).toFixed(3) + '%');
-      o.m.pad.classList.add('is-scattered');
+    placed.forEach(function (o) { place(o.m.el, o.x, o.y, o.m); });
+
+    return placed.slice()
+      .sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
+      .map(function (o) { return o.m.el; });
+  }
+
+  /* A round screen's islands are anchored on their centre of area
+     already (see .pad in css/style.css), so the station goes
+     straight into --sx/--sy as a percentage. */
+  function scatter(round) {
+    var pads = round.el.padList;
+    var W = round.node.clientWidth || 1;
+    var H = round.node.clientHeight || 1;
+
+    var order = strew(round.node, pads, function (el, x, y) {
+      el.style.setProperty('--sx', (x / W * 100).toFixed(3) + '%');
+      el.style.setProperty('--sy', (y / H * 100).toFixed(3) + '%');
+      el.classList.add('is-scattered');
     });
 
-    /* and they surface back to front, left to right, so the
-       archipelago comes out of the distance instead of in DOM order */
-    round.el.reveal = placed.slice()
-      .sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
-      .map(function (o) { return o.m.pad; });
+    if (order) {
+      round.el.reveal = order;
+      return;
+    }
+
+    /* too cramped for any draw: back to the row it was laid out at */
+    pads.forEach(function (pad) { pad.classList.remove('is-scattered'); });
+    round.el.reveal = REVEAL.map(function (i) { return pads[i]; });
+  }
+
+  /* And the survey feed's. Its zones are anchored on their centre of
+     area too (see .zone in css/style.css), so a station goes
+     straight in as a percentage here as well — but the anchoring
+     needs each shape's own centre, and this is the only place in the
+     project that holds it, so the two figures are handed over with
+     the position rather than written out a second time in the
+     stylesheet. */
+  function strewZones(sec, zones) {
+    var W = sec.clientWidth || 1;
+    var H = sec.clientHeight || 1;
+
+    zones.forEach(function (el) {
+      var land = LAND[el.dataset.shape];
+      if (!land) return;
+      el.style.setProperty('--zcx', land.cx);
+      el.style.setProperty('--zcy', land.cy);
+    });
+
+    return strew(sec, zones, function (el, x, y) {
+      el.style.setProperty('--x', (x / W * 100).toFixed(3) + '%');
+      el.style.setProperty('--y', (y / H * 100).toFixed(3) + '%');
+    });
+  }
+
+  /* ---------------------------------------------------------- dealing
+
+     Hand `classes` out among `els` at random, dropping whichever of
+     them an element is already wearing.
+
+     This is how a station gets attached to an island rather than
+     written into it: the classes carry nothing but a position, so
+     dealing them again moves the islands without touching a size, a
+     printed number or a `data-area`. Which matters, because the
+     drawn area has to stay true to the number on it — that is the
+     whole lesson — so it is the POSITION that has to be the random
+     part and never the pairing.
+
+     A class rather than an inline `--cx`, for one specific reason:
+     `.pad.is-scattered` overrides `--cx` from a rule, and an inline
+     property would outrank it and break the shape task's scatter. */
+  function deal(els, classes) {
+    var order = shuffled(classes);
+    els.forEach(function (el, i) {
+      classes.forEach(function (c) { el.classList.remove(c); });
+      if (order[i]) el.classList.add(order[i]);
+    });
+  }
+
+  var ROW_SLOTS = ['pad--row1', 'pad--row2', 'pad--row3'];
+
+  /* A round's three matching islands, dealt across the three row
+     stations. Called from the screen's reset, so every entry asks
+     the area question with the answer somewhere else. */
+  function dealRow(round) {
+    deal(round.el.padList.filter(function (pad) {
+      return pad.dataset.shape === round.shape;
+    }), ROW_SLOTS);
   }
 
   /* The three that matched go home to the row to be compared. Their
@@ -639,9 +735,6 @@
       '--k:' + round2(o.k),
       '--pcx:' + land.cx,
       '--pcy:' + land.cy,
-      '--rx:' + land.ring[0] + '%',
-      '--ry:' + land.ring[1] + '%',
-      '--rw:' + land.ring[2] + '%',
       '--ax:' + land.label[0] + '%',
       '--ay:' + land.label[1] + '%',
       '--clip:' + land.clip
@@ -653,20 +746,12 @@
                 ' data-name="' + land.adjective + '"' +
                 (o.area == null ? '' : ' data-area="' + o.area + '"') +
                 ' style="' + vars + '">' +
-      /* outside .pad__hit: that element is clipped to the island and
-         would cut the whole ring away */
-      '<span class="pad__ring" aria-hidden="true"></span>' +
       '<img class="pad__img" src="assets/images/' + encodeURI(land.img) + '" alt="" />' +
       '<svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">' +
         '<path d="' + land.outline + '" />' +
       '</svg>' +
       (o.area == null ? ''
         : '<p class="pad__area"><b>' + o.area + '</b><i>sq units</i></p>') +
-      /* where the burst comes from when this island is picked. A
-         sibling of the hit target, not a child of it: that one is
-         clipped to the coastline, and a burst is meant to leave the
-         island. M.burst() fills it and empties it again. */
-      '<span class="pad__pop" aria-hidden="true"></span>' +
       '<button class="pad__hit" type="button" tabindex="-1" aria-label="' + name + '"></button>' +
     '</div>';
   }
@@ -815,6 +900,7 @@
 
   global.GeoPages = {
     build: build, scatter: scatter, regroup: regroup,
+    strewZones: strewZones, deal: deal, dealRow: dealRow,
     rounds: ROUNDS, land: LAND, craft: CRAFT
   };
 })(window);

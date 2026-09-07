@@ -1,0 +1,1658 @@
+/* ============================================================
+   Geo Drone — the water
+
+   Every island in this mission is a flat PNG with a hard alpha
+   edge, laid over one photograph of open sea. On its own that
+   reads as a sticker: rock meets water along a razor line, the
+   water underneath never notices the rock is there, and nothing
+   in either layer moves.
+
+   This file — with js/water.js, which builds the markup it styles
+   — makes the two one environment. It is entirely additive: no
+   rule here needs a change anywhere else, bar one deliberate
+   override of `.zone__wake` near the bottom, and every layer it
+   adds is drawn from the island's OWN coastline, so a square's
+   shore is square and a rhombus's shore is a rhombus.
+
+   ── the stack, bottom to top ──────────────────────────────────
+
+     .sea          the water itself: depth, caustics, sun glint,
+                   swell. Six sheets per water screen, under
+                   everything on it.
+
+     .shore        below the land. The island's submerged bulk, the
+                   pale shallows that ring it, the shadow it throws
+                   down-sun, and its own colour scattering back up
+                   into the water. Bands of stroke laid on the
+                   coastline path, so each is a constant-width
+                   offset of the real coast.
+
+     .lap          three coastline outlines running out into the
+                   water on a loop, each rounder than the last: a
+                   ripple leaving a triangle is triangular while it
+                   is still near it and has forgotten the shape by
+                   the time it is a box-width out. These replaced
+                   two concentric CIRCLES per island, which is the
+                   one thing in the old scene that told you, on its
+                   own, that the land had been laid on the water
+                   rather than come up through it.
+
+                   They also carry the invitation — see THE
+                   INVITATION below.
+
+     the land      untouched. `.zone__img` / `.pad__img` carry six
+                   other rules and two keyframes between them, and
+                   nothing in this file goes near either element.
+
+     .wash         light and shade off the water surface, playing
+                   over the rock. Clipped to the coastline.
+
+     .shock        the verdict, on the coastline itself: a clean
+     .blast        green border and a front thrown off it when the
+                   player is right, the same two in clean red when
+                   they are not.
+
+     .surf         above the land. The wet rim, the film of water
+                   lying over the outermost rock, the foam line and
+                   the lace running along it. The group is displaced
+                   by a turbulence filter so the waterline is
+                   ragged rather than a geometric offset of the
+                   coast, and it wobbles against the rock it sits
+                   on.
+
+     .spray        the bubbles, sampled onto the real coastline.
+                   HTML rather than SVG, for the one performance
+                   rule this file has to respect — see sprayHTML()
+                   in js/water.js.
+
+     .ship__cast   the craft's own shadow on the water, and what
+     .ship__wash   its thruster is doing to the surface under it.
+
+     .wave         a displacement front, parked and fired by JS
+                   wherever the water is actually hit.
+
+     .sea__glare   one faint sheet of the sea's own light over
+                   land and water alike — the last of the six, and
+                   the one that stops the two reading as two
+                   exposures.
+
+   ── how the states are driven ─────────────────────────────────
+
+   Off the island's OWN classes — `.is-up` when it has surfaced,
+   `.is-sunk` when it has gone back under, `.is-picked` when it has
+   been chosen — and not off classes of this file's own. Those
+   three are already added and, more to the point, already REMOVED
+   by every reset in js/script.js, so the water cannot be left
+   lying on empty sea by a player who jumps screens mid-breach.
+   The one exception is `.is-rocked`, which is a single event
+   rather than a state; js/water.js adds it and takes it away.
+
+   ── colour ────────────────────────────────────────────────────
+
+   Read off s2-bg (2).png rather than invented: the deep blue in
+   its corners, the mid turquoise of its open water, the pale band
+   in its shallows, its foam, and the orange of the island tiles.
+   Held as bare channel triples so every layer below can take the
+   same colour at its own alpha.
+   ============================================================ */
+
+.stage {
+  --sea-deep:     4, 44, 80;
+  --sea-mid:      16, 112, 162;
+  --sea-shallow:  104, 232, 230;
+  --sea-lit:      196, 252, 255;
+  --sea-foam:     238, 253, 255;
+  --shore-warm:   255, 172, 108;
+
+  /* The sun. s2-bg (2).png has its specular glitter in the TOP
+     LEFT corner, so every shadow in this file falls down and to
+     the right, and all of them by the same amount.
+
+     In box units, so an island casts a shadow proportional to its
+     own size, and small: past about three units the shadow stops
+     reading as a shadow and starts reading as a second copy of the
+     island lying behind the first. */
+  --sun-dx: 2.4;
+  --sun-dy: 3.2;
+
+  /* The two verdicts. Clean green and clean red — not the sea's
+     mint and not the rock's orange-red, because these two are the
+     only things in the mission that are not water or land and they
+     have to be read instantly and never mistaken for either. Held
+     as channel triples so a border, its glow and the front it
+     throws can all take the one colour at their own alpha.
+
+     The two are NOT mirror images of each other, and that is worth
+     knowing before touching either. Green sits next to cyan on the
+     wheel, so a green stroke at half opacity over turquoise water
+     is still plainly a green stroke. Red is cyan's opposite: the
+     same half opacity mixes towards grey, and over the warm sandy
+     band every island carries in its shallows it keeps going and
+     comes out ORANGE. Which is exactly what the first version of
+     this did — red borders and orange pulses.
+
+     So red is not green with the numbers changed. Its base is more
+     saturated, its `-lit` is HOTTER rather than paler (a pale red
+     over cyan is pink), and the rules below give it alphas near 1
+     where green can afford a half. */
+  --ok:      34, 197, 94;
+  --ok-lit:  134, 239, 172;
+  --no:      226, 22, 22;
+  --no-lit:  255, 58, 44;
+}
+
+
+/* ============================================================
+   THE SEA
+
+   Six sheets, injected by js/water.js straight after the artwork
+   layer of every screen that is painted on water. z-index 1 is
+   that layer's own band and these come after it in the document,
+   so they land on the water and under every island.
+
+   Direct children of the .screen, and NOT gathered into a
+   wrapper, which matters more than it looks: half of them blend,
+   and a blending element only reaches as far as its parent
+   stacking context. A wrapper with a z-index would BE that
+   context, and the caustics would end up blending with nothing
+   but their own transparent parent. The .screen is the right
+   backdrop — it carries a filter, so it is an isolated group,
+   and the thing directly under these sheets inside it is the sea.
+
+   None of them needs its own overflow: the oversized ones are
+   clipped by .stage, which is `overflow: clip` and exactly the
+   size of one screen.
+   ============================================================ */
+.sea {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------- caustics
+   The net of focused sunlight on a shallow bottom. Tiles of radial
+   gradient at three sizes and three phases: where they overlap the
+   light gathers, where they do not it thins, and the result has no
+   readable repeat. Two of these drift across each other in
+   opposite directions, which is what makes the pattern churn
+   rather than slide. */
+.sea__caustic {
+  inset: -40%;
+  will-change: transform;
+}
+
+.sea__caustic--a {
+  background-image:
+    radial-gradient(closest-side, rgba(var(--sea-lit), .38), rgba(var(--sea-lit), 0) 68%),
+    radial-gradient(closest-side, rgba(var(--sea-lit), .26), rgba(var(--sea-lit), 0) 72%),
+    radial-gradient(closest-side, rgba(var(--sea-shallow), .24), rgba(var(--sea-shallow), 0) 70%);
+  background-size: 12% 9%, 8% 12%, 19% 14%;
+  background-position: 0 0, 37% 21%, 63% 58%;
+  mix-blend-mode: soft-light;
+  animation: causticDriftA 34s linear infinite;
+}
+
+.sea__caustic--b {
+  background-image:
+    radial-gradient(closest-side, rgba(var(--sea-foam), .22), rgba(var(--sea-foam), 0) 66%),
+    radial-gradient(closest-side, rgba(var(--sea-shallow), .18), rgba(var(--sea-shallow), 0) 74%);
+  background-size: 16% 22%, 27% 17%;
+  background-position: 12% 61%, 74% 8%;
+  mix-blend-mode: screen;
+  opacity: .5;
+  animation: causticDriftB 47s linear infinite;
+}
+
+/* ---------------------------------------------------------- sun glint
+   The specular sheet, sweeping. Long period on purpose: this is
+   the sun on the swell, and a fast one reads as a searchlight. */
+.sea__glint {
+  inset: -25%;
+  background: linear-gradient(104deg,
+    rgba(var(--sea-foam), 0)   32%,
+    rgba(var(--sea-foam), .14) 45%,
+    rgba(var(--sea-foam), .22) 50%,
+    rgba(var(--sea-foam), .12) 55%,
+    rgba(var(--sea-foam), 0)   68%);
+  mix-blend-mode: screen;
+  opacity: .4;
+  will-change: transform;
+  animation: glintSweep 29s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------- swell
+   The whole body of water lifting and settling. It is only a
+   brightness beat, but it gives the sea a pulse for every shore
+   layer to keep time with. */
+.sea__swell {
+  inset: 0;
+  background: radial-gradient(130% 105% at 28% 18%,
+    rgba(var(--sea-lit), .16), rgba(var(--sea-deep), 0) 62%);
+  mix-blend-mode: overlay;
+  animation: swellBreathe 17s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------- depth
+   Static: open water is deeper away from the middle of the frame,
+   and that gradient is what keeps the islands sitting in a body of
+   water rather than on a flat blue field. */
+.sea__deep {
+  inset: 0;
+  background:
+    radial-gradient(125% 120% at 50% 42%,
+      rgba(var(--sea-deep), 0) 42%, rgba(var(--sea-deep), .30) 100%),
+    linear-gradient(to bottom,
+      rgba(var(--sea-deep), 0) 55%, rgba(var(--sea-deep), .18) 100%);
+}
+
+/* ---------------------------------------------------------- glare
+   The one sheet that goes OVER the tableau. Seven per cent of
+   white on a slow diagonal drift, and it is the quietest thing
+   in the file doing the most work: land and water are now
+   behind the same piece of atmosphere.
+
+   z-index 5, and injected with the rest of the sea rather than
+   at the end of the screen, so among the z-5 elements it is the
+   FIRST — the glare passes over every island and under the
+   scanner line, the splash and the verdict outline. Plain alpha
+   rather than a blend mode: this is the one layer that has to
+   show over rock as well as over sea. */
+.sea__glare {
+  z-index: 5;
+  inset: -20%;
+  background:
+    linear-gradient(112deg,
+      rgba(var(--sea-foam), 0)   22%,
+      rgba(var(--sea-foam), .035) 47%,
+      rgba(var(--sea-foam), .06) 52%,
+      rgba(var(--sea-foam), 0)   78%),
+    radial-gradient(90% 70% at 18% 12%,
+      rgba(var(--sea-shallow), .06), rgba(var(--sea-shallow), 0) 70%);
+  will-change: transform;
+  animation: glareDrift 41s ease-in-out infinite;
+}
+
+@keyframes causticDriftA {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(2.4%, -3.1%, 0) scale(1.06); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes causticDriftB {
+  0%   { transform: translate3d(0, 0, 0) scale(1.04); }
+  50%  { transform: translate3d(-3.2%, 2.2%, 0) scale(1); }
+  100% { transform: translate3d(0, 0, 0) scale(1.04); }
+}
+
+@keyframes glintSweep {
+  0%, 100% { transform: translate3d(-14%, 0, 0); }
+  50%      { transform: translate3d(14%, 0, 0); }
+}
+
+@keyframes swellBreathe {
+  0%, 100% { opacity: .45; }
+  50%      { opacity: 1; }
+}
+
+@keyframes glareDrift {
+  0%, 100% { transform: translate3d(-6%, -2%, 0); }
+  50%      { transform: translate3d(6%, 2%, 0); }
+}
+
+/* ---------------------------------------------------------- the surface itself
+   The sea artwork is a still, and a still sea under a moving shore
+   is the whole problem restated. A one-per-cent breath on the
+   background is enough: the thirteen islets painted into it drift
+   with the swell, so the water becomes a body of water and
+   everything standing in it belongs to the same one.
+
+   Kept under 2% because the layer is stretched to exactly 100% x
+   100% — any more and the edge of the artwork walks into frame. */
+.s2-bg,
+.s3-bg {
+  transform-origin: 50% 50%;
+  animation: seaBreathe 23s ease-in-out infinite;
+}
+
+@keyframes seaBreathe {
+  0%, 100% { transform: scale(1.008) translate3d(0, 0, 0); }
+  50%      { transform: scale(1.020) translate3d(-.32%, .24%, 0); }
+}
+
+
+/* ============================================================
+   THE SHORE — below the land
+
+   One <svg> per island, inset on the island's own box, viewBox
+   0 0 100 100, so one user unit is one per cent of that box and
+   every coordinate is a measurement js/pages.js already holds.
+
+   Each band is the coastline path STROKED, not a scaled copy of
+   it. A stroke of width w is a constant-width offset of the path
+   on both sides — a real shoreline band, mitred at the corners —
+   where a scaled copy would stand further off at the corners than
+   along the edges. The inner half of every stroke is hidden behind
+   the land, which sits above this svg.
+   ============================================================ */
+.shore,
+.surf {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shore { z-index: 1; transform-origin: var(--wcx, 50%) var(--wcy, 50%); }
+.surf  { z-index: 2; transform-origin: var(--wcx, 50%) var(--wcy, 50%); }
+
+.shore path { fill: none; stroke-linejoin: round; }
+.surf path  { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+
+/* ---------------------------------------------------------- the warp
+   The whole shore runs through one turbulence displacement. Three
+   seeds, handed out round-robin by js/water.js, because the three
+   triangles on the landing screen are one silhouette at three
+   sizes and a shared warp would give them one shared coastline. */
+.shore__warp      { filter: url(#wtrShoreA); }
+.shore__warp--b   { filter: url(#wtrShoreB); }
+.shore__warp--c   { filter: url(#wtrShoreC); }
+
+/* ---------------------------------------------------------- deep water
+   What is under and beyond the shelf. Two bands, and both barely
+   there.
+
+   They were four, and heavier, and that was the mistake that took
+   longest to see: a dark halo all the way round an island IS a
+   drop shadow, and a drop shadow is the single most sticker-like
+   thing you can put under a flat shape. The sea artwork already
+   carries its own depth, and the DIRECTIONAL dark — the shadow
+   that only falls one way — is the contact shadow's job below. All
+   these two are for is taking the last of the sea's brightness off
+   the far side of the shelf. */
+.shore__l1 { stroke: rgba(var(--sea-deep), .05); stroke-width: 26; }
+.shore__l2 { stroke: rgba(var(--sea-deep), .06); stroke-width: 14; }
+
+/* ---------------------------------------------------------- the land, in the water
+   The island's own colour scattered up through the water — the
+   sunlit rock bouncing light back through a metre of it, which is
+   the closest thing an overhead camera has to a reflection, and
+   the layer that stops the orange and the turquoise reading as two
+   palettes that have never met.
+
+   Under the shallows rather than over them, and kept low. Warm
+   orange over this turquoise mixes towards grey at any strength,
+   and grey tight against a coast is the frame effect again. Out
+   here, under the pale band, the same colour reads as the sand it
+   is meant to be. */
+.shore__b1 { stroke: rgba(var(--shore-warm), .07); stroke-width: 11; }
+.shore__b2 { stroke: rgba(var(--shore-warm), .10); stroke-width: 5; }
+
+/* ---------------------------------------------------------- the shallows
+   The band that does the work, and it works by being BRIGHTER than
+   the sea, not darker: the water immediately around a rock is the
+   shallowest water there is, and shallow water is pale. Five steps
+   from twelve units out to two, ramping up as they close on the
+   coast, and the blur in the filter above turns the five of them
+   into the one gradient they are standing in for. */
+.shore__s1 { stroke: rgba(var(--sea-lit), .07); stroke-width: 18; }
+.shore__s2 { stroke: rgba(var(--sea-lit), .10); stroke-width: 12; }
+.shore__s3 { stroke: rgba(var(--sea-lit), .14); stroke-width: 7.5; }
+.shore__s4 { stroke: rgba(var(--sea-lit), .19); stroke-width: 4; }
+.shore__s5 { stroke: rgba(var(--sea-lit), .24); stroke-width: 2; }
+
+/* ---------------------------------------------------------- contact shadow
+   The island's shadow, cast down-sun over everything above — a
+   shadow on water falls on whatever the water is showing, so it is
+   the last of the four and it darkens the shelf, the sand and the
+   deep alike.
+
+   Offset by --sun-dx/--sun-dy and by nothing else: the camera
+   looks straight down, so the offset IS the sun's bearing and the
+   fill is the mass blocking it.
+
+   The filled copy is the umbra and the three strokes are the
+   penumbra, widest and faintest first — the same ramp-of-strokes
+   trick the film uses, and for the same reason: a shadow with one
+   hard edge reads as a cut-out, and a blur here would have to
+   re-rasterise behind the sway.
+
+   The fill is written as `.shore__cast .shore__c0` because
+   `.shore path` above sets `fill: none` and, being a class AND a
+   type, outranks a bare class on its own. */
+.shore__cast { transform: translate(calc(var(--sun-dx) * 1px), calc(var(--sun-dy) * 1px)); }
+.shore__cast .shore__c0 { fill: rgba(var(--sea-deep), .22); stroke: none; }
+.shore__c1 { stroke: rgba(var(--sea-deep), .07); stroke-width: 16; }
+.shore__c2 { stroke: rgba(var(--sea-deep), .10); stroke-width: 10; }
+.shore__c3 { stroke: rgba(var(--sea-deep), .14); stroke-width: 5; }
+
+
+/* ============================================================
+   THE WATERLINE — above the land
+
+   The one thing no amount of glow AROUND an island can fix is the
+   alpha edge itself: rock at full opacity on one pixel, sea on the
+   next. So the last layer is water drawn OVER the land — a film
+   lying on the outermost rock, the wet rim under it, and the foam
+   that gathers where the two meet.
+
+   The whole group runs through a turbulence displacement filter
+   (built in js/water.js) so the waterline is ragged the way a real
+   one is rather than the coast offset by a constant. That filter
+   is STATIC — it rasterises once — and the motion comes from a
+   wobble on this element, which is composited, and from dashes
+   running along a path, which are not filtered at all.
+
+   Three seeds of the same filter, handed out round-robin, so that
+   three triangles in a row do not share one waterline.
+   ============================================================ */
+.surf__warp    { filter: url(#wtrSurfA); }
+.surf__warp--b { filter: url(#wtrSurfB); }
+.surf__warp--c { filter: url(#wtrSurfC); }
+
+/* ---------------------------------------------------------- wet rock
+   Clipped to the coastline, so these can only ever darken LAND.
+   The outermost rock is never dry — it is under a film of water
+   half the time and glossy with it the rest, which on an overhead
+   shot means darker and bluer than the rock behind it — and
+   `.surf__w3` is the seam where the water actually meets it.
+
+   Three steps, darkest and tightest at the line. The seam has to
+   read at any size and against any part of the artwork, because on
+   its own it is most of the difference between land IN water and
+   land ON it — but it earns that by being the DARKEST thing here,
+   not by being a hard one. A crisp dark line all the way round a
+   silhouette is a border in exactly the way a crisp white one is;
+   the ramp, and the small blur in the filter above, are what make
+   this a waterline instead. */
+.surf__w1 { stroke: rgba(var(--sea-deep), .14); stroke-width: 11; }
+.surf__w2 { stroke: rgba(var(--sea-deep), .19); stroke-width: 6; }
+.surf__w3 { stroke: rgba(var(--sea-deep), .24); stroke-width: 2.4; }
+
+/* ---------------------------------------------------------- the film
+   NOT clipped: this is the sea lying across the edge, so it has to
+   fall on both sides of it.
+
+   Four strokes of falling width and rising alpha rather than one
+   blurred band, and every one of them at an alpha in single
+   figures: this ramp is meant to be READ as a soft edge, not seen
+   as a band of its own. An SVG stroke cannot carry a gradient across its
+   own width, and a blur here would re-rasterise behind the wobble;
+   four strokes are a ramp made of geometry, and geometry is free.
+   Between them the rock now fades into the sea over about five per
+   cent of its own width instead of stopping dead. */
+.surf__v1 { stroke: rgba(var(--sea-mid), .07);     stroke-width: 10; }
+.surf__v2 { stroke: rgba(var(--sea-mid), .10);     stroke-width: 6.2; }
+.surf__v3 { stroke: rgba(var(--sea-shallow), .10); stroke-width: 3.2; }
+.surf__v4 { stroke: rgba(var(--sea-shallow), .11); stroke-width: 1.4; }
+
+/* ---------------------------------------------------------- foam
+   Two different things, and the difference is the whole lesson of
+   this layer.
+
+   `.surf__crest` is the gathered white, and it is CONTINUOUS and
+   almost invisible: a haze at the shore, five per cent, no dash.
+
+   `.surf__edge` is the foam itself, and it is FLECKS — a dash
+   pattern of ones and twos with sevens and elevens between them,
+   round-capped, so what lands on the coast is dots rather than a
+   line. Two earlier passes at this got it wrong in both
+   directions: a solid white stroke round a silhouette is a bezel,
+   and evenly dashed one is a stitched seam. Foam gathers in some
+   places and not in others, and it does not do it to a rhythm.
+
+   Eight terms rather than four, so the pattern's period is 46
+   units against a coast of nearly 300 and no repeat is legible on
+   any one edge. And all of it around a tenth of white: the flecks
+   are meant to be TEXTURE at the shore, and anything above that
+   turns eight irregular dashes back into one dashed outline. What
+   sells this join is the dark seam above and the shallows below;
+   the foam is the last few per cent, and the last few per cent is
+   all it gets. */
+.surf__crest {
+  stroke: rgba(var(--sea-foam), .05);
+  stroke-width: 3.4;
+}
+
+.surf__edge {
+  stroke: rgba(var(--sea-foam), .10);
+  stroke-width: 1.1;
+  stroke-dasharray: 2 7 1 11 3 6 1 15;
+}
+
+/* ---------------------------------------------------------- the lace
+   The broken white that runs ALONG a surf line rather than sitting
+   on it. `.surf__d1` travels; `.surf__d2` is a second, coarser set
+   of flecks that sits still.
+
+   One moving and one still, rather than two moving in opposite
+   directions, and that is the one compromise in this file made for
+   the frame rate rather than for the look. `stroke-dashoffset` is
+   the only thing here with no composited equivalent: a transform
+   or an opacity gets its own layer and costs nothing per frame,
+   while a dash pattern is a style recalculation and a repaint on
+   every one. Two of them per island, across five islands, was
+   measurably the largest single cost in the whole module. One of
+   them is not, and the churn reads the same, because what the eye
+   follows is the moving set against the still one.
+
+   Outside .surf__warp deliberately — a dash pattern moving inside
+   a filtered group would re-run the filter on every frame. */
+.surf__d1 {
+  stroke: rgba(var(--sea-foam), .13);
+  stroke-width: 1.2;
+  stroke-dasharray: 1.5 6 2.5 9 1 13;
+  animation: laceRun 9s linear infinite;
+}
+
+.surf__d2 {
+  stroke: rgba(var(--sea-foam), .08);
+  stroke-width: 2;
+  stroke-dasharray: 1 14 2 9 1.5 17;
+  /* offset so its flecks never sit on .surf__d1's */
+  stroke-dashoffset: 7;
+}
+
+@keyframes laceRun { to { stroke-dashoffset: -120; } }
+
+/* ---------------------------------------------------------- bubbles
+   Sampled onto the coastline itself by js/water.js — evenly along
+   the real perimeter, each carrying the outward normal of the edge
+   it sits on, and each straddling the line rather than standing
+   off it — so they come off the shore and drift away from the
+   rock, rather than off a circle near it.
+
+   HTML rather than the SVG <circle>s these started as, and that is
+   a performance decision, not a drawing one: see sprayHTML() in
+   js/water.js. Every figure below is in per cent of the island's
+   box, which is what the sample points were already in.
+
+   z-index 2 and after .surf in the document, so the spray sits on
+   the waterline it comes off. */
+.spray {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.spray i {
+  position: absolute;
+  width: calc(var(--br, 1) * 1%);
+  aspect-ratio: 1;
+  margin-left: calc(var(--br, 1) * -.5%);
+  margin-top: calc(var(--br, 1) * -.5%);
+  border-radius: 50%;
+  background: rgba(var(--sea-foam), .34);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+@keyframes bubble {
+  0%   { opacity: 0;   transform: translate(0, 0) scale(.2); }
+  14%  { opacity: .95; transform: translate(calc(var(--bx) * 1%), calc(var(--by) * 1%)) scale(1); }
+  62%  { opacity: .5;  transform: translate(calc(var(--bx) * 2.6%), calc(var(--by) * 2.6%)) scale(.86); }
+  100% { opacity: 0;   transform: translate(calc(var(--bx) * 3.4%), calc(var(--by) * 3.4%)) scale(.35); }
+}
+
+
+/* ============================================================
+   RIPPLES — the near field
+
+   Three copies of the coastline running outward on a loop, so the
+   water is always leaving the island. Each is its own absolutely
+   positioned <svg>, centred on the island's CENTRE OF AREA and
+   scaled from there — an HTML-box transform, which is why none of
+   this has to reason about SVG transform boxes.
+
+   Its viewBox is `cx-R cy-R 2R 2R` and its width is 2R per cent of
+   the island box, so one user unit is again one per cent and the
+   outline lands exactly on the coast at scale 1. From there it
+   only ever grows.
+   ============================================================ */
+.lap {
+  position: absolute;
+  z-index: 1;
+  left: var(--wcx, 50%);
+  top: var(--wcy, 50%);
+  width: var(--lw, 120%);
+  aspect-ratio: 1;
+  overflow: visible;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* DASHED, in long uneven runs, and this is the one thing that
+   stops a ripple reading as an outline. A continuous line parallel
+   to a coast is a border however faint it is and however fast it
+   travels; a broken arc coming off a shore is unmistakably a wave.
+   Same lesson as the foam, one layer further out. */
+.lap path {
+  fill: none;
+  stroke: rgba(var(--sea-lit), .22);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 7 6 13 9;
+}
+
+/* A crest broadens, flattens and loses its curvature as it runs
+   out, so the copy furthest along is the widest, the palest and —
+   see LAP_ROUND in js/water.js — the roundest. Those three together
+   are what make the train read as one wave leaving an island
+   rather than as three concentric copies of a triangle: the first
+   still has the shape in it and the third has all but forgotten
+   it. */
+.lap--b path {
+  stroke: rgba(var(--sea-lit), .15);
+  stroke-width: 1.8;
+  stroke-dasharray: 11 9 6 14;
+}
+
+.lap--c path {
+  stroke: rgba(var(--sea-lit), .09);
+  stroke-width: 2.6;
+  stroke-dasharray: 5 12 9 11;
+}
+
+/* Out and gone by two thirds, not at the very end: three fronts
+   on a 5.2s loop phased 1.7s apart would otherwise have all three
+   on the water most of the time, which is three parallel lines
+   round an island however faint each one is. */
+@keyframes lapOut {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+  14%  { opacity: .8; }
+  46%  { opacity: .3; }
+  68%  { opacity: 0; }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.46); }
+}
+
+
+/* ============================================================
+   LIGHT ON THE ROCK
+
+   Caustics do not stop at the shore — the same surface that
+   focuses them onto the sea bed throws them across anything
+   standing in it. Two sheets drifting over the land, clipped to
+   the coastline, one adding light and one taking it away.
+
+   Plain alpha, not a blend mode: `clip-path` makes this element an
+   isolated group, so a blending child would have nothing but its
+   own transparent parent to blend with.
+   ============================================================ */
+.wash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  clip-path: var(--clip, polygon(50.1% 7.7%, 98.6% 91.4%, 1.1% 91.4%));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .9s ease;
+}
+
+.wash i {
+  position: absolute;
+  inset: -60%;
+  will-change: transform;
+}
+
+/* the light: the bright lines of the net, sliding over the rock */
+.wash i:first-child {
+  background-image:
+    radial-gradient(closest-side, rgba(var(--sea-foam), .38), rgba(var(--sea-foam), 0) 66%),
+    radial-gradient(closest-side, rgba(var(--sea-lit), .26), rgba(var(--sea-lit), 0) 70%);
+  background-size: 42% 30%, 27% 39%;
+  background-position: 0 0, 55% 40%;
+  animation: washLight 15s ease-in-out infinite;
+}
+
+/* and the shade between them, which is what makes the light read
+   as light instead of as a wash of white over the whole island */
+.wash i:last-child {
+  background-image:
+    radial-gradient(closest-side, rgba(var(--sea-deep), .32), rgba(var(--sea-deep), 0) 68%);
+  background-size: 55% 44%;
+  background-position: 30% 60%;
+  animation: washShade 21s ease-in-out infinite;
+}
+
+@keyframes washLight {
+  0%, 100% { transform: translate3d(-4%, 2%, 0) scale(1); }
+  50%      { transform: translate3d(5%, -3%, 0) scale(1.08); }
+}
+
+@keyframes washShade {
+  0%, 100% { transform: translate3d(3%, -2%, 0) scale(1.05); }
+  50%      { transform: translate3d(-4%, 3%, 0) scale(1); }
+}
+
+
+/* ============================================================
+   THE ISLAND ARRIVING
+
+   The land already has its own animation for this (zoneRise,
+   padRise). What was missing was the WATER's half of it: an island
+   the size of a city block coming up through the surface displaces
+   a great deal of sea, and until now the sea did not notice.
+
+   Two animations in one shorthand, the way rounds.css hands
+   shipArrive over to shipBob: the surge runs once and the idle
+   sway takes the element on, so nothing has to be switched over
+   from JS and there is no seam between them.
+   ============================================================ */
+.zone.is-up .shore,
+.zone.is-up .surf,
+.pad.is-up .shore,
+.pad.is-up .surf { opacity: 1; }
+
+.zone.is-up .wash,
+.pad.is-up .wash { opacity: 1; }
+
+/* zoneRise runs 1.5s, padRise 1.15s — the water's surge is timed
+   to the land it is being pushed aside by */
+.zone.is-up .shore { animation: shoreWell 1.6s cubic-bezier(.2, .9, .3, 1),
+                                shoreSway 13s ease-in-out 1.6s infinite; }
+.zone.is-up .surf  { animation: surfWell 1.6s cubic-bezier(.2, .9, .3, 1),
+                                surfWobble 8.5s ease-in-out 1.6s infinite; }
+
+.pad.is-up .shore { animation: shoreWell 1.25s cubic-bezier(.2, .9, .3, 1),
+                               shoreSway 13s ease-in-out 1.25s infinite; }
+.pad.is-up .surf  { animation: surfWell 1.25s cubic-bezier(.2, .9, .3, 1),
+                               surfWobble 8.5s ease-in-out 1.25s infinite; }
+
+/* the ripple train starts once the island is standing, and the
+   three copies are phased so one is always leaving */
+.zone.is-up .lap,
+.pad.is-up .lap { animation: lapOut 5.2s ease-out 1.2s infinite; }
+
+.zone.is-up .lap--b,
+.pad.is-up .lap--b { animation-delay: 2.9s; }
+
+.zone.is-up .lap--c,
+.pad.is-up .lap--c { animation-delay: 4.6s; }
+
+.zone.is-up .spray i,
+.pad.is-up .spray i {
+  animation: bubble var(--bt, 3.4s) ease-out var(--bd, 0s) infinite;
+}
+
+@keyframes shoreWell {
+  0%   { transform: scale(.86); opacity: 0; }
+  22%  { transform: scale(1.09); opacity: 1; }
+  58%  { transform: scale(.99); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes surfWell {
+  0%   { transform: scale(.9); opacity: 0; }
+  18%  { transform: scale(1.11); opacity: 1; }
+  46%  { transform: scale(.99); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* the idle: the shore breathing with the swell, and the waterline
+   sloshing against the rock on two axes and a turn — which is why
+   the second one reads as water moving over stone rather than as
+   the island breathing */
+@keyframes shoreSway {
+  0%, 100% { transform: scale(1) rotate(0); }
+  35%      { transform: scale(1.006) rotate(.14deg); }
+  70%      { transform: scale(.997) rotate(-.1deg); }
+}
+
+@keyframes surfWobble {
+  0%, 100% { transform: scale(1.000, 1.000) rotate(0); }
+  28%      { transform: scale(1.005, .998) rotate(.22deg); }
+  61%      { transform: scale(.998, 1.004) rotate(-.18deg); }
+}
+
+
+/* ============================================================
+   AND LEAVING
+   The surface closes over an island that did not match, so the
+   shore layers gather in and follow it down instead of blinking
+   out with it. `forwards`, and keyed off `.is-sunk` — which stays
+   on the island for exactly as long as the island is gone.
+   ============================================================ */
+.zone.is-up.is-sunk .shore,
+.pad.is-up.is-sunk .shore { animation: shoreClose 1.5s cubic-bezier(.42, 0, .72, .58) forwards; }
+
+.zone.is-up.is-sunk .surf,
+.pad.is-up.is-sunk .surf { animation: surfClose 1.35s cubic-bezier(.42, 0, .72, .58) forwards; }
+
+.zone.is-up.is-sunk .lap,
+.pad.is-up.is-sunk .lap { animation: lapOut 2.4s ease-out; }
+
+.zone.is-up.is-sunk .wash,
+.pad.is-up.is-sunk .wash { opacity: 0; }
+
+.zone.is-up.is-sunk .spray i,
+.pad.is-up.is-sunk .spray i { animation: bubble 1.1s ease-out; }
+
+@keyframes shoreClose {
+  0%   { transform: scale(1); opacity: 1; }
+  30%  { transform: scale(1.07); opacity: 1; }
+  100% { transform: scale(.5); opacity: 0; }
+}
+
+@keyframes surfClose {
+  0%   { transform: scale(1); opacity: 1; }
+  26%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(.55); opacity: 0; }
+}
+
+
+/* ============================================================
+   ONE BODY OF WATER
+
+   A wave from somewhere else reaching this island. js/water.js
+   works out when the front arrives and adds the class then, so the
+   islands answer an impact in the order the water reaches them —
+   which is the whole difference between a scene of separate
+   objects and one body of water with things standing in it.
+   ============================================================ */
+.zone.is-rocked .surf,
+.pad.is-rocked .surf { animation: surfRock 1.1s cubic-bezier(.25, .9, .3, 1); }
+
+/* on the lace, which is OUTSIDE .surf__warp: this one animates a
+   stroke, and a stroke animating inside the filter re-rasterises
+   the turbulence on every frame of it */
+.zone.is-rocked .surf__d1,
+.pad.is-rocked .surf__d1 { animation: crestFlare 1.1s ease-out; }
+
+@keyframes surfRock {
+  0%   { transform: scale(1); }
+  26%  { transform: scale(1.035) rotate(.5deg); }
+  58%  { transform: scale(.995) rotate(-.28deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* Starting and ending on `.surf__d1`'s own declaration, or a front
+   passing an island would leave its lace a different white from
+   the ones it did not reach. */
+@keyframes crestFlare {
+  0%   { stroke: rgba(var(--sea-foam), .13); stroke-width: 1.2; }
+  25%  { stroke: rgba(var(--sea-foam), .55); stroke-width: 2.2; }
+  100% { stroke: rgba(var(--sea-foam), .13); stroke-width: 1.2; }
+}
+
+/* ============================================================
+   THE INVITATION
+
+   Every island the player may tap used to be offered with a
+   CIRCLE: `.pad__ring`, a bright ring in the water, pulsing. It
+   was the cue, and it worked, and it was also — on a screen full
+   of squares, rhombuses and trapeziums — a round mark around a
+   shape that is not round. Half the reason the land read as laid
+   ON the water rather than standing IN it was that the only thing
+   the water ever did about an island was draw a circle near it.
+
+   So the circle is gone (with `.zone__ring`, the two circular
+   breach ripples, for the same reason) and the offer is made in
+   the island's OWN outline instead: a choosable island throws its
+   ripple train faster and brighter, and its waterline breathes.
+
+   Same cue, same job, and now it is the shape of the thing being
+   offered.
+   ============================================================ */
+.zones.is-picking .zone.is-up:not(.is-picked) .lap,
+.pads.is-picking  .pad.is-up:not(.is-picked) .lap,
+.pads.is-choosing .pad.is-up .lap { animation-duration: 2.8s; }
+
+/* the delays have to be restated: they lose to the duration rule
+   above on document order otherwise, and three fronts leaving
+   together is a pulse, not a train */
+.zones.is-picking .zone.is-up:not(.is-picked) .lap--b,
+.pads.is-picking  .pad.is-up:not(.is-picked) .lap--b,
+.pads.is-choosing .pad.is-up .lap--b { animation-delay: .93s; }
+
+.zones.is-picking .zone.is-up:not(.is-picked) .lap--c,
+.pads.is-picking  .pad.is-up:not(.is-picked) .lap--c,
+.pads.is-choosing .pad.is-up .lap--c { animation-delay: 1.87s; }
+
+.zones.is-picking .zone.is-up:not(.is-picked) .lap path,
+.pads.is-picking  .pad.is-up:not(.is-picked) .lap path,
+.pads.is-choosing .pad.is-up .lap path { stroke: rgba(var(--sea-lit), .5); }
+
+/* The foam is held a little brighter while an island is on offer,
+   and it is NOT animated. `.surf__edge` sits inside .surf__warp,
+   and an SVG paint property changing on a filtered path re-runs
+   the turbulence every frame it changes on — a pulse there would
+   be the single most expensive thing in this file. A standing
+   brightness costs one re-raster when the task arms, and the
+   MOVEMENT in the invitation comes from the ripple train, which is
+   three <svg> elements and composites. */
+.zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
+.pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
+.pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .20); }
+
+/* Hovering one stirs the water round it harder still — a better
+   answer to "can I tap THIS one" than another glow on the rock,
+   and it costs two property changes on elements already there. */
+@media (hover: hover) {
+  .zones.is-picking .zone.is-up:not(.is-picked):hover .surf__d1,
+  .pads.is-picking  .pad.is-up:not(.is-picked):hover .surf__d1,
+  .pads.is-choosing .pad.is-up:hover .surf__d1 { animation-duration: 3.4s; }
+
+  .zones.is-picking .zone.is-up:not(.is-picked):hover .surf__d2,
+  .pads.is-picking  .pad.is-up:not(.is-picked):hover .surf__d2,
+  .pads.is-choosing .pad.is-up:hover .surf__d2 { stroke: rgba(var(--sea-foam), .26); }
+
+  .zones.is-picking .zone.is-up:not(.is-picked):hover .lap,
+  .pads.is-picking  .pad.is-up:not(.is-picked):hover .lap,
+  .pads.is-choosing .pad.is-up:hover .lap { animation-duration: 2.1s; }
+}
+
+
+/* ============================================================
+   THE CRAFT OVER THE WATER
+
+   The islands were only half the problem. A spacecraft hovering a
+   few metres over open sea, throwing no shadow onto it and
+   disturbing nothing, is the same break in the same environment —
+   and it is the one thing on these screens the player watches
+   most.
+
+   Both pieces are anchored on the hull's own CENTRE OF AREA
+   (--scx/--scy, which the screen already carries for the landing
+   arithmetic), so they sit under the craft and not under the
+   middle of its box, which on a triangular hull is open water.
+   ============================================================ */
+.ship__cast,
+.ship__wash {
+  position: absolute;
+  left: calc(var(--scx, .5) * 100%);
+  top: calc(var(--scy, .5) * 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .7s ease;
+}
+
+.ship.is-in .ship__cast,
+.ship.is-in .ship__wash { opacity: 1; }
+
+/* The shadow. Offset down-sun by the same bearing the islands use
+   — in per cent of the craft's box, so it holds at every --pu — and
+   soft all the way through, because a shadow read through a couple
+   of metres of water has no edge left to it. */
+.ship__cast {
+  width: 66%;
+  aspect-ratio: 1;
+  margin-left: calc(var(--sun-dx) * .9%);
+  margin-top: calc(var(--sun-dy) * .9%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-deep), .40) 0%,
+    rgba(var(--sea-deep), .24) 46%,
+    rgba(var(--sea-deep), 0) 78%);
+}
+
+/* and what the thruster is doing to the surface */
+.ship__wash {
+  width: 96%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+
+.ship__wash i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* the hull's own light landing on the water under it. This is the
+   only true specular in the mission: everywhere else the light
+   comes back off ROCK, through water, and arrives as the warm
+   band in .shore__bleed. */
+.ship__glint {
+  width: 54%;
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-lit), .26), rgba(var(--sea-lit), 0) 72%);
+  animation: washGlint 3.6s ease-in-out infinite;
+}
+
+/* rings running out from under it, and NOT the coastline shape:
+   this front comes off a point source in open water, so it is
+   round from the moment it starts */
+.ship__ring {
+  width: 62%;
+  aspect-ratio: 1;
+  border: max(1px, .08vw) solid rgba(var(--sea-lit), .32);
+  opacity: 0;
+  animation: washRing 3.2s ease-out infinite;
+}
+
+.ship__ring--b { animation-delay: 1.6s; }
+
+@keyframes washGlint {
+  0%, 100% { opacity: .55; transform: translate(-50%, -50%) scale(.94); }
+  50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.06); }
+}
+
+@keyframes washRing {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.5); }
+  16%  { opacity: .75; }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.55); }
+}
+
+/* Once the player has committed, the craft is going down onto
+   ROCK. The wash goes with the water it was disturbing, and the
+   shadow tightens and darkens the way a shadow does as the thing
+   casting it comes down onto the surface it lands on. */
+.ship.is-committed .ship__wash { opacity: 0; }
+
+.ship.is-committed .ship__cast {
+  width: 54%;
+  margin-left: calc(var(--sun-dx) * .45%);
+  margin-top: calc(var(--sun-dy) * .45%);
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-deep), .44) 0%,
+    rgba(var(--sea-deep), .26) 52%,
+    rgba(var(--sea-deep), 0) 80%);
+  transition: opacity .7s ease, width .8s ease,
+              margin .8s ease, background .8s ease;
+}
+
+/* and it goes with the wreck */
+.ship.is-wrecked .ship__cast { opacity: .5; }
+
+
+/* ============================================================
+   THE VERDICT
+
+   Three answers have stood here. A green tick badge stamped on the
+   middle of the island; then the whole island flooding green.
+   Both were the same mistake in different sizes: the first put an
+   object on the land, and the second painted over the land, and
+   the land is the one thing on these screens the player is being
+   asked to LOOK at. A shape task whose answer hides the shape is
+   answering the wrong question.
+
+   So the answer is on the island's EDGE. A clean green border
+   snaps onto the coastline, and a green front is thrown off it
+   through the water; wrong gets the same drawing in clean red and
+   is gone in half a second. The rock stays the colour of rock, the
+   silhouette stays readable, and the verdict is unmistakable
+   because nothing else on the screen is that green or that red.
+
+   One drawing, two colours. `--ink` and `--lit` are set on the
+   island by its state and every stroke below reads them, so there
+   is no green copy of any of this.
+   ============================================================ */
+.zone.is-picked,
+.pad.is-picked  { --ink: var(--ok); --lit: var(--ok-lit); }
+
+.zone.is-wrong,
+.pad.is-wrong   { --ink: var(--no); --lit: var(--no-lit); }
+
+
+/* ---------------------------------------------------------- the border
+   Three copies of the coast, widest and faintest first, so the line
+   carries a glow rather than being one hard stroke against the
+   water. Above the waterline (z-index 3) — the foam and the film
+   are the shore, and a verdict is not part of the scenery. */
+.shock {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: var(--wcx, 50%) var(--wcy, 50%);
+}
+
+.shock path {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.shock__halo { stroke: rgba(var(--ink, 34, 197, 94), .22); stroke-width: 8; }
+.shock__rim  { stroke: rgba(var(--ink, 34, 197, 94), .55); stroke-width: 3.4; }
+.shock__line { stroke: rgba(var(--lit, 134, 239, 172), .95); stroke-width: 1.4; }
+
+/* the refusal's halo and rim, at the alphas red needs to stay red */
+.zone.is-wrong .shock__halo,
+.pad.is-wrong .shock__halo { stroke: rgba(var(--no), .40); }
+
+.zone.is-wrong .shock__rim,
+.pad.is-wrong .shock__rim { stroke: rgba(var(--no), .82); }
+
+.zone.is-wrong .shock__line,
+.pad.is-wrong .shock__line { stroke: rgb(var(--no-lit)); }
+
+
+/* ---------------------------------------------------------- the shock
+   The border arriving. It snaps in from just OUTSIDE the coast and
+   overshoots inward before settling, which is what makes it read
+   as a charge running round the edge rather than a stroke fading
+   up. Composited: `.shock` is an <svg> element, so its transform
+   and opacity get their own layer.
+
+   Right holds — a picked island has to stay marked, because the
+   player is choosing three and an island that looked untouched
+   would invite a second tap. Wrong does not: `.is-wrong` comes off
+   after 620ms, and with no `forwards` the border goes with it. */
+.zone.is-picked .shock,
+.pad.is-picked .shock { opacity: 1; animation: shockIn .52s cubic-bezier(.16, .9, .3, 1); }
+
+.zone.is-wrong .shock,
+.pad.is-wrong .shock { animation: shockFlash .6s cubic-bezier(.2, .85, .3, 1); }
+
+@keyframes shockIn {
+  0%   { opacity: 0; transform: scale(1.10); }
+  16%  { opacity: 1; transform: scale(1.015); }
+  46%  { transform: scale(.995); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shockFlash {
+  0%   { opacity: 0; transform: scale(1.12); }
+  13%  { opacity: 1; transform: scale(1.02); }
+  58%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+
+/* ---------------------------------------------------------- the front
+   And the shock leaving. The same outline again, running out from
+   the centre of area — the ripple train's construction exactly,
+   fired once and in the verdict's colour instead of the water's.
+
+   Slightly rounded (LAP_ROUND[0]) rather than the coast itself: a
+   front is already losing the shape that threw it by the time it
+   is a few units clear of the shore. */
+.blast {
+  position: absolute;
+  z-index: 3;
+  left: var(--wcx, 50%);
+  top: var(--wcy, 50%);
+  width: var(--lw, 120%);
+  aspect-ratio: 1;
+  overflow: visible;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.blast path {
+  fill: none;
+  stroke: rgba(var(--lit, 134, 239, 172), .85);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.blast--b path {
+  stroke: rgba(var(--ink, 34, 197, 94), .5);
+  stroke-width: 3.4;
+}
+
+/* And the refusal's fronts drawn HARDER than the same shape in
+   green: opaque on the leading edge and 85% on the one behind it,
+   both a shade wider. See the note over --no in the palette — a
+   red front at green's alphas is an orange front. */
+.zone.is-wrong .blast path,
+.pad.is-wrong .blast path {
+  stroke: rgb(var(--no-lit));
+  stroke-width: 2.6;
+}
+
+.zone.is-wrong .blast--b path,
+.pad.is-wrong .blast--b path {
+  stroke: rgba(var(--no), .85);
+  stroke-width: 4;
+}
+
+.zone.is-picked .blast,
+.pad.is-picked .blast { animation: blastOut .95s cubic-bezier(.14, .82, .28, 1); }
+
+.zone.is-picked .blast--b,
+.pad.is-picked .blast--b { animation-delay: .14s; }
+
+/* half the clock on a refusal, so it is over before the next tap */
+.zone.is-wrong .blast,
+.pad.is-wrong .blast { animation: blastOut .5s cubic-bezier(.14, .82, .28, 1); }
+
+.zone.is-wrong .blast--b,
+.pad.is-wrong .blast--b { animation-delay: .09s; }
+
+@keyframes blastOut {
+  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(1); }
+  14%  { opacity: .9; }
+  100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.5); }
+}
+
+
+/* Taken goes back to plain before the three that matched move into
+   the area question: nothing that answered the shape question
+   should follow the islands into the one about area. Same moment
+   `padUnpick` fires in css/rounds.css, and for the same reason. */
+.screen--round .pads.is-cleared .pad.is-picked .shock {
+  opacity: 0;
+  animation: none;
+  transition: opacity .45s ease;
+}
+
+
+/* ============================================================
+   AN IMPACT
+
+   Parked and fired by js/water.js on the point the water was
+   actually hit — an island breaching, a craft going in. One
+   element, four layers: the front that bends the water, two
+   crests behind it, and the foam left in the middle.
+
+   .wave__warp is the only place in the mission that refracts:
+   `backdrop-filter` behind a ring mask, so what is UNDER the front
+   — sea, painted islets, the shore layers of any island it
+   crosses — is genuinely displaced as it passes, instead of being
+   covered by a picture of a displacement. The gradient under the
+   mask carries the effect where backdrop-filter is unavailable.
+   ============================================================ */
+.wave {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  width: var(--wave-w, 40vmin);
+  aspect-ratio: 1;
+  margin-left: calc(var(--wave-w, 40vmin) * -.5);
+  margin-top: calc(var(--wave-w, 40vmin) * -.5);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.wave.is-on { opacity: 1; }
+
+/* No `width` in the shared rule: `.wave span` is a class AND a
+   type, which outranks the bare class on each child, so a width
+   set here would win over every one of them. */
+.wave span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.12);
+  opacity: 0;
+}
+
+.wave__warp {
+  width: 100%;
+  -webkit-backdrop-filter: blur(3.5px) saturate(1.35) brightness(1.06);
+  backdrop-filter: blur(3.5px) saturate(1.35) brightness(1.06);
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-lit), 0) 48%,
+    rgba(var(--sea-lit), .18) 62%,
+    rgba(var(--sea-foam), .10) 72%,
+    rgba(var(--sea-lit), 0) 88%);
+  -webkit-mask-image: radial-gradient(closest-side,
+    transparent 44%, #000 60%, #000 74%, transparent 92%);
+  mask-image: radial-gradient(closest-side,
+    transparent 44%, #000 60%, #000 74%, transparent 92%);
+  will-change: transform, opacity;
+}
+
+.wave__crest {
+  width: 86%;
+  border: max(1.5px, .1vw) solid rgba(var(--sea-foam), .5);
+  box-shadow: 0 0 14px rgba(var(--sea-lit), .4);
+}
+
+.wave__crest--b {
+  width: 64%;
+  border-color: rgba(var(--sea-foam), .32);
+}
+
+.wave__foam {
+  width: 44%;
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-foam), .5), rgba(var(--sea-lit), 0) 72%);
+  filter: blur(3px);
+}
+
+/* The two tints the shape task fires it with, in the same clean
+   green and clean red as the border they arrive with — the answer
+   is ONE colour, said by the edge of the island and by the water
+   leaving it. Otherwise the same front as every other impact, so it
+   still belongs to the same sea. `.wave--bad` is the short one:
+   most of it over in under a second, and gone. */
+/* A crest of max(1.5px, .1vw) is what an IMPACT wants: a thin
+   bright line, because the event is the impact and the line is
+   just its edge. A verdict is the other way round — the front IS
+   the message, it has to read at playing size and not only in a
+   still, so both tints widen it into a band and put a real glow
+   either side. */
+.wave--good .wave__crest {
+  border-width: max(3px, .24vw);
+  border-color: rgba(var(--ok-lit), .85);
+  box-shadow: 0 0 26px rgba(var(--ok), .7),
+              inset 0 0 20px rgba(var(--ok), .34);
+}
+.wave--good .wave__crest--b {
+  border-width: max(2px, .16vw);
+  border-color: rgba(var(--ok-lit), .5);
+  box-shadow: 0 0 18px rgba(var(--ok), .4);
+}
+.wave--good .wave__foam {
+  background: radial-gradient(closest-side,
+    rgba(150, 255, 230, .5), rgba(70, 240, 210, 0) 72%);
+}
+.wave--good .wave__warp {
+  background: radial-gradient(closest-side,
+    rgba(var(--ok), 0) 44%,
+    rgba(var(--ok), .32) 60%,
+    rgba(var(--ok-lit), .22) 70%,
+    rgba(var(--ok), .10) 80%,
+    rgba(var(--ok), 0) 92%);
+}
+
+.wave--bad .wave__crest {
+  border-width: max(3.5px, .28vw);
+  border-color: rgb(var(--no-lit));
+  box-shadow: 0 0 26px rgba(var(--no), .85),
+              inset 0 0 20px rgba(var(--no), .5);
+}
+.wave--bad .wave__crest--b {
+  border-width: max(2.5px, .2vw);
+  border-color: rgba(var(--no-lit), .8);
+  box-shadow: 0 0 18px rgba(var(--no), .6);
+}
+.wave--bad .wave__foam {
+  background: radial-gradient(closest-side,
+    rgba(255, 140, 118, .44), rgba(255, 70, 50, 0) 72%);
+}
+.wave--bad .wave__warp {
+  background: radial-gradient(closest-side,
+    rgba(var(--no), 0) 44%,
+    rgba(var(--no), .55) 60%,
+    rgba(var(--no-lit), .42) 70%,
+    rgba(var(--no), .18) 80%,
+    rgba(var(--no), 0) 92%);
+  /* and the refraction under it stops boosting the water's own
+     saturation, which was pushing the cyan around the front up and
+     the red band down by comparison */
+  -webkit-backdrop-filter: blur(3.5px) saturate(.85) brightness(1.02);
+  backdrop-filter: blur(3.5px) saturate(.85) brightness(1.02);
+}
+
+.wave.is-on .wave__warp     { animation: waveFront 1.5s cubic-bezier(.15, .75, .25, 1) forwards; }
+.wave.is-on .wave__crest    { animation: waveCrest 1.75s cubic-bezier(.15, .8, .3, 1) .05s forwards; }
+.wave.is-on .wave__crest--b { animation: waveCrest 2.05s cubic-bezier(.15, .8, .3, 1) .3s forwards; }
+.wave.is-on .wave__foam     { animation: waveFoam .95s ease-out forwards; }
+
+/* ---------------------------------------------------------- off the shore
+   A verdict front does not start at a POINT. Nothing struck the
+   water — an island answered — so the wave leaves the coastline,
+   and js/water.js sizes the box (2.2x the island) so that scale
+   .45 is about the island's own width. Starting at the centre of
+   area, which is what these did at first, spends the first third
+   of every front hidden underneath the land that threw it.
+
+   And no foam: foam is what comes up when something goes IN. */
+.wave--good .wave__foam,
+.wave--bad .wave__foam { display: none; }
+
+.wave--good.is-on .wave__warp,
+.wave--bad.is-on .wave__warp { animation-name: waveOffshore; }
+
+.wave--good.is-on .wave__crest,
+.wave--good.is-on .wave__crest--b,
+.wave--bad.is-on .wave__crest,
+.wave--bad.is-on .wave__crest--b { animation-name: waveOffshoreCrest; }
+
+@keyframes waveOffshore {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.42); }
+  16%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes waveOffshoreCrest {
+  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.45); }
+  14%  { opacity: .95; }
+  100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.15); }
+}
+
+/* short, and it does not linger: a wrong answer has to be over
+   before the player's next tap */
+.wave--bad.is-on .wave__warp     { animation-duration: .72s; }
+.wave--bad.is-on .wave__crest    { animation-duration: .82s; }
+.wave--bad.is-on .wave__crest--b { animation-duration: .95s; animation-delay: .12s; }
+.wave--bad.is-on .wave__foam     { animation-duration: .5s; }
+
+@keyframes waveFront {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
+  14%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes waveCrest {
+  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.14); }
+  16%  { opacity: .9; }
+  100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.15); }
+}
+
+@keyframes waveFoam {
+  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.2); }
+  22%  { opacity: .9; transform: translate(-50%, -50%) scale(.9); }
+  100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.4); }
+}
+
+
+/* ============================================================
+   HOUSEKEEPING
+   ============================================================ */
+
+/* The filter definitions live in a 0x0 svg at the end of the body;
+   it must not lay a pixel or a scrollbar on the mission. */
+.wtr-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Nothing in the water animates on a screen nobody is looking at.
+   `paused` rather than `none`: an animation switched off and back
+   on again restarts, and a caustic net that jumped to its first
+   frame every time the mission changed screen would be worse than
+   one carrying on where it left off.
+
+   The play state is set from CSS, so js/lifecycle.js — which
+   pauses and then resumes only the animations it found RUNNING —
+   never fights it. */
+.screen:not(.is-active) .sea,
+.screen:not(.is-active) .shore,
+.screen:not(.is-active) .surf,
+.screen:not(.is-active) .surf *,
+.screen:not(.is-active) .spray i,
+.screen:not(.is-active) .lap,
+.screen:not(.is-active) .wash i,
+.screen:not(.is-active) .shock,
+.screen:not(.is-active) .ship__wash i,
+.screen:not(.is-active) .s2-bg,
+.screen:not(.is-active) .s3-bg { animation-play-state: paused; }
+
+/* `.zone__wake` predates all of this, and it is the last circle
+   left anywhere near an island. It survives where `.zone__ring`
+   and `.pad__ring` did not because it is not a ring: it is a
+   diffuse radial wash with no edge to it, so it reads as water
+   welling up rather than as a mark drawn round a shape.
+
+   That is now its only job. It used to be the one thing under a
+   zone saying "there is more of this below the surface", and
+   `.shore__l1`/`l2` with the shelf over them say that in the
+   island's OWN outline — and say it BRIGHTER than the sea instead
+   of darker, which is what shallow water actually does. So most of
+   the wash's weight comes off here: at its old alpha it lay over
+   the pale shallows and muted the very band that ties the rock to
+   the sea. */
+.zone__wake {
+  background: radial-gradient(closest-side,
+    rgba(var(--sea-deep), .30), rgba(var(--sea-deep), 0) 74%);
+}
+
+
+/* ---------------------------------------------------------- reduced motion
+   Everything STRUCTURAL stays: the shallows, the shadow, the film
+   over the edge, the foam, the wet rim. Those are not animation,
+   they are the reason the land and the water look like one place,
+   and a player who asked for less movement has not asked for a
+   sticker back.
+
+   What goes is everything that moves on a loop. The `.is-reduced`
+   half is the class js/script.js sets off M.reduced(); css/
+   animation.css keeps the same pair in step by hand for the same
+   reason.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .sea__caustic,
+  .sea__glint,
+  .sea__swell,
+  .sea__glare,
+  .s2-bg,
+  .s3-bg,
+  .surf__d1,
+  .surf__d2,
+  .wash i,
+  .ship__wash i,
+  .zone.is-up .shore,
+  .zone.is-up .surf,
+  .pad.is-up .shore,
+  .pad.is-up .surf,
+  .zone.is-up .spray i,
+  .pad.is-up .spray i { animation: none; }
+
+
+  /* The verdict itself STAYS — it is the answer to the question,
+     not decoration, and css/animation.css makes the same call about
+     the pick and the sink. What goes is the front it throws, which
+     is the decorative half.
+
+     The refusal then needs one thing back: its border only ever
+     appears DURING `shockFlash`, so with the animation off it would
+     never appear at all. A standing opacity puts it there for as
+     long as `.is-wrong` is on the island, which is the 620ms
+     js/script.js holds it for. */
+  .blast { display: none; }
+
+  .zone.is-picked .shock,
+  .pad.is-picked .shock { animation: none; }
+
+  .zone.is-wrong .shock,
+  .pad.is-wrong .shock { animation: none; opacity: 1; }
+
+  /* The ripple train goes entirely, and this is the one place the
+     reduced-motion answer is NOT "the same thing, held still". A
+     lap is a DASHED outline, and a dashed outline that has stopped
+     travelling is not a wave at all — it is a selection box
+     drawn round the island, which is the exact thing this file
+     exists to get rid of.
+
+     So what stands in for it is the shore itself: the shallows
+     brought up and the foam held bright, both already there and
+     both in the island's own outline. */
+  .lap { display: none; }
+
+  .zones.is-picking .zone.is-up:not(.is-picked) .shore__s5,
+  .pads.is-picking  .pad.is-up:not(.is-picked) .shore__s5,
+  .pads.is-choosing .pad.is-up .shore__s5 { stroke: rgba(var(--sea-lit), .5); }
+
+  .zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
+  .pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
+  .pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .36); }
+
+  .zone.is-up .spray i,
+  .pad.is-up .spray i { opacity: .55; }
+}
+
+.is-reduced .sea__caustic,
+.is-reduced .sea__glint,
+.is-reduced .sea__swell,
+.is-reduced .sea__glare,
+.is-reduced .s2-bg,
+.is-reduced .s3-bg,
+.is-reduced .surf__d1,
+.is-reduced .surf__d2,
+.is-reduced .wash i,
+.is-reduced .ship__wash i,
+.is-reduced .zone.is-up .shore,
+.is-reduced .zone.is-up .surf,
+.is-reduced .pad.is-up .shore,
+.is-reduced .pad.is-up .surf,
+.is-reduced .zone.is-up .spray i,
+.is-reduced .pad.is-up .spray i { animation: none; }
+
+.is-reduced .blast { display: none; }
+
+.is-reduced .zone.is-picked .shock,
+.is-reduced .pad.is-picked .shock { animation: none; }
+
+.is-reduced .zone.is-wrong .shock,
+.is-reduced .pad.is-wrong .shock { animation: none; opacity: 1; }
+
+.is-reduced .lap { display: none; }
+
+.is-reduced .zones.is-picking .zone.is-up:not(.is-picked) .shore__s5,
+.is-reduced .pads.is-picking  .pad.is-up:not(.is-picked) .shore__s5,
+.is-reduced .pads.is-choosing .pad.is-up .shore__s5 { stroke: rgba(var(--sea-lit), .5); }
+
+.is-reduced .zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
+.is-reduced .pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
+.is-reduced .pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .36); }
+
+.is-reduced .zone.is-up .spray i,
+.is-reduced .pad.is-up .spray i { opacity: .55; }
+
+
+/* ---------------------------------------------------------- lean mode
+   Set by js/water.js when the device reports few cores. The
+   turbulence filter is the one thing here that costs real time to
+   rasterise, and it is also the one thing that can be dropped
+   without losing a LAYER: the waterline goes back to being a clean
+   offset of the coast, which is a shade too tidy and perfectly
+   readable.
+
+   The spray goes with it — nine dots an island is the highest
+   element count here for the smallest share of the effect — and so
+   does the travelling lace, which is the only per-frame style
+   recalculation the module still asks for.
+   ============================================================ */
+.is-lean .surf__warp { filter: none; }
+
+/* and the last main-thread animation goes with them */
+.is-lean .surf__d1 { animation: none; }
+.is-lean .spray { display: none; }
+.is-lean .sea__caustic--b,
+.is-lean .sea__glare { display: none; }
+.is-lean .wave__warp {
+  width: 100%;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+
+/* ---------------------------------------------------------- small frames
+   An island 60px across cannot carry a five-band shore: at that
+   size the whole stack collapses into one muddy rim. So the widest
+   band of each group is dropped and the rest are thinned, which
+   leaves the two that carry the effect — the shallows and the foam
+   line — reading at full strength.
+   ============================================================ */
+@media (max-width: 620px), (max-height: 460px) {
+  .shore__s1,
+  .shore__b1,
+  .surf__v1 { display: none; }
+
+  .shore__l1 { stroke-width: 17; }
+  .shore__s2 { stroke-width: 9; }
+  .shore__s3 { stroke-width: 6; }
+  .surf__v2  { stroke-width: 4.5; }
+  .surf__w1  { stroke-width: 6; }
+}

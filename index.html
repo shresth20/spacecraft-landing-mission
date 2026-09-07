@@ -10,12 +10,14 @@
   <!-- screens 4-8: the five one-shape-per-screen rounds -->
   <link rel="stylesheet" href="css/rounds.css" />
   <link rel="stylesheet" href="css/responsive.css" />
+  <!-- the shore, the shallows, the foam and the sea itself.
+       Last, because the two rules it overrides outright
+       (.zone__wake's weight, and the sea artwork's swell) are
+       written at the same specificity as the ones they replace. -->
+  <link rel="stylesheet" href="css/water.css" />
 
   <link rel="preload" as="font" type="font/ttf" crossorigin
         href="assets/fonts/libre_baskerville/librebaskerville-variablefont_wght.ttf" />
-  <!-- the HUD chrome (mission bar, tally) is set in this one -->
-  <link rel="preload" as="font" type="font/ttf" crossorigin
-        href="assets/fonts/poppins/poppins-extrabold.ttf" />
 
   <link rel="preload" as="image" href="assets/images/welcome-screen.png" />
   <link rel="preload" as="image" href="assets/images/s1-bg.png" />
@@ -82,8 +84,9 @@
       <button class="launch" id="launchBtn" type="button" aria-label="Launch the survey drone">
         <span class="launch__ring" aria-hidden="true"></span>
         <span class="launch__body">
-          <span class="launch__face" aria-hidden="true"></span>
-          <span class="launch__label">LAUNCH</span>
+          <!-- the plate reads "LAUNCH" itself, so it carries no alt text -->
+          <img class="launch__plate" src="assets/images/launch-btn.png" alt="" draggable="false">
+          <span class="launch__flash" aria-hidden="true"></span>
         </span>
       </button>
     </div>
@@ -104,68 +107,38 @@
     <div class="zones" id="zones">
       <div class="zone zone--a" data-shape="triangle">
         <span class="zone__wake"></span>
-        <span class="zone__ring"></span>
-        <span class="zone__ring zone__ring--b"></span>
         <span class="zone__splash"></span>
         <img class="zone__img" src="assets/images/Triangle.png" alt="Large triangular landing zone" />
         <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Large triangular landing zone">
-          <span class="zone__pick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7" /></svg>
-          </span>
-        </button>
+                aria-label="Large triangular landing zone"></button>
       </div>
       <div class="zone zone--b" data-shape="square">
         <span class="zone__wake"></span>
-        <span class="zone__ring"></span>
-        <span class="zone__ring zone__ring--b"></span>
         <span class="zone__splash"></span>
         <img class="zone__img" src="assets/images/Square.png" alt="Square landing zone" />
         <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Square landing zone">
-          <span class="zone__pick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7" /></svg>
-          </span>
-        </button>
+                aria-label="Square landing zone"></button>
       </div>
       <div class="zone zone--c" data-shape="triangle">
         <span class="zone__wake"></span>
-        <span class="zone__ring"></span>
-        <span class="zone__ring zone__ring--b"></span>
         <span class="zone__splash"></span>
         <img class="zone__img" src="assets/images/Triangle.png" alt="Medium triangular landing zone" />
         <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Medium triangular landing zone">
-          <span class="zone__pick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7" /></svg>
-          </span>
-        </button>
+                aria-label="Medium triangular landing zone"></button>
       </div>
       <div class="zone zone--d" data-shape="trapezium">
         <span class="zone__wake"></span>
-        <span class="zone__ring"></span>
-        <span class="zone__ring zone__ring--b"></span>
         <span class="zone__splash"></span>
         <img class="zone__img" src="assets/images/Trapezium.png" alt="Trapezium landing zone" />
         <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Trapezium landing zone">
-          <span class="zone__pick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7" /></svg>
-          </span>
-        </button>
+                aria-label="Trapezium landing zone"></button>
       </div>
       <div class="zone zone--e" data-shape="triangle">
         <span class="zone__wake"></span>
-        <span class="zone__ring"></span>
-        <span class="zone__ring zone__ring--b"></span>
         <span class="zone__splash"></span>
         <img class="zone__img" src="assets/images/Triangle.png" alt="Small triangular landing zone" />
         <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Small triangular landing zone">
-          <span class="zone__pick" aria-hidden="true">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7" /></svg>
-          </span>
-        </button>
+                aria-label="Small triangular landing zone"></button>
       </div>
     </div>
 
@@ -248,17 +221,19 @@
           <path class="dim__inner" d="M49.9 2.8V69.8" />
           <path class="dim__square" d="M49.9 62.4H57.3V69.8" />
 
-          <!-- height: 5 units, called out down the left -->
-          <path class="dim__ext" d="M49.9 2.8H-13M4.94 69.8H-13" />
+          <!-- height: 5 units, called out down the left. The line runs
+               the measured length and is capped with a tick at each
+               end — no witness lines back to the hull's corners; see
+               the note over across() in js/pages.js, which builds the
+               same callouts for the round screens. -->
           <path class="dim__line" d="M-8 2.8V69.8" />
-          <path class="dim__tip" d="M-8 2.8l-2.7 6.4h5.4zM-8 69.8l-2.7-6.4h5.4z" />
+          <path class="dim__tip" d="M-11.6 2.8H-4.4M-11.6 69.8H-4.4" />
           <text class="dim__text" x="-15" y="36.3"
                 transform="rotate(-90 -15 36.3)">5 units</text>
 
           <!-- base: 8 units, called out under the exhaust -->
-          <path class="dim__ext" d="M4.94 69.8V105M94.74 69.8V105" />
           <path class="dim__line" d="M4.94 101H94.74" />
-          <path class="dim__tip" d="M4.94 101l6.4-2.7v5.4zM94.74 101l-6.4-2.7v5.4z" />
+          <path class="dim__tip" d="M4.94 97.4V104.6M94.74 97.4V104.6" />
           <text class="dim__text" x="49.9" y="116">8 units</text>
         </svg>
       </div>
@@ -269,11 +244,7 @@
          so the DRAWN areas are in true proportion to the numbers printed
          on them and the 20-unit pad is exactly the size of the ship. -->
     <div class="pads" id="pads">
-      <div class="pad pad--l" data-area="30">
-        <!-- the invitation ring lies in the water AROUND the island, so
-             it sits outside .pad__hit: that element is clipped to the
-             triangle and would cut the whole circle away -->
-        <span class="pad__ring" aria-hidden="true"></span>
+      <div class="pad pad--l" data-shape="triangle" data-area="30">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
           <path d="M50.1 7.7 98.6 91.4H1.1z" />
@@ -283,11 +254,7 @@
                 aria-label="Landing zone of 30 square units"></button>
       </div>
 
-      <div class="pad pad--m" data-area="12">
-        <!-- the invitation ring lies in the water AROUND the island, so
-             it sits outside .pad__hit: that element is clipped to the
-             triangle and would cut the whole circle away -->
-        <span class="pad__ring" aria-hidden="true"></span>
+      <div class="pad pad--m" data-shape="triangle" data-area="12">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
           <path d="M50.1 7.7 98.6 91.4H1.1z" />
@@ -297,11 +264,7 @@
                 aria-label="Landing zone of 12 square units"></button>
       </div>
 
-      <div class="pad pad--r" data-area="20">
-        <!-- the invitation ring lies in the water AROUND the island, so
-             it sits outside .pad__hit: that element is clipped to the
-             triangle and would cut the whole circle away -->
-        <span class="pad__ring" aria-hidden="true"></span>
+      <div class="pad pad--r" data-shape="triangle" data-area="20">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
           <path d="M50.1 7.7 98.6 91.4H1.1z" />
@@ -412,14 +375,17 @@
             <span class="gate__sheen" aria-hidden="true"></span>
             <span class="gate__ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
           </div>
+          <!-- the percentage is the whole visible readout; the phase it
+               is in stays in the accessibility tree, since that is the
+               only thing that tells a screen reader what is happening -->
           <p class="gate__status" role="status" aria-live="polite">
-            <span class="gate__stat" id="gateStatus">Booting mission systems</span>
+            <span class="gate__stat sr-only" id="gateStatus">Booting mission systems</span>
             <b class="gate__pct" id="gatePct">0%</b>
           </p>
         </div>
 
         <button class="gate__btn" id="gateBtn" type="button" hidden>
-          <span>BEGIN MISSION</span>
+          <span>Start</span>
         </button>
 
       </div>
@@ -437,6 +403,10 @@
 <!-- screens 4-8: the shape data and the markup built from it. Before
      script.js, which asks it for the rounds while it is booting. -->
 <script src="js/pages.js"></script>
+<!-- the water. After pages.js, whose measured silhouettes every
+     shoreline is built from, and before script.js, which calls
+     GeoWater.init() from boot() once the round screens exist. -->
+<script src="js/water.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

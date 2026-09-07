@@ -180,10 +180,6 @@
   pointer-events: auto;
 }
 
-.pads.is-picking .pad.is-up .pad__ring {
-  animation: padBeckon 2.4s ease-in-out infinite;
-}
-
 .pads.is-picking .pad.is-up:not(.is-picked) .pad__img {
   animation: zoneBeckon 2.6s ease-in-out infinite;
 }
@@ -208,80 +204,21 @@
 }
 
 
-/* --- the burst that lands on a match ---
-   Paper thrown out from the island, instead of a badge stamped on
-   it. The pieces are built by M.burst() (js/animation.js) with their
-   own angle, distance, sag and spin; all this owns is the point they
-   come from and how they travel.
-
-   That point is the island's own centre of area — the same --ax/--ay
-   the printed number uses — because one shared figure cannot serve
-   six shapes: a triangle's centre sits well below a square's, and a
-   burst from the middle of the BOX would go off the apex into open
-   water.
-
-   Nothing is clipped here (a sibling of .pad__hit, not a child of
-   it): the whole point of a burst is that it leaves the island. */
-.pad__pop {
-  position: absolute;
-  left: var(--ax, 49.9%);
-  top: var(--ay, 62%);
-  z-index: 5;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
-.pad__pop i {
-  position: absolute;
-  left: 0;
-  top: 0;
-  opacity: 0;
-  will-change: transform, opacity;
-  animation: padPop var(--dur, 900ms) cubic-bezier(.16, .72, .3, 1)
-             var(--delay, 0ms) forwards;
-}
-
-@keyframes padPop {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(.35) rotate(0);
-  }
-  12%  { opacity: 1; }
-  /* out to where it was thrown, still rising against its own sag */
-  58% {
-    opacity: 1;
-    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)))
-               scale(1.05) rotate(calc(var(--spin) * .55));
-  }
-  /* and then it runs out of push and drops */
-  100% {
-    opacity: 0;
-    transform: translate(calc(-50% + var(--dx) * 1.14),
-                         calc(-50% + var(--dy) + var(--sag)))
-               scale(.9) rotate(var(--spin));
-  }
-}
-
-/* Accepted: a firm press-in and it settles a touch forward. No green
-   — the burst says "yes", and a green cast left sitting on the
-   island would still be saying it three questions later. What this
-   leaves behind is only "taken", which the player does need: they
-   are picking three, and an island that looked untouched would
-   invite a second tap that does nothing. */
+/* Accepted: a firm press-in and it settles a touch forward. The
+   "yes" is the green border on the coastline and the front it
+   throws (THE VERDICT in css/water.css); this adds only the feel of
+   the press. What tells the player an island is already theirs is
+   that the border stays — which they do need, because they are
+   picking three and an island that looked untouched would invite a
+   second tap that does nothing. */
 .pad.is-picked .pad__img {
   animation: zonePicked .62s cubic-bezier(.22, 1.3, .36, 1) forwards !important;
 }
 
-/* and its ring stops asking to be chosen */
-.screen--round .pads.is-picking .pad.is-picked .pad__ring {
-  animation: none;
-  opacity: 0;
-}
-
-/* Taken goes back to plain before the three of them move, for the
-   same reason the badge used to: nothing that answered the shape
-   question should follow the islands into the one about area. */
+/* Taken goes back to plain before the three of them move: nothing
+   that answered the shape question should follow the islands into
+   the one about area. The green goes at the same moment and for the
+   same reason — see `.pads.is-cleared` in css/water.css. */
 .screen--round .pads.is-cleared .pad.is-picked .pad__img {
   animation: padUnpick .45s ease forwards !important;
 }
@@ -291,13 +228,10 @@
   100% { transform: none; }
 }
 
-/* refused: two quick shakes and a red rim, no travel */
-.pad.is-wrong .pad__img {
-  animation: zoneWrong .52s cubic-bezier(.36, .07, .19, .97) !important;
-  filter:
-    drop-shadow(0 0 15px rgba(2, 26, 52, .7))
-    drop-shadow(0 0 24px rgba(255, 78, 62, .8));
-}
+/* Refused: nothing on the island. Same as screen 2 — the red
+   border and the front it throws are the refusal, and the
+   silhouette is left alone because the silhouette is the
+   question. */
 
 
 /* --- the two that never matched, going back under ---
@@ -311,17 +245,12 @@
 
 /* `.is-up` stays on a sunk island — it is what zoneSink animates
    from — so screen 3's `.pads.is-choosing .pad.is-up ...` rules go
-   on matching it once the area task arms, and would light the ring
-   and the tap target back up over empty water. Hence the extra
-   `.pads` here: these have to outrank those, not tie with them. */
+   on matching it once the area task arms, and would light the tap
+   target back up over empty water. Hence the extra `.pads` here:
+   these have to outrank those, not tie with them. */
 .screen--round .pads .pad.is-up.is-sunk .pad__hit {
   opacity: 0;
   pointer-events: none;
-}
-
-.screen--round .pads .pad.is-up.is-sunk .pad__ring {
-  animation: none;
-  opacity: 0;
 }
 
 

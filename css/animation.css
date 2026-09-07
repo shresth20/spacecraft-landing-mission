@@ -29,6 +29,37 @@
   100% { box-shadow: 0 0 0 0 rgba(255, 68, 48, 0); }
 }
 
+/* the click: the plate flares white-hot, then settles back */
+@keyframes launchFlare {
+  0%   { filter: brightness(1.65) saturate(1.15); }
+  30%  { filter: brightness(.88); }
+  100% { filter: brightness(1); }
+}
+
+/* the bloom thrown out of the plate */
+@keyframes launchBurst {
+  0%   { opacity: .95; transform: translate(-50%, -50%) scale(.55); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.7); }
+}
+
+/* the shockwave — one hard ring thrown outward. It is a scaling
+   border rather than a box-shadow spread, because a spread paints a
+   filled halo and reads as a slab at this opacity. */
+@keyframes launchShock {
+  0% {
+    opacity: .95;
+    border-width: clamp(2px, 0.5vh, 5px);
+    border-color: rgba(255, 232, 224, .95);
+    transform: translate(-50%, -50%) scale(.96);
+  }
+  100% {
+    opacity: 0;
+    border-width: 1px;
+    border-color: rgba(255, 78, 52, .35);
+    transform: translate(-50%, -50%) scale(2.1);
+  }
+}
+
 
 /* ---------------------------------------------------------- drone fly-out
    Deliberately NOT here. The climb is generated step-by-step in
@@ -103,12 +134,6 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.55); }
 }
 
-@keyframes zoneRing {
-  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.2); }
-  14%  { opacity: .85; }
-  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.95); }
-}
-
 
 /* ---------------------------------------------------------- shape hunt
    Picking a zone, and refusing one. */
@@ -121,7 +146,10 @@
 }
 
 /* accepted: a firm little press-in, then it settles a touch larger
-   than it was, so a locked-in zone reads differently from the rest */
+   than it was, so a locked-in zone has some weight to it. What
+   actually says "right" is the border in css/water.css; this is the
+   feel of the tap, and there is deliberately no refusal keyframe to
+   go with it — a shape task should not shake the shape. */
 @keyframes zonePicked {
   0%   { transform: none; }
   34%  { transform: scale(.94); }
@@ -129,20 +157,6 @@
   100% { transform: scale(1.035); }
 }
 
-/* refused: two quick shakes, no travel — it stays where it is */
-@keyframes zoneWrong {
-  0%, 100% { transform: none; }
-  15%      { transform: translateX(-3.5%) rotate(-2.2deg); }
-  38%      { transform: translateX(3.5%)  rotate(2.2deg); }
-  62%      { transform: translateX(-2.4%) rotate(-1.4deg); }
-  84%      { transform: translateX(1.8%)  rotate(.9deg); }
-}
-
-@keyframes pickStamp {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0); }
-  65%  { opacity: 1; transform: translate(-50%, -50%) scale(1.18); }
-  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-}
 
 
 /* ---------------------------------------------------------- zones sinking
@@ -190,12 +204,6 @@
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
   26%  { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.62); }
-}
-
-@keyframes ringClose {
-  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.3); }
-  18%  { opacity: .8; }
-  100% { opacity: 0;  transform: translate(-50%, -50%) scale(1.85); }
 }
 
 
@@ -271,18 +279,17 @@
   100% { opacity: 1; transform: none; filter: drop-shadow(0 0 20px rgba(2, 26, 52, .6)); }
 }
 
-/* the ring that says "you may put it here" — a circle running out
-   into the water around the island, and settling back */
-@keyframes padBeckon {
-  0%, 100% { opacity: .22; transform: translate(-50%, -50%) scale(.94); }
-  50%      { opacity: .85; transform: translate(-50%, -50%) scale(1.06); }
-}
-
-/* the verdict traced on the landing surface */
+/* The verdict traced on the landing surface. It snaps on, gives one
+   beat, and LANDS on the visible state: the green border is the
+   answer to the task, so it holds on the island afterwards instead
+   of fading out. (The two failing verdicts flash and go — see
+   fitFlash below.) */
 @keyframes fitPulse {
-  0%   { opacity: 0; transform: scale(1.12); }
-  22%  { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.06); }
+  0%   { opacity: 0; transform: scale(1.14); }
+  26%  { opacity: 1; transform: scale(.995); }
+  48%  { opacity: .5; transform: scale(1.035); }
+  72%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 1; transform: none; }
 }
 
 @keyframes fitFlash {
@@ -335,7 +342,9 @@
   .dash__sheen,
   .starfield i,
   .gate__sheen,
-  .launch__ring { animation: none !important; }
+  .launch__ring,
+  .launch__flash,
+  .launch__plate { animation: none !important; }
 
   /* the gate button must still arrive, just without the rise */
   .gate__btn.is-in { animation: none; opacity: 1; }
@@ -346,15 +355,12 @@
   .advance__btn.is-in { animation: none; opacity: 1; }
 
   /* the invitation and the idle drifts are decoration; the pick,
-     refuse and sink animations carry meaning, so they stay */
+     refuse and sink animations carry meaning, so they stay. What a
+     choosable island is offered WITH under reduced motion is set in
+     the reduced-motion block of css/water.css, on its shore. */
   .zones.is-picking .zone.is-up:not(.is-picked) .zone__img,
   .ship.is-in .ship__craft,
-  .pads.is-choosing .pad.is-up .pad__ring,
   .topbar__text.is-typing .tw__caret { animation: none !important; }
-
-  /* the ring is the only cue that a pad can be chosen, so with the
-     pulse switched off it has to be shown outright */
-  .pads.is-choosing .pad.is-up .pad__ring { opacity: .7; }
 
   .screen { transition-duration: .3s, .3s, .3s, 0s; }
 }

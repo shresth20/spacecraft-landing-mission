@@ -57,6 +57,19 @@
   var W = global.GeoWave;
   var T = global.GeoType;
 
+  /* js/water.js, or a stand-in that does nothing. The water is the
+     scene's finish rather than its plumbing: with the module
+     missing the islands keep their hard edges and every beat below
+     still plays, which is the same bargain addRoundScreens() makes
+     with js/pages.js. */
+  var SEA = global.GeoWater || (function () {
+    function noop() {}
+    return {
+      init: noop, breach: noop, close: noop,
+      approve: noop, reject: noop, settle: noop, impact: noop
+    };
+  })();
+
   var el = {};
   var launched = false;
 
@@ -67,6 +80,10 @@
   var picking = false;            // clicks are being accepted
   var releasePick = null;         // resolves the "wait for all of them" step
   var scolding = false;           // a "try again" is already playing
+
+  /* the five zones back to front, as GeoPages.strewZones() left
+     them; null until the feed has been reset at least once */
+  var surfaceOrder = null;
 
   var runId = 0;            // bumped on every jump
   var current = 0;          // index into SCREENS
@@ -291,10 +308,21 @@
       bar.getAnimations().forEach(function (a) { a.cancel(); });
     }
 
-    Array.prototype.forEach.call(
-      el.zones.querySelectorAll('.zone'),
-      function (z) { z.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk'); }
-    );
+    zoneList().forEach(function (z) {
+      z.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk');
+    });
+
+    /* Strewn again on every entry, on the same five stations every
+       screen after this one uses, and shuffled — see the scatter in
+       js/pages.js for why it has to be shuffled and not just laid
+       out. `order` is the archipelago back to front, which is the
+       order it should breach in; without it (a frame too cramped for
+       any draw of five) the zones keep the fallback positions in
+       css/style.css and breach in document order. */
+    surfaceOrder = null;
+    if (global.GeoPages) {
+      surfaceOrder = global.GeoPages.strewZones(el.screenDrone, zoneList());
+    }
 
     endPicking();
     picked = 0;
@@ -323,9 +351,9 @@
       /* --- call for the scanner --- */
       function () { return narrate(el.topbarText, 'startScan'); },
 
-      /* --- red line sweeps the feed --- */
+      /* --- red line sweeps the feed: out and back, once --- */
       function () {
-        return M.sweep(el.scanner, { legs: 4, legMs: 1150 });
+        return M.sweep(el.scanner, { legs: 2, legMs: 1150 });
       },
 
       /* --- lights up: ocean 0 → 1 --- */
@@ -388,7 +416,7 @@
   }
 
   function surface() {
-    var list = el.zones.querySelectorAll('.zone');
+    var list = surfaceOrder || zoneList();
 
     return M.surfaceZones(list, function (zone, i) {
       /* a little pitch variation so five splashes do not sound
@@ -397,6 +425,12 @@
         volume: 0.55,
         rate: [1, 0.92, 1.08, 0.96, 1.12][i % 5]
       });
+
+      /* the sea's half of the same event: the water this island has
+         just pushed aside, thrown out as a front that reaches the
+         ones already standing in the order it would really reach
+         them */
+      SEA.breach(zone);
     }, { gap: 620 });
   }
 
@@ -464,9 +498,12 @@
 
       zone.classList.remove('is-wrong');
       /* force a reflow so a second wrong tap on the same shape
-         replays the shake instead of doing nothing */
+         replays the shock instead of doing nothing */
       void zone.offsetWidth;
       zone.classList.add('is-wrong');
+      /* and the water hears it: a short red front off that island,
+         which is the half the shake was missing */
+      SEA.reject(zone);
       M.wait(620).then(function () { zone.classList.remove('is-wrong'); });
 
       /* one nudge at a time — tapping four wrong shapes in a row
@@ -482,6 +519,10 @@
     zone.classList.add('is-picked');
     picked++;
     A.sfx('correct', { volume: 0.55 });
+    /* The island itself goes green off `.is-picked` (css/water.css);
+       this is the water's half of the answer — a cyan front leaving
+       its shore. Together they are what replaced the tick badge. */
+    SEA.approve(zone);
 
     if (picked >= needed) {
       /* let the last tick land before the flow moves on */
@@ -507,6 +548,9 @@
         volume: 0.6,
         rate: [0.88, 0.95][i % 2]
       });
+
+      /* and the surface closing over it */
+      SEA.close(zone);
     }, { gap: 620 });
   }
 
@@ -544,6 +588,13 @@
     return Array.prototype.slice.call(el.pads.querySelectorAll('.pad'));
   }
 
+  /* The landing's three stations. Dealt out on every entry so the
+     20-unit island — the answer — is never twice in the same place;
+     the positions themselves are in css/style.css and do not move.
+     See deal() in js/pages.js for why this is a class and not an
+     inline property. */
+  var LAND_SLOTS = ['pad--s1', 'pad--s2', 'pad--s3'];
+
   function correctPad() {
     return el.pads.querySelector('.pad[data-area="' + SHIP_AREA + '"]');
   }
@@ -552,6 +603,8 @@
     choosing = false;
     landing = false;
     solved = false;
+
+    if (global.GeoPages) global.GeoPages.deal(padList(), LAND_SLOTS);
 
     M.shipReset(el.ship, el.shipCraft);
     el.ship.classList.remove('is-in', 'is-committed', 'is-planted');
@@ -619,20 +672,28 @@
       function (id) { return startChoosing(id); },
 
       /* --- planted; plant() has already said its piece --- */
-      function () {
+      function (id) {
         el.landTally.textContent = 'AREA = ½ × 8 × 5 = 20';
         el.landTally.classList.add('is-shown');
-        showAdvance();
+        return handFooterToAdvance(id, el.landCaption, el.landTally, showAdvance);
       }
     ]);
   }
 
   function offerPads() {
-    var pads = padList();
+    /* left to right on the WATER, not in document order: the three
+       have just been dealt to random stations, and an archipelago
+       that surfaces middle-left-right reads as three separate events
+       rather than one sweep */
+    var pads = padList().sort(function (a, b) {
+      return a.offsetLeft - b.offsetLeft;
+    });
+
     pads.forEach(function (pad, i) {
       M.wait(i * 320).then(function () {
         pad.classList.add('is-up');
         A.sfx('rock', { volume: 0.42, rate: [1.04, 0.96, 1.1][i % 3] });
+        SEA.breach(pad);
       });
     });
     return M.wait((pads.length - 1) * 320 + 1250);
@@ -723,18 +784,40 @@
     M.confetti(el.confetti);
   }
 
+  /* The footer is one strip, and the formula, the tally and the NEXT
+     button are all centred on it. So the two lines are taken away
+     BEFORE the button arrives: the footer says one thing at a time,
+     and NEXT lands in the space the text leaves instead of being
+     stacked under it.
+
+     The sum is the answer to the whole screen, so it gets its read
+     before the hand-over. And when there is nowhere for the button
+     to go — canAdvance() is false on the last screen — the two
+     lines STAY, because clearing the footer for a button that never
+     arrives would just empty it.
+
+     Shared by screen 3 and the five round screens: the footer is
+     built the same way on all six. */
+  function handFooterToAdvance(id, caption, tally, reveal) {
+    if (!canAdvance()) return;
+
+    return M.wait(2400).then(function () {
+      if (!live(id)) return;
+      if (caption) caption.classList.remove('is-shown');
+      if (tally) tally.classList.remove('is-shown');
+      /* the lines' own fade — .45s in css/style.css */
+      return M.wait(520);
+    }).then(function () {
+      if (live(id)) reveal();
+    });
+  }
+
   /* The NEXT button is the one control on this screen that is not
      part of the question, so it is only ever shown once the craft is
-     planted — and it is taken away again by resetLanding(), which
-     every jump runs.
-
-     It is centred on the footer, where the formula and the tally
-     already are, so the HUD is lifted by the button's height at the
-     same moment: the footer becomes a three-line stack rather than
-     a button dropped on top of two lines of text. */
+     planted and the footer has been cleared for it — and it is taken
+     away again by resetLanding(), which every jump runs. */
   function showAdvance() {
     if (!el.advanceBtn || !canAdvance()) return;
-    el.landHud.classList.add('is-lifted');
     el.advanceBtn.hidden = false;
     /* reflow, so there is an un-hidden starting frame to animate
        away from instead of snapping straight to the end */
@@ -746,7 +829,6 @@
     if (!el.advanceBtn) return;
     el.advanceBtn.classList.remove('is-in');
     el.advanceBtn.hidden = true;
-    el.landHud.classList.remove('is-lifted');
   }
 
   /* ---------------------------------------------------------- it fits */
@@ -754,6 +836,10 @@
     solved = true;
     el.ship.classList.add('is-planted');
     pad.classList.add('is-fit');
+    /* the craft's weight coming onto the island, read off its
+       shore. settle(), not approve(): the green is the SHAPE task's
+       answer, and this island is already wearing the fit outline. */
+    SEA.settle(pad);
 
     el.landCaption.textContent = 'PERFECT FIT · 20 SQ UNITS';
     el.landCaption.classList.add('is-shown');
@@ -866,6 +952,11 @@
   /* too small: it went off the edge, so it keeps going down */
   function intoTheWater(point, plan) {
     burstAt(el.splash, point);
+    /* The splash is what comes UP out of the water; the front is
+       what goes OUT across it, and it is the half that tells the
+       player the three islands are standing in one sea. Fired on
+       the same point, so the two are one event. */
+    SEA.impact(el.splash, point, { size: 54 });
     A.sfx('rock', { volume: 0.72, rate: 0.9 });
     return M.shipSink(el.ship, plan);
   }
@@ -876,6 +967,10 @@
      making in the first place. */
   function ontoTheRock(point) {
     burstAt(el.crash, point);
+    /* Smaller, and for a different reason than the splash: nothing
+       went into the sea here, so what reaches the water is the
+       shock through the rock rather than the craft itself. */
+    SEA.impact(el.crash, point, { size: 32 });
     el.ship.classList.add('is-wrecked');
     A.sfx('rock', { volume: 0.8, rate: 0.78 });
     return M.wait(620);
@@ -964,7 +1059,7 @@
     e.advance.classList.remove('is-in');
     e.advance.hidden = true;
 
-    e.hud.classList.remove('is-on', 'is-lifted');
+    e.hud.classList.remove('is-on');
     e.caption.classList.remove('is-shown');
     e.caption.textContent = '';
     e.tally.classList.remove('is-shown');
@@ -977,7 +1072,14 @@
        entered, so the shape task cannot be won on position. Drawn
        here rather than in runRound() because a jump has to leave the
        screen in a state it could be shown from. */
-    if (global.GeoPages) global.GeoPages.scatter(round);
+    if (global.GeoPages) {
+      /* the shape task's scatter, and the area task's row: the three
+         that will survive are dealt to the three row stations now,
+         so `regroup()` glides them home to a different arrangement
+         every time */
+      global.GeoPages.dealRow(round);
+      global.GeoPages.scatter(round);
+    }
 
     /* both player-driven steps park a promise only a click can
        settle, so every jump settles it by hand — the step after it
@@ -1094,10 +1196,12 @@
       function (id) { return startRoundChoosing(round, id); },
 
       /* ── planted; plantRound() has already said its piece ── */
-      function () {
+      function (id) {
         e.tally.textContent = round.copy.sum;
         e.tally.classList.add('is-shown');
-        showRoundAdvance(round);
+        return handFooterToAdvance(id, e.caption, e.tally, function () {
+          showRoundAdvance(round);
+        });
       }
     ]);
   }
@@ -1115,6 +1219,7 @@
         /* a little pitch variation, so five splashes do not sound
            like the same sample five times */
         A.sfx('rock', { volume: 0.5, rate: [1, 0.92, 1.08, 0.96, 1.12][i % 5] });
+        SEA.breach(pad);
       });
     });
 
@@ -1164,9 +1269,10 @@
 
       pad.classList.remove('is-wrong');
       /* force a reflow so a second wrong tap on the same island
-         replays the shake instead of doing nothing */
+         replays the shock instead of doing nothing */
       void pad.offsetWidth;
       pad.classList.add('is-wrong');
+      SEA.reject(pad);
       M.wait(620).then(function () { pad.classList.remove('is-wrong'); });
 
       /* one nudge at a time — tapping both decoys must not stack two
@@ -1178,16 +1284,11 @@
       return;
     }
 
-    /* --- a match ---
-       The burst is fired and not awaited: it runs itself out on the
-       compositor and clears itself up, while the count below decides
-       whether the task is over. `reach` comes off the island's own
-       box, so the paper suits the island it is thrown from — one
-       fixed size would bury the small ones. */
+    /* --- a match --- */
     pad.classList.add('is-picked');
     round.picked++;
     A.sfx('correct', { volume: 0.55 });
-    M.burst(pad.querySelector('.pad__pop'), { reach: pad.offsetWidth * 0.62 });
+    SEA.approve(pad);
 
     if (round.picked >= roundMatches(round).length) {
       /* let the last tick land before the flow moves on */
@@ -1211,6 +1312,7 @@
 
     return M.sinkZones(others, function (pad, i) {
       A.sfx('rock', { volume: 0.6, rate: [0.88, 0.95][i % 2] });
+      SEA.close(pad);
     }, { gap: 620 });
   }
 
@@ -1327,6 +1429,7 @@
     round.solved = true;
     e.ship.classList.add('is-planted');
     pad.classList.add('is-fit');
+    SEA.settle(pad);
 
     e.caption.textContent = 'PERFECT FIT · ' + round.area + ' SQ UNITS';
     e.caption.classList.add('is-shown');
@@ -1400,11 +1503,13 @@
 
         if (tight) {
           burstAt(e.splash, point);
+          SEA.impact(e.splash, point, { size: 54 });
           A.sfx('rock', { volume: 0.72, rate: 0.9 });
           return M.shipSink(e.ship, plan);
         }
 
         burstAt(e.crash, point);
+        SEA.impact(e.crash, point, { size: 32 });
         e.ship.classList.add('is-wrecked');
         A.sfx('rock', { volume: 0.8, rate: 0.78 });
         return M.wait(620);
@@ -1436,7 +1541,6 @@
     var btn = round.el.advance;
     if (!btn || !canAdvance()) return;
 
-    round.el.hud.classList.add('is-lifted');
     btn.hidden = false;
     /* reflow, so there is an un-hidden starting frame to animate away
        from instead of snapping straight to the end */
@@ -1742,6 +1846,10 @@
        already in document.images when the loading bar works out how
        many assets there are to wait for */
     addRoundScreens();
+
+    /* and after it, because every island on those screens needs a
+       shoreline built from its own silhouette */
+    SEA.init(el.stage);
 
     runGate();
 
