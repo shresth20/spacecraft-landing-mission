@@ -35,6 +35,20 @@
   font-display: swap;
 }
 
+/* Lilita One, self-hosted, and the ONE exception to the rule above:
+   the start gate's title. The mission itself still speaks in Libre
+   Baskerville — this face is the game's logo, not its voice, and a
+   chunky rounded display cut is what carries a painted-title look
+   the serif cannot. Single static weight (400), so nothing here
+   asks for a bold the file does not have. */
+@font-face {
+  font-family: "Lilita One";
+  src: url("../assets/fonts/lilita_one/lilitaone-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 /* ---------------------------------------------------------- reset */
 *,
@@ -336,6 +350,15 @@ button { font: inherit; color: inherit; }
 /* the <button> is only a shell: it carries the reveal animation and
    shrink-wraps the plate */
 .launch {
+  /* Where the dome is, and how much of the box it fills. Declared
+     here rather than on .launch__body because .launch__ring is the
+     body's SIBLING and has to read them too — a custom property is
+     inherited, so it has to be set on their common parent or the
+     ring resolves them to nothing and falls back to `auto`. */
+  --dome-cx: 50%;
+  --dome-cy: 50%;
+  --dome-d: 85%;
+
   position: relative;
   display: inline-block;
   padding: 0;
@@ -350,18 +373,14 @@ button { font: inherit; color: inherit; }
 .launch-slot.is-armed { pointer-events: auto; }
 .launch-slot.is-armed .launch { pointer-events: auto; }
 
-/* The box the artwork sits in. launch-btn.svg draws edge to edge of
-   its own 172 x 127 viewBox — bezel, tray and dome, no empty margin
-   — so the box just takes that ratio and the art fills it. */
+/* The box the artwork sits in. launch-btn.svg is the dome on its
+   own — no bezel, no tray — in a square viewBox centred on it, so
+   the box is square too and the button IS the circle. The painted
+   dome is 85% of that box; the rest is the room its own drop shadow
+   needs. */
 .launch__body {
-  --btn-w: clamp(78px, 7.5vw, 140px);
+  --btn-w: clamp(58px, 5.9vw, 106px);
   --btn-glow: 255, 84, 62;      /* press bloom, as rgb channels */
-
-  /* the dome's centre in the artwork's own coordinates: the circle
-     is at (87.64, 53.78) of 172 x 127, which is where the click has
-     to come from — the dome is the thing being pushed */
-  --dome-cx: 51%;
-  --dome-cy: 42.3%;
 
   position: relative;
   z-index: 2;
@@ -374,7 +393,7 @@ button { font: inherit; color: inherit; }
 .launch__plate {
   display: block;
   width: 100%;
-  aspect-ratio: 172 / 127;
+  aspect-ratio: 1;
   /* the contact shadow the cap drops on the console */
   filter: drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6));
   transition: filter .14s ease, transform .09s ease;
@@ -387,11 +406,8 @@ button { font: inherit; color: inherit; }
   position: absolute;
   left: var(--dome-cx);
   top: var(--dome-cy);
-  /* the box is 172:127, so 78.5% of its height is the same number of
-     pixels as 58% of its width — that makes the bloom round rather
-     than a squat smear */
-  width: 58%;
-  height: 78.5%;
+  width: var(--dome-d);
+  height: var(--dome-d);
   transform: translate(-50%, -50%) scale(.55);
   border-radius: 50%;
   background: radial-gradient(circle closest-side,
@@ -403,17 +419,17 @@ button { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
-/* pulsing alert outline, cut to the bezel's own corner sweep: the
-   artwork turns 25 units across and 59 down, of 172 x 127 */
+/* pulsing alert outline — a ring on the dome's own edge, since the
+   dome is the whole button now */
 .launch__ring {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 100%;
-  height: 100%;
+  left: var(--dome-cx);
+  top: var(--dome-cy);
+  width: var(--dome-d);
+  height: var(--dome-d);
   transform: translate(-50%, -50%);
   border: 0 solid transparent;
-  border-radius: 14.5% / 46%;
+  border-radius: 50%;
   box-shadow: 0 0 0 0 rgba(255, 68, 48, .55);
   z-index: 1;
   pointer-events: none;
@@ -1696,10 +1712,40 @@ button { font: inherit; color: inherit; }
 /* ============================================================
    START GATE
    ============================================================ */
-/* The whole screen is one piece of artwork — logo, shapes and the
-   moon are painted in — so the gate is the image, stretched to fill
-   exactly like every other backdrop in the mission (see .layer). */
+/* welcome-screen.png is scenery and nothing else — the moon's
+   surface, the ringed planet, the nebula behind them. Everything
+   the screen SAYS is built here: the title, the craft that is about
+   to fly the mission with its engines already lit, and the play
+   cap. Laid out in percent of the stage like every other screen,
+   because the art is stretched to 100% x 100% and percentages then
+   hold at any viewport shape.
+
+   Read off the artwork row by row it goes: clear dark sky 0%-74%,
+   the horizon's lit limb 74%-80%, then the cratered surface. The
+   title takes the sky, the controls sit in the last of it above the
+   limb, and the craft flies in from the left — the ringed planet
+   has the right of the frame to itself. Nothing pale is laid over
+   the limb: it is the brightest thing in the picture. */
 .gate {
+  /* Where the craft sits, how big it is and how far it is heeled
+     over. Properties rather than literals so the media queries in
+     css/responsive.css can move it without restating the block. */
+  --ship-x: 16%;
+  --ship-y: 39%;
+  --ship-w: 21%;
+  --ship-tilt: -5deg;
+
+  /* the title's middle, and the controls' */
+  --title-y: 30%;
+  --ctrl-y: 70%;
+
+  /* The play cap's diameter, bound on both axes so it neither
+     swells to fill a squat letterbox nor shrinks to a stud on a
+     tall portrait tablet. Declared up here because .gate__slot
+     sizes its floor from it and the cap is INSIDE that slot — a
+     custom property only ever travels down the tree. */
+  --play-d: clamp(78px, max(9.2vw, 10.6vh), 148px);
+
   position: absolute;
   inset: 0;
   z-index: 50;
@@ -1712,38 +1758,279 @@ button { font: inherit; color: inherit; }
 }
 .gate.is-gone { opacity: 0; visibility: hidden; pointer-events: none; }
 
-/* Anchored to the artwork, not to the middle of the screen. Read off
-   the image row by row, it goes: title block 28%-61%, then a clear
-   dark band 62%-75%, then the moon's lit limb at 76%-80%, then the
-   surface. The controls sit centred in that band — below the title,
-   above the limb — because the limb is the brightest thing in the
-   frame and nothing pale survives being laid over it. Because the
-   art is stretched rather than cropped, these percentages hold at
-   every viewport shape. */
+
+/* ---------------------------------------------------------- title
+
+   Three lines — SPACESHIP / LANDING / MISSION — at one size, which
+   is the whole reason the type can be this big: nine characters,
+   then seven, then seven, so the widest line is set by the longest
+   WORD and not by the sentence. The block squares up on its own and
+   reads as one painted mark rather than three lines of type.
+
+   The face is stacked text-shadows, each offset a little further
+   down and a shade deeper — the extruded look the screen this was
+   drawn from carries. All of it in em, so the whole stack scales
+   with the type at every viewport instead of turning into a smear
+   at the small end and a hairline at the large. */
+.gate__title {
+  position: absolute;
+  left: 50%;
+  top: var(--title-y);
+  transform: translate(-50%, -50%);
+  width: min(92%, 1040px);
+  margin: 0;
+  text-align: center;
+  font-family: "Lilita One", "Libre Baskerville", Georgia, serif;
+  font-weight: 400;
+  /* Bound on BOTH axes: vw alone reads a tall portrait tablet as
+     roomy and runs three lines of display type off the bottom of
+     it. The height term is the one that binds on nearly every
+     landscape frame — three lines at .88 leading is 2.6 times the
+     size, so 15vh spends about 40% of the frame on the title and
+     leaves the sky between it and the play cap.
+
+     The width term is what keeps the type clear of the craft, and
+     the frame it is set for is the squarish landscape one (4:3,
+     5:4) where vw binds and the title is at its widest. "MISSION"
+     sets 4.1em, so 4.1 x 9.2vw is 38% of the frame and centres to
+     31% — clear of the craft's trailing edge at 26.5%. Raise it and
+     the longest line runs into the hull. */
+  font-size: clamp(26px, min(9.2vw, 15vh), 150px);
+  /* tight, because the lines are meant to stack into one mass */
+  line-height: .88;
+  letter-spacing: .015em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow:
+    0 .022em 0 #e2e5f8,
+    0 .045em 0 #c8cdf0,
+    0 .068em 0 #aeb6e5,
+    0 .091em 0 #959ed7,
+    0 .114em 0 #7e88c7,
+    0 .137em .11em rgba(2, 7, 24, .62),
+    0 0 .62em rgba(120, 195, 255, .3);
+  pointer-events: none;
+}
+
+/* one line each, and the tracking hangs off the last letter of
+   every one of them — so it is pulled back to leave the three
+   optically centred on each other rather than all three sitting a
+   letter-space to the left */
+.gate__title span {
+  display: block;
+  text-indent: .015em;
+}
+
+
+/* ---------------------------------------------------------- the craft
+
+   welcome-screen-ship.png with its engines burning. The artwork
+   paints the nozzles but no exhaust, so all four plumes below are
+   CSS. The box is square because the image is (502 x 502), which is
+   what lets every nozzle be pinned in percentages read straight off
+   the file. */
+.gate__ship {
+  position: absolute;
+  left: var(--ship-x);
+  top: var(--ship-y);
+  width: var(--ship-w);
+  aspect-ratio: 1;
+  /* Mirrored, because the craft flies from the left. The artwork is
+     drawn with its bell on the right and firing down-right, which
+     over on this side of the frame reads as a craft on its way OUT
+     of the picture. The flip is on the outermost box, so the plume
+     inside it — its anchor, its 45 degrees, the heat on the bell —
+     turns with the hull and none of those numbers change. */
+  transform: translate(-50%, -50%) rotate(var(--ship-tilt)) scaleX(-1);
+  pointer-events: none;
+}
+
+/* The drift rides an inner wrapper: the heel above and the float
+   here would otherwise be two rules fighting over one transform,
+   and the animation would simply win — taking the tilt with it. */
+.gate__ship-inner {
+  position: absolute;
+  inset: 0;
+  animation: gateShipFloat 6.4s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Stacked above the plumes, so each one is cut off at the hull and
+   reads as coming OUT of its nozzle. The craft crosses the ringed
+   planet on a wide frame, so it carries its own contact shadow to
+   stay clear of it, and a little of its engines' warmth. */
+.gate__ship-img {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  filter:
+    drop-shadow(0 6px 14px rgba(2, 6, 20, .55))
+    drop-shadow(0 0 22px rgba(120, 180, 255, .22));
+}
+
+/* The heat coming off the main bell, and the one part of the burn
+   painted OVER the hull. Every plume is stacked under it — that is
+   what makes them read as coming out of their nozzles — so without
+   this the nozzle throwing the longest flame on the craft would be
+   the only cold-looking metal on it.
+
+   Its own keyframe, on opacity alone: the glow is centred with a
+   translate of its own, and gateThrustGlow carries a different one. */
+.gate__ship-inner::after {
+  content: "";
+  position: absolute;
+  left: 68.9%;
+  top: 66.7%;
+  z-index: 3;
+  width: 25%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side circle,
+    rgba(255, 220, 150, .5),
+    rgba(255, 136, 44, .28) 44%,
+    rgba(255, 110, 30, 0) 100%);
+  animation: gateBellHeat 1.1s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+
+/* ---------------------------------------------------------- the burn
+
+   One nozzle is lit: the main bell at the back of the craft,
+   measured off the artwork's own pixels at (68.9%, 66.7%) and
+   firing down and right at 45 degrees. The attitude thrusters on
+   the three nacelles stay cold — the drive is what the craft is
+   flying on, and lighting the lot turned it into a firework.
+
+   .gate__thrust is a box hung at the nozzle's mouth and turned to
+   the exhaust direction, with the cones inside always pointing DOWN
+   their own box: the direction lives in one property, so a second
+   nozzle would only need its own --tx / --ty / --rot. The
+   transform-origin is the mouth (50% 0), so a flicker in scaleY can
+   never lift the flame off the metal it comes out of. */
+.gate__thrust {
+  position: absolute;
+  left: var(--tx);
+  top: var(--ty);
+  z-index: 1;
+  width: var(--tw);
+  height: var(--th);
+  transform: translate(-50%, 0) rotate(var(--rot));
+  transform-origin: 50% 0;
+  pointer-events: none;
+}
+
+/* The mouth sits at the nozzle's CENTRE, not at its lip: the plume
+   is stacked under the hull, so the first fifth of it is hidden
+   inside the bell and the flame reads as coming out of the metal.
+   Anchored at the lip instead it floats a few pixels clear and the
+   whole thing falls apart. --fuzz is the plume's blur at its widest,
+   and the cones step down from it. */
+.gate__thrust--main { --tx: 69%; --ty: 70%; --tw: 30%; --th: 58%; --rot: -40deg; --fuzz: 7px; }
+
+/* the light the burn throws back into the sky around the mouth */
+.gate__thrust::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 300%;
+  height: 150%;
+  transform: translate(-50%, -30%);
+  background: radial-gradient(closest-side circle,
+    rgba(255, 168, 72, .34),
+    rgba(255, 116, 32, .12) 44%,
+    rgba(255, 96, 24, 0) 100%);
+  animation: gateThrustGlow 1.1s ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+
+/* The teardrop is the one css/failure.css cuts for the landing
+   craft's exhaust, so both flames in the game are the same shape —
+   hot and wide at the mouth, drawn out to a point. */
+.gate__cone {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--w, 100%);
+  height: var(--h, 100%);
+  transform: translate(-50%, 0);
+  transform-origin: 50% 0;
+  border-radius: 50% 50% 46% 46% / 24% 24% 76% 76%;
+  will-change: transform, opacity;
+}
+
+/* Three shells, and the point of the odd durations (.28 / .21 /
+   .17) is that they do not divide into one another: the plume never
+   returns to the same shape twice, which is the whole difference
+   between a flame and a pulsing lozenge. */
+.gate__cone--outer {
+  background: linear-gradient(to bottom,
+    rgba(255, 216, 140, .95),
+    rgba(255, 140, 34, .78) 34%,
+    rgba(240, 74, 18, .34) 72%,
+    rgba(198, 40, 10, 0) 100%);
+  filter: blur(var(--fuzz));
+  animation: gateFlame .28s ease-in-out infinite alternate;
+}
+
+.gate__cone--mid {
+  --w: 62%;
+  --h: 74%;
+  background: linear-gradient(to bottom,
+    rgba(255, 255, 255, .95),
+    rgba(255, 214, 112, .9) 30%,
+    rgba(255, 142, 42, .42) 74%,
+    rgba(255, 120, 30, 0) 100%);
+  filter: blur(calc(var(--fuzz) * .5));
+  animation: gateFlame .21s ease-in-out infinite alternate reverse;
+}
+
+/* the incandescent core: white at the throat, gone by half the
+   plume's length */
+.gate__cone--core {
+  --w: 34%;
+  --h: 46%;
+  background: linear-gradient(to bottom,
+    #fff,
+    rgba(255, 249, 224, .92) 40%,
+    rgba(255, 216, 132, 0) 100%);
+  filter: blur(calc(var(--fuzz) * .28));
+  animation: gateFlame .17s ease-in-out infinite alternate;
+}
+
+
+/* ---------------------------------------------------------- controls
+
+   Anchored to the artwork, not to the middle of the screen: the
+   last of the clear sky, above the horizon's lit limb and below the
+   title. Because the art is stretched rather than cropped, the
+   anchor holds at every viewport shape. */
 .gate__inner {
   position: absolute;
   left: 50%;
-  top: 75%;
+  top: var(--ctrl-y);
   transform: translate(-50%, -50%);
   width: min(88%, 520px);
   text-align: center;
 }
 
-/* A breath of shade under the controls. The band behind them is
-   already dark, but it carries the horizon's bloom at the bottom
-   edge, and on a squat viewport the band closes up — this keeps the
-   loader and the button legible either way. */
+/* A breath of shade under the controls. The sky behind them is
+   already dark, but it carries the limb's bloom at the bottom edge,
+   and on a squat viewport the clear band closes up — this keeps the
+   loader and the cap legible either way. */
 .gate__inner::before {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
   width: 148%;
-  height: 260%;
+  height: 240%;
   transform: translate(-50%, -50%);
   background: radial-gradient(closest-side ellipse,
-    rgba(2, 10, 26, .72) 0%,
-    rgba(2, 10, 26, .45) 46%,
+    rgba(2, 10, 26, .66) 0%,
+    rgba(2, 10, 26, .4) 46%,
     rgba(2, 10, 26, 0) 100%);
   pointer-events: none;
   z-index: -1;
@@ -1751,18 +2038,15 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------- gate loader
 
-   The loader and the button are stacked in one grid cell so the
-   hand-off happens in place: the title does not jump up the screen
-   at the moment the mission becomes ready. The slot is sized off the
-   taller of the two (the loader) so neither state can shrink it. */
-/* Kept comfortably taller than the button, which is the taller of
-   the two states. If the button can outgrow the floor, the slot
-   grows with it at the hand-off and the whole block — centred on
-   the artwork's clear band — shifts a couple of pixels as it swaps. */
+   The loader and the cap are stacked in one grid cell so the
+   hand-off happens in place: nothing on the screen jumps at the
+   moment the mission becomes ready. The slot is sized off the
+   taller of the two — the cap — so neither state can shrink it, and
+   both are centred in it, so the swap moves nothing. */
 .gate__slot {
   display: grid;
   place-items: center;
-  min-height: clamp(66px, 8vh, 92px);
+  min-height: calc(var(--play-d) + 1vh);
 }
 .gate__slot > * { grid-area: 1 / 1; }
 .gate__slot > [hidden] { display: none; }
@@ -1776,9 +2060,10 @@ button { font: inherit; color: inherit; }
   transform: scale(.96);
 }
 
-/* A capsule rather than the mission bar's chamfer: this artwork is
+/* A capsule rather than the mission bar's chamfer: this screen is
    built out of curves — the ringed planet, the moon's limb, the
-   rounded title — and a cut corner reads as a different set. */
+   rounded title, the cap below it — and a cut corner reads as a
+   different set. */
 .gate__bar {
   position: relative;
   height: clamp(8px, 1.1vh, 13px);
@@ -1855,93 +2140,154 @@ button { font: inherit; color: inherit; }
   font-variant-numeric: tabular-nums;
 }
 
-/* "Start" is a fifth of the width the old label ran to, so the pill
-   carries a min-width instead of being sized by its padding — a
-   capsule that still reads as the one thing on screen to press. */
+
+/* ---------------------------------------------------------- play cap
+
+   A disc with a white bezel, in the same two reds as
+   assets/images/launch-btn.svg — the cap the player presses to fly
+   every landing later in the mission. The first thing they press
+   and the thing they go on pressing should be the same object.
+
+   font-size is set to the disc's own diameter. Nothing inside the
+   cap is type (its label is for screen readers and is clipped to a
+   pixel), which leaves the size free to serve as the unit the
+   bezel, the stack it stands on and the sparks are all written in —
+   one property to change and every part of the cap follows. */
 .gate__btn {
   position: relative;
-  /* sized off whichever axis is the tighter, so the cap does not
-     shrink to a lozenge on a tall portrait tablet where vw alone
-     would read the screen as small */
-  min-width: clamp(132px, max(12vw, 13vh), 192px);
-  padding: .78em 1.9em;
+  display: grid;
+  place-items: center;
+  width: var(--play-d);
+  aspect-ratio: 1;
+  font-size: var(--play-d);
+  padding: 0;
   border: 0;
-  border-radius: 999px;
-  font-size: clamp(15px, max(1.9vw, 2.05vh), 26px);
-  font-weight: 700;
-  /* set as typed — "Start", not START — so the tracking is eased off
-     to what title case can carry, and the trailing letter-space is
-     pulled back so the word sits optically centred */
-  letter-spacing: .1em;
-  text-indent: .1em;
-  color: #04121f;
+  border-radius: 50%;
   cursor: pointer;
-  background: linear-gradient(180deg, #c9f2ff 0%, #7fdcfb 32%, #43c8f5 62%, #1a8fd0 100%);
+  -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(100deg, #ff8571 0%, #f5230c 100%);
   box-shadow:
-    /* the stack the cap stands on */
-    0 2px 0 #1279b3, 0 5px 0 #0d5f8f, 0 9px 0 #0a4a70,
-    0 18px 30px rgba(0, 0, 0, .6),
-    /* the bloom it throws into the band */
-    0 0 clamp(30px, 4vh, 56px) rgba(70, 200, 255, .55),
-    inset 0 2px 4px rgba(255, 255, 255, .8),
-    inset 0 -2px 6px rgba(6, 60, 100, .45);
+    0 0 0 .036em #fff,                        /* the bezel */
+    0 .055em .02em rgba(120, 16, 4, .45),     /* the cap's own edge */
+    0 .1em .19em rgba(2, 6, 20, .55),         /* the shadow it drops */
+    0 0 .5em rgba(255, 104, 66, .45),         /* bloom into the sky */
+    inset 0 .05em .07em rgba(255, 255, 255, .45),
+    inset 0 -.06em .1em rgba(150, 16, 4, .45);
   transition: transform .1s ease, box-shadow .1s ease, filter .16s ease;
 }
 
-/* the gloss across the top half, as on the painted title above it */
-.gate__btn::after {
+/* the gloss, taken off the artwork: a disc at 83% of the cap,
+   pushed up so it catches the top of the dome */
+.gate__btn::before {
   content: "";
   position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 6%;
-  height: 40%;
-  border-radius: 999px;
-  background: linear-gradient(180deg,
-    rgba(255, 255, 255, .4), rgba(255, 255, 255, 0));
+  left: 50%;
+  top: 44%;
+  width: 83%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .2);
   pointer-events: none;
 }
 
-.gate__btn:hover {
-  filter: brightness(1.07);
-  box-shadow:
-    0 2px 0 #1279b3, 0 5px 0 #0d5f8f, 0 9px 0 #0a4a70,
-    0 18px 30px rgba(0, 0, 0, .6),
-    0 0 clamp(38px, 5.2vh, 72px) rgba(90, 215, 255, .72),
-    inset 0 2px 4px rgba(255, 255, 255, .85),
-    inset 0 -2px 6px rgba(6, 60, 100, .45);
+/* a ring going out from the cap every couple of seconds, so the one
+   thing on the screen to press says so without a word of copy */
+.gate__btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(255, 128, 88, .6);
+  animation: gatePlayPulse 2.4s ease-out infinite;
+  pointer-events: none;
 }
+
+/* Stroked as well as filled, with round joins: that is what takes
+   the triangle's three corners off, to match the cap it sits in.
+   Nudged right, because a right-pointing triangle centred on its
+   bounding box reads as sitting left of centre. */
+.gate__btn-icon {
+  position: relative;
+  width: 40%;
+  transform: translateX(4.5%);
+  fill: #fff;
+  stroke: #fff;
+  filter: drop-shadow(0 .01em .02em rgba(118, 12, 0, .4));
+}
+
+.gate__btn:hover { filter: brightness(1.06); }
+
+/* The sparks flanking the cap, as on the screen this was drawn
+   from: two bursts of three strokes, thrown up and out. Children of
+   the button, so they arrive and leave with it — while the mission
+   is still loading the slot belongs to the bar alone. */
+.gate__spark {
+  position: absolute;
+  bottom: 76%;
+  width: 34%;
+  height: 34%;
+  pointer-events: none;
+}
+.gate__spark--l { right: 86%; }
+.gate__spark--r { left: 86%; }
+
+.gate__spark b {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36%;
+  height: 11%;
+  border-radius: 999px;
+  background: #ffc93c;
+  box-shadow: 0 0 .1em rgba(255, 190, 60, .85);
+  /* turned about its INNER end, so the three fan out from one point
+     instead of pinwheeling about their own middles */
+  transform-origin: 0 50%;
+  transform: rotate(var(--a)) translateX(36%);
+  /* opacity only: the transform above is carrying the fan, and a
+     keyframe on it would throw the stroke out of the burst */
+  animation: gateSparkle 2.1s ease-in-out infinite alternate;
+}
+
+.gate__spark--l b:nth-child(1) { --a: 196deg; animation-delay: 0s; }
+.gate__spark--l b:nth-child(2) { --a: 221deg; animation-delay: .26s; }
+.gate__spark--l b:nth-child(3) { --a: 246deg; animation-delay: .52s; }
+.gate__spark--r b:nth-child(1) { --a: -16deg; animation-delay: .13s; }
+.gate__spark--r b:nth-child(2) { --a: -41deg; animation-delay: .39s; }
+.gate__spark--r b:nth-child(3) { --a: -66deg; animation-delay: .65s; }
 
 /* `backwards` rather than `both`: once the entry has played the
    animation stops contributing a transform, which leaves the press
-   state below free to move the button again. */
+   state below free to move the cap again. */
 .gate__btn { opacity: 0; }
 .gate__btn.is-in {
   opacity: 1;
   animation: gateRise .62s cubic-bezier(.22, 1, .36, 1) backwards;
 }
 
+/* pressed: the cap goes down onto its own shadow */
 .gate__btn:active {
-  transform: translateY(7px);
+  transform: translateY(.035em);
   box-shadow:
-    0 1px 0 #0d5f8f, 0 2px 0 #0a4a70,
-    0 8px 14px rgba(0, 0, 0, .5),
-    0 0 clamp(30px, 4vh, 56px) rgba(70, 200, 255, .6),
-    inset 0 2px 4px rgba(255, 255, 255, .55),
-    inset 0 -2px 6px rgba(6, 60, 100, .45);
+    0 0 0 .036em #fff,
+    0 .02em .01em rgba(120, 16, 4, .45),
+    0 .04em .09em rgba(2, 6, 20, .5),
+    0 0 .42em rgba(255, 104, 66, .5),
+    inset 0 .05em .07em rgba(255, 255, 255, .3),
+    inset 0 -.04em .08em rgba(150, 16, 4, .5);
 }
 
-/* keyboard focus: a ring outside the cap, clear of its own gloss */
+/* keyboard focus: a ring outside the bezel, clear of the gloss */
 .gate__btn:focus-visible {
   outline: none;
   box-shadow:
-    0 2px 0 #1279b3, 0 5px 0 #0d5f8f, 0 9px 0 #0a4a70,
-    0 18px 30px rgba(0, 0, 0, .6),
-    0 0 0 3px rgba(215, 247, 255, .95),
-    0 0 clamp(38px, 5.2vh, 72px) rgba(90, 215, 255, .6),
-    inset 0 2px 4px rgba(255, 255, 255, .8);
+    0 0 0 .036em #fff,
+    0 0 0 .075em rgba(215, 247, 255, .95),
+    0 .1em .19em rgba(2, 6, 20, .55),
+    0 0 .55em rgba(255, 104, 66, .5),
+    inset 0 .05em .07em rgba(255, 255, 255, .45);
 }
-
 
 
 /* ---------------------------------------------------------- a11y */
@@ -1965,6 +2311,16 @@ button { font: inherit; color: inherit; }
 .is-reduced .gate__sheen,
 .is-reduced .launch__ring,
 .is-reduced .launch__flash,
-.is-reduced .launch__plate { animation: none !important; }
+.is-reduced .launch__plate,
+/* the gate's craft and its engines: the flicker, the drift, the
+   pulse under the cap and the sparks are all decoration, so they
+   are stilled — but the plumes stay LIT, because a craft holding a
+   burn is what the picture is of */
+.is-reduced .gate__ship-inner,
+.is-reduced .gate__ship-inner::after,
+.is-reduced .gate__cone,
+.is-reduced .gate__thrust::before,
+.is-reduced .gate__btn::after,
+.is-reduced .gate__spark b { animation: none !important; }
 
 .is-reduced .gate__btn.is-in { animation: none; }

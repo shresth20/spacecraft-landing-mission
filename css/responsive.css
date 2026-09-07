@@ -10,14 +10,14 @@
 /* ---------------------------------------------------------- wide desktop */
 /* ---------------------------------------------------------- tablet */
 @media (max-width: 900px) {
-  .launch__body { --btn-w: clamp(86px, 13vw, 150px); }
+  .launch__body { --btn-w: clamp(60px, 9vw, 96px); }
 
   .subtitle { width: min(74%, 620px); }
 }
 
 /* ---------------------------------------------------------- phone */
 @media (max-width: 620px) {
-  .launch__body { --btn-w: clamp(82px, 25vw, 134px); }
+  .launch__body { --btn-w: clamp(62px, 16vw, 88px); }
 
   .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
   .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
@@ -28,11 +28,12 @@
   .topbar__frame { padding: 8px 12px; }
   .topbar__text { font-size: clamp(10px, 2.9vw, 16px); letter-spacing: .008em; }
 
-  /* narrow: the artwork's clear band is the same fraction of the
-     image, so the anchor holds — only the controls in it come down
-     in size */
-  .gate__inner { width: 84%; }
-  .gate__slot { min-height: 52px; }
+  /* Narrow: the backdrop is stretched, so the sky, the limb and the
+     surface stay the same fractions of it and every anchor holds.
+     Only what sits IN those bands comes down in size. The slot's
+     floor is not touched — it is calc()'d off --play-d, and pinning
+     it below the cap would move the block as the loader hands over. */
+  .gate__inner { width: 88%; }
   .gate__load { width: min(74vw, 300px); }
   .gate__pct { font-size: 12px; letter-spacing: .08em; }
 }
@@ -62,15 +63,19 @@
      30-unit island's apex, so the island row drops to open the
      gap back up rather than the craft rising into the bar. */
   .screen--landing { --ship-y: 30%; --land-y: 71%; }
-  /* barely any height: the band between the title and the moon's
-     limb is only a few dozen pixels tall, so the cap comes down to
-     what will sit inside it — and the slot floor stays above the
-     cap, or the block shifts as the loader hands over */
-  .gate__btn {
-    font-size: clamp(13px, 3.6vh, 19px);
-    min-width: clamp(118px, 21vh, 168px);
+  /* Barely any height: the sky between the title and the moon's limb
+     is only a few dozen pixels tall, so the cap comes down to what
+     will sit inside it and the two blocks close up on each other.
+     --play-d and nothing else — the cap's font-size IS its diameter
+     (see the play cap in css/style.css), so a font-size override
+     here would resize the bezel, the sparks and the stack with it. */
+  .gate {
+    --play-d: clamp(58px, 15.5vh, 86px);
+    --title-y: 27%;
+    --ctrl-y: 71%;
+    --ship-y: 41%;
+    --ship-w: 19%;
   }
-  .gate__slot { min-height: 56px; }
 }
 
 /* ---------------------------------------------------------- very wide (letterbox-ish) */
@@ -78,14 +83,39 @@
   .hud__caption { bottom: 14%; }
   .hud__tally   { bottom: 8.5%; }
   .topbar { width: min(66%, 1180px); }
+
+  /* a letterbox is all width: 21% of it would put the craft's plume
+     halfway across the frame, and the title is already capped */
+  .gate { --ship-w: 15%; --ship-x: 19%; --title-y: 32%; }
 }
 
 /* ---------------------------------------------------------- tall / portrait
    Portrait stretches the cockpit vertically. The button and the
    readout follow the artwork, so only sizes need easing. */
 @media (max-aspect-ratio: 3/4) {
-  .launch__body { --btn-w: clamp(90px, 27vw, 150px); }
+  .launch__body { --btn-w: clamp(66px, 18vw, 100px); }
   .flyout__drone { width: 34%; }
+
+  /* Portrait has height to spare and no width at all, so the gate
+     stacks instead of sitting side by side: the craft takes the top
+     of the sky at a size worth looking at, the title drops to the
+     middle under it, and the cap keeps the band above the limb.
+     Pulled in from 79% as well — at 38% wide the craft would hang
+     its starboard nacelle off the edge of the frame. */
+  .gate {
+    --ship-x: 37%;
+    --ship-y: 21%;
+    --ship-w: 36%;
+    --title-y: 48%;
+    --ctrl-y: 71%;
+  }
+
+  /* Portrait is all height and no width, and the title is bound by
+     BOTH — so on a 414px frame the height term leaves it set at half
+     the width it has to play with. The width term comes up to take
+     that room; the height term is untouched, and on a tall tablet it
+     is still the one that binds. */
+  .gate__title { font-size: clamp(26px, min(15vw, 15vh), 150px); }
 
   /* In portrait the LANDING tableau is bound by width, not height:
      three triangles in a row plus the ship's callouts have to fit

@@ -277,7 +277,18 @@
   .gate__sheen,
   .launch__ring,
   .launch__flash,
-  .launch__plate { animation: none !important; }
+  .launch__plate,
+  /* The gate's craft: the flicker, the drift, the ring under the cap
+     and the sparks are decoration and stop. The plumes themselves
+     stay lit — a craft holding a retro burn is what the screen is a
+     picture OF, so switching them off would change what it says,
+     not just how much it moves. */
+  .gate__ship-inner,
+  .gate__ship-inner::after,
+  .gate__cone,
+  .gate__thrust::before,
+  .gate__btn::after,
+  .gate__spark b { animation: none !important; }
 
   /* the gate button must still arrive, just without the rise */
   .gate__btn.is-in { animation: none; opacity: 1; }
@@ -311,6 +322,56 @@
   0%   { opacity: 0; transform: translateY(14px) scale(.92); }
   55%  { opacity: 1; }
   100% { opacity: 1; transform: none; }
+}
+
+/* Every cone of every plume on the gate's craft. Stretched from the
+   mouth (the cones set transform-origin there), so the flame grows
+   and shortens along its own axis and stays attached to the metal.
+   Written to run `alternate`, and the three shells are given
+   durations that do not divide into one another — that is what
+   keeps the plume from ever repeating a shape. */
+@keyframes gateFlame {
+  from { transform: translate(-50%, 0) scale(.9, .86);  opacity: .8; }
+  to   { transform: translate(-50%, 0) scale(1.06, 1.1); opacity: 1; }
+}
+
+/* the main bell burning hot, painted over the hull. Opacity only —
+   the glow carries a centring translate of its own. */
+@keyframes gateBellHeat {
+  from { opacity: .55; }
+  to   { opacity: 1; }
+}
+
+/* the light each burn throws back into the sky around its nozzle */
+@keyframes gateThrustGlow {
+  from { opacity: .62; transform: translate(-50%, -30%) scale(.9); }
+  to   { opacity: 1;   transform: translate(-50%, -30%) scale(1.08); }
+}
+
+/* The craft riding its own thrust: a slow rise and fall with a
+   little roll in it. Small numbers on purpose — the engines are
+   doing the moving on this screen, and a craft that wanders reads
+   as a balloon. */
+@keyframes gateShipFloat {
+  from { transform: translateY(-1.8%) rotate(-1.2deg); }
+  to   { transform: translateY(2.2%)  rotate(1.4deg); }
+}
+
+/* the ring going out from the play cap. It starts ON the bezel and
+   fades as it spreads, so the cap looks like it is sending the ring
+   out rather than wearing one. */
+@keyframes gatePlayPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 128, 88, .55); }
+  70%  { box-shadow: 0 0 0 .17em rgba(255, 128, 88, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 128, 88, 0); }
+}
+
+/* the sparks flanking the cap. Opacity only: their transform is
+   carrying the fan the three strokes are arranged in, and a
+   keyframe on it would throw each stroke out of its burst. */
+@keyframes gateSparkle {
+  from { opacity: .35; }
+  to   { opacity: 1; }
 }
 
 /* ---------------------------------------------------------- celebration */

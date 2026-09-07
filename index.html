@@ -24,8 +24,13 @@
 
   <link rel="preload" as="font" type="font/ttf" crossorigin
         href="assets/fonts/libre_baskerville/librebaskerville-variablefont_wght.ttf" />
+  <!-- the gate's title is the first type on screen, and it is the
+       only thing set in this face -->
+  <link rel="preload" as="font" type="font/ttf" crossorigin
+        href="assets/fonts/lilita_one/lilitaone-regular.ttf" />
 
   <link rel="preload" as="image" href="assets/images/welcome-screen.png" />
+  <link rel="preload" as="image" href="assets/images/welcome-screen-ship.png" />
   <link rel="preload" as="image" href="assets/images/s1-bg.png" />
   <link rel="preload" as="image" href="assets/images/s1-cockpit-2.png" />
   <link rel="preload" as="image" href="assets/images/s2-bg%20(2).png" />
@@ -387,15 +392,41 @@
 
   <!-- ══════════════════════════ START GATE ══════════════════════════ -->
   <div class="gate" id="gate">
-    <!-- the title is painted into the artwork, so the heading is
-         here for the document outline and for screen readers only -->
-    <h1 class="sr-only">Spacecraft Landing Mission</h1>
+
+    <!-- The mission's title, and the document's heading: it is set
+         in type here rather than painted into the backdrop, so it
+         scales with the frame and is read out as a heading. -->
+    <h1 class="gate__title">
+      <span>Spaceship</span>
+      <span>Landing</span>
+      <span>Mission</span>
+    </h1>
+
+    <!-- The craft under power. The artwork paints its nozzles but no
+         exhaust, so the burn is built here: a .gate__thrust hung at
+         the main bell, and inside it the cones that make up the
+         flame. It comes BEFORE the hull in source order, so the hull
+         paints over its mouth. The nacelles' attitude thrusters are
+         left cold — the drive at the back is the one that is lit. -->
+    <div class="gate__ship" aria-hidden="true">
+      <div class="gate__ship-inner">
+
+        <!-- the main bell at the back, firing down and right -->
+        <span class="gate__thrust gate__thrust--main">
+          <i class="gate__cone gate__cone--outer"></i>
+          <i class="gate__cone gate__cone--mid"></i>
+          <i class="gate__cone gate__cone--core"></i>
+        </span>
+
+        <img class="gate__ship-img" src="assets/images/welcome-screen-ship.png" alt="" />
+      </div>
+    </div>
 
     <div class="gate__inner">
 
-      <!-- The loader and the button share one grid cell, so the
-           hand-off swaps them in place instead of shunting the
-           title up the screen at the moment the mission is ready. -->
+      <!-- The loader and the play cap share one grid cell, so the
+           hand-off swaps them in place instead of shifting the
+           screen at the moment the mission is ready. -->
       <div class="gate__slot">
 
         <div class="gate__load" id="gateLoad">
@@ -414,7 +445,14 @@
         </div>
 
         <button class="gate__btn" id="gateBtn" type="button" hidden>
-          <span>Start</span>
+          <!-- filled AND stroked, with round joins: that is what
+               takes the three corners off the triangle -->
+          <svg class="gate__btn-icon" viewBox="0 0 100 100" aria-hidden="true">
+            <path d="M30 24 78 50 30 76Z" stroke-width="13" stroke-linejoin="round" />
+          </svg>
+          <i class="gate__spark gate__spark--l" aria-hidden="true"><b></b><b></b><b></b></i>
+          <i class="gate__spark gate__spark--r" aria-hidden="true"><b></b><b></b><b></b></i>
+          <span class="sr-only">Start the mission</span>
         </button>
 
       </div>
