@@ -772,7 +772,6 @@
 
     landing = true;
     disarmChoice();
-    A.sfx('click', { volume: 0.4 });
 
     /* the callouts come off: the craft is flying now, and a
        measurement drawing riding along through a crash would read
@@ -968,14 +967,31 @@
      the point it was hit at — the craft goes over wherever it went
      over, never at a fixed spot. */
   function failFlight(ship, pad, ref, tight, geo, id, onSettle) {
+    /* Built here, at the top of the attempt, and fired a second and
+       a half later on the frame of impact. See prime() in
+       js/audio.js for why the clip cannot be made at the moment it
+       is wanted: this call is still inside the click that started
+       the landing, which is both the head start the decoder needs
+       and the user gesture the autoplay policy wants. */
+    var bang = A.prime(tight ? 'sink' : 'crash');
+
     var opts = {
       refPad: ref,
       geo: geo || undefined,
       alive: function () { return live(id); },
 
-      onTouchdown: function () { A.sfx('wrong', { volume: 0.45 }); },
+      /* No buzzer here. The SHAPE task still uses one — a tap on the
+         wrong shape has nothing else to answer it with — but this
+         screen does: the craft's own crash or its going under IS
+         the answer, and the spoken verdict starts over the top of
+         it a beat later. incorrect-answer.ogg runs 3.3s, so laying
+         it under a 2s impact clip only muddied the one sound the
+         player is meant to hear. */
       onSettle: onSettle,
 
+      /* Fired on the frame something is actually hit, so the sound,
+         the burst and SEA's front are one event rather than three
+         near-misses. */
       onImpact: function (point, kind) {
         if (kind === 'water') {
           /* The splash is what comes UP out of the water; SEA's
@@ -984,13 +1000,22 @@
              sea. Fired on the same point, so the two are one
              event. */
           SEA.impact(ship, point, { size: 54 });
-          A.sfx('rock', { volume: 0.72, rate: 0.9 });
+
+          /* 1.92s, against 204ms of plunge and 1700ms of sinking:
+             the clip runs the length of the beat and dies away as
+             the hull goes under, which is why it starts HERE and
+             not at the top of the sink. */
+          bang({ volume: 0.75 });
         } else {
-          /* Smaller, and for a different reason: nothing went into
-             the sea here, so what reaches the water is the shock
-             through the rock rather than the craft itself. */
+          /* Smaller front, and for a different reason: nothing went
+             into the sea here, so what reaches the water is the
+             shock through the rock rather than the craft itself. */
           SEA.impact(ship, point, { size: 32 });
-          A.sfx('rock', { volume: 0.8, rate: 0.78 });
+
+          /* 2.09s, and the wreck is held for 620ms plus however
+             long the verdict line runs — so it is still ringing
+             under "this landing zone is too large". */
+          bang({ volume: 0.85 });
         }
       }
     };
@@ -1428,7 +1453,6 @@
 
     round.landing = true;
     disarmRound(round);
-    A.sfx('click', { volume: 0.4 });
 
     /* the callouts come off: the craft is flying now, and a
        measurement drawing riding through a crash would read as part
@@ -1635,7 +1659,6 @@
 
   /* Every NEXT button, on every screen, goes through here. */
   function onAdvance() {
-    A.sfx('click', { volume: 0.4 });
     return goTo(current + 1);
   }
 
@@ -1838,6 +1861,45 @@
     runCockpit();
   }
 
+  /* ---------------------------------------------------------- the tap
+
+     One listener, for every control in the game: Start, LAUNCH, the
+     islands on both questions, the nav arrows, NEXT — and anything
+     js/pages.js builds after this runs, since the listener sits on
+     the document rather than on the buttons.
+
+     Delegated rather than wired per button because the alternative
+     is remembering the line at every new one, and a control that
+     answers a tap in silence is the sort of thing that is only
+     noticed after it ships.
+
+     On the way DOWN, so the tick is already playing before the
+     handler that owns the button decides what the tap MEANT: a pick
+     that ends in a crash should still sound like it was pressed.
+
+     What is pressable is left entirely to the CSS, which already
+     says it precisely — every hit target sits at
+     `pointer-events: none` until its own question arms, the START
+     button is `hidden` until the assets are in, and the arrows go
+     `disabled` for the length of a swap. A tap on dead artwork or a
+     spent control therefore never reaches this handler, and there
+     is no second copy of those rules here to fall out of step with
+     them. */
+  var TAPPABLE = 'button, [role="button"], a[href], summary, input, select';
+
+  function onTap(e) {
+    var node = e.target;
+    if (!node || !node.closest) return;         /* text/document target */
+
+    var hit = node.closest(TAPPABLE);
+    if (!hit || hit.disabled) return;
+    if (hit.getAttribute('aria-disabled') === 'true') return;
+
+    /* `keep` so goTo()'s audio cut does not eat the click of the
+       very button that asked for the jump — see fireShot() */
+    A.sfx('click', { volume: 0.4, keep: true });
+  }
+
   function boot() {
     grab();
 
@@ -1859,6 +1921,10 @@
     SEA.init(el.stage);
 
     runGate();
+
+    /* first, and in the capture phase, so every control below is
+       audible without knowing anything about this */
+    document.addEventListener('click', onTap, true);
 
     el.gateBtn.addEventListener('click', begin, { once: true });
     el.launchBtn.addEventListener('click', onLaunch);

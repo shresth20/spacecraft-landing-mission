@@ -69,6 +69,24 @@
   var SFX = {
     launch:  'drone-launch.mp3',
     rock:    'rock in water.mp3',
+
+    /* The two failed landings, one clip each. Both run about two
+       seconds, which is what decides where they are fired from:
+
+         crash  2.09s  the hull coming down on the rock. Fired on
+                       the frame of impact, so it is still ringing
+                       while the wreck settles and the verdict line
+                       starts over the top of it.
+         sink   1.92s  going into the water and under it. Fired at
+                       the moment of entry, where it runs almost
+                       exactly the length of the plunge and the sink
+                       together (204ms + 1700ms) and dies away as
+                       the hull disappears.
+
+       Both are primed rather than built at the moment they are
+       needed — see prime() below. */
+    crash:   'crash-sound.mp3',
+    sink:    'sinking-sound.mp3',
     glitch:  'screen-glitch.mp3',
     correct: 'correct-answer.ogg',
     wrong:   'incorrect-answer.ogg',
@@ -282,18 +300,27 @@
   }
 
   /* ---------------------------------------------------------- one-shots */
-  function sfx(key, opts) {
+  /* Play an element that has already been built, and see it off the
+     oneShots list however it ends — played out, failed, or still
+     going a quarter of a minute later. Shared by sfx() and by the
+     primed shots below, so a clip is retired the same way whichever
+     of the two fired it. */
+  function fireShot(el, opts) {
     opts = opts || {};
-    var file = SFX[key];
-    if (!file) return Promise.resolve();
 
-    unlock();
-
-    var el = new Audio(url(file));
     el.volume = opts.volume == null ? 0.7 : opts.volume;
     if (opts.rate) el.playbackRate = opts.rate;
 
-    oneShots.push(el);
+    /* `keep` holds a clip back from the oneShots list, which is the
+       list stopAll() empties when the player leaves a screen.
+
+       The UI tick is the one thing that asks for it: it belongs to
+       the tap, not to the screen the tap is walking away from, and
+       NEXT would otherwise silence its own click a line later —
+       onAdvance() goes straight into goTo(), which calls stopAll()
+       while the tick is 20ms old. Everything else stays on the list,
+       so a jump still takes its sound with it. */
+    if (!opts.keep) oneShots.push(el);
 
     return new Promise(function (resolve) {
       var done = false;
@@ -310,6 +337,78 @@
       if (p && p.catch) p.catch(finish);
       later(15000).then(finish);
     });
+  }
+
+  function sfx(key, opts) {
+    var file = SFX[key];
+    if (!file) return Promise.resolve();
+
+    unlock();
+    return fireShot(new Audio(url(file)), opts);
+  }
+
+  /* ---------------------------------------------------------- primed shots
+
+     Build the clip NOW, play it on some later frame.
+
+     A crash has to be HEARD on the frame the hull hits the rock. An
+     <audio> created at that instant still has to be constructed,
+     read out of the HTTP cache and handed to the decoder, and the
+     bang lands after the dust — a slip that is small in
+     milliseconds and very audible against a 540ms beat.
+
+     prime() is called at the top of an attempt, from inside the
+     click that started it, which is both a whole second and a half
+     of head start AND the user gesture the autoplay policy wants.
+     It warms the decoder by playing the clip muted and parking it
+     back at zero, so the play() that matters is immediate.
+
+     It hands back a fire function. Call it once; call it again and
+     it falls through to an ordinary sfx(), so nothing goes silent
+     if a caller fires twice. */
+  function prime(key) {
+    var file = SFX[key];
+    if (!file) return function () { return Promise.resolve(); };
+
+    unlock();
+
+    var el = new Audio(url(file));
+    el.preload = 'auto';
+
+    var spent = false;
+
+    /* A browser will not decode a clip it has never been asked to
+       play, so preload alone can still stall on the first play().
+       This asks, silently, and then rewinds. */
+    try {
+      el.muted = true;
+      el.load();
+      var warm = el.play();
+      if (warm && warm.then) {
+        warm.then(function () {
+          if (spent) return;              /* the real shot beat us to it */
+          el.pause();
+          try { el.currentTime = 0; } catch (e) {}
+          el.muted = false;
+        }, function () { el.muted = false; });
+      } else {
+        el.muted = false;
+      }
+    } catch (e) {
+      el.muted = false;
+    }
+
+    return function (opts) {
+      if (spent) return sfx(key, opts);
+      spent = true;
+
+      /* whatever state the warm-up left it in, start from the top
+         and at full voice */
+      el.muted = false;
+      try { el.pause(); el.currentTime = 0; } catch (e) {}
+
+      return fireShot(el, opts);
+    };
   }
 
   /* ---------------------------------------------------------- ambience */
@@ -533,6 +632,7 @@
     say: say,
     hasVoice: hasVoice,
     sfx: sfx,
+    prime: prime,
     stopVoice: stopVoice,
     stopAll: stopAll,
     isSpeaking: isSpeaking,
