@@ -350,13 +350,18 @@ button { font: inherit; color: inherit; }
 .launch-slot.is-armed { pointer-events: auto; }
 .launch-slot.is-armed .launch { pointer-events: auto; }
 
-/* the box the artwork is fitted into. The source PNG is 1536x1024
-   with the plate sitting in a band across the middle, so the box
-   takes the plate's own 2.5:1 ratio and object-fit crops the empty
-   glow bands off the top and bottom — see .launch__plate. */
+/* The box the artwork sits in. launch-btn.svg draws edge to edge of
+   its own 172 x 127 viewBox — bezel, tray and dome, no empty margin
+   — so the box just takes that ratio and the art fills it. */
 .launch__body {
-  --btn-w: clamp(122px, 14.4vw, 248px);
+  --btn-w: clamp(78px, 7.5vw, 140px);
   --btn-glow: 255, 84, 62;      /* press bloom, as rgb channels */
+
+  /* the dome's centre in the artwork's own coordinates: the circle
+     is at (87.64, 53.78) of 172 x 127, which is where the click has
+     to come from — the dome is the thing being pushed */
+  --dome-cx: 51%;
+  --dome-cy: 42.3%;
 
   position: relative;
   z-index: 2;
@@ -366,30 +371,27 @@ button { font: inherit; color: inherit; }
   transition: transform .09s ease;
 }
 
-/* the plate itself. object-position centres the painted plate inside
-   the crop, leaving an even margin of its own glow all round. */
 .launch__plate {
   display: block;
   width: 100%;
-  aspect-ratio: 2.5;
-  object-fit: cover;
-  object-position: 50% 60%;
-  /* the contact shadow the plate drops on the console */
+  aspect-ratio: 172 / 127;
+  /* the contact shadow the cap drops on the console */
   filter: drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6));
   transition: filter .14s ease, transform .09s ease;
   -webkit-user-drag: none;
   user-select: none;
 }
 
-/* the bloom that bursts out of the plate on the click */
+/* the bloom that bursts out of the dome on the click */
 .launch__flash {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  /* the box is 2.5:1, so 205% of its height equals 82% of its width —
-     that makes the bloom round rather than a wide smear */
-  width: 82%;
-  height: 205%;
+  left: var(--dome-cx);
+  top: var(--dome-cy);
+  /* the box is 172:127, so 78.5% of its height is the same number of
+     pixels as 58% of its width — that makes the bloom round rather
+     than a squat smear */
+  width: 58%;
+  height: 78.5%;
   transform: translate(-50%, -50%) scale(.55);
   border-radius: 50%;
   background: radial-gradient(circle closest-side,
@@ -401,17 +403,17 @@ button { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
-/* pulsing alert outline — sized to the painted plate, not to the
-   glow margin around it */
+/* pulsing alert outline, cut to the bezel's own corner sweep: the
+   artwork turns 25 units across and 59 down, of 172 x 127 */
 .launch__ring {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 82%;
-  height: 82%;
+  width: 100%;
+  height: 100%;
   transform: translate(-50%, -50%);
   border: 0 solid transparent;
-  border-radius: clamp(6px, 1vw, 16px);
+  border-radius: 14.5% / 46%;
   box-shadow: 0 0 0 0 rgba(255, 68, 48, .55);
   z-index: 1;
   pointer-events: none;
@@ -586,8 +588,8 @@ button { font: inherit; color: inherit; }
    same figure in vw is the same width it always was.             */
 .zone {
   position: absolute;
-  --zcx: .4986;
-  --zcy: .6332;
+  --zcx: 0.4994;
+  --zcy: 0.6345;
   width: var(--w);
   aspect-ratio: 1;
   left: calc(var(--x) - (var(--zcx) - .5) * var(--w));
@@ -1035,13 +1037,14 @@ button { font: inherit; color: inherit; }
 
    The two figures, measured off the alpha channel:
 
-     Triangle.png            fills 40.857% of its canvas,
-                             centre of area (49.86%, 63.32%)
-     Triangle spaceship.png  hull fills 31.389% of its canvas,
+     Triangle.png            fills 36.623% of its canvas,
+                             centre of area (49.94%, 63.45%)
+     Triangle spaceship.png  hull fills 31.407% of its canvas,
                              centre of area (49.92%, 47.72%)
 
-   Everything below, and PAD_C/SHIP_C in js/animation.js, is those
-   four numbers.
+   Everything below, and TRI_GEO in js/failure.js, is those four
+   numbers. The land half of them was re-measured when the six land
+   PNGs were redrawn; the craft artwork is untouched.
    ============================================================ */
 .screen--landing {
   --pu: min(1vw, 1.74vh);
@@ -1056,13 +1059,13 @@ button { font: inherit; color: inherit; }
      above and the flame clear of the islands below. */
   --ship-y: 31%;
 
-  /* 19.40 = 17 × 1.1409, and 1.1409 is sqrt(40.857 / 31.389) — the
+  /* 18.36 = 17 × 1.0799, and 1.0799 is sqrt(36.623 / 31.407) — the
      land fills more of its canvas than the hull fills its own, so
      the ship's BOX has to be the larger of the two for the two
      painted shapes to come out the same size. That factor makes the
      craft cover EXACTLY 20 units of land, so a perfect fit is
      perfect by measurement and not by eye. */
-  --ship-k: 19.40;
+  --ship-k: 18.36;
 
   /* the hull's centre of area, in box units. A variable because the
      round screens (4-8) fly a square, a rectangle, a parallelogram,
@@ -1096,7 +1099,7 @@ button { font: inherit; color: inherit; }
   /* Which way it leans when it loses its footing. Set from JS to the
      side it is going to fall off, so the rock and the topple are one
      continuous movement instead of a swing back through vertical.
-     See padPlan().dir in js/animation.js. */
+     See plan().dir in js/failure.js. */
   --lean: 1;
   width: calc(var(--ship-k) * var(--pu));
   aspect-ratio: 1;
@@ -1200,13 +1203,12 @@ button { font: inherit; color: inherit; }
 .ship.is-committed .ship__dims { opacity: 0; }
 .ship.is-committed .ship__craft { animation: none; }
 
-/* what happens after touchdown. These are the three verdicts; the
-   topple, the fall and the sinking are driven from JS instead,
-   because where the craft goes over depends on which pad it is
-   standing on (see padPlan in js/animation.js). */
-.ship.is-planted .ship__craft { animation: shipSettle .74s cubic-bezier(.2, 1, .3, 1) forwards; }
-.ship.is-teeter  .ship__craft { animation: shipTremble 1.15s cubic-bezier(.36, .07, .19, .97) forwards; }
-.ship.is-rock    .ship__craft { animation: shipWobble 1.6s cubic-bezier(.45, .05, .55, .95) forwards; }
+/* What happens after touchdown is not here. All three verdicts —
+   the settle, the wobble, the tilt, the slide and the sinking — are
+   phase classes in css/failure.css, because where the craft goes
+   over depends on which island it is standing on and that is a
+   measurement, not a stylesheet constant. This rule is what hands
+   the element over to them. */
 
 
 /* ---------------------------------------------------------- landing pads */
@@ -1221,10 +1223,12 @@ button { font: inherit; color: inherit; }
      2  .pad__img     the land
      3  .pad__area    the area printed on it
      4  .ship         the craft, over the land
+     3  .fx-layer--back   spray and the wreck's scorch, UNDER the craft
+     4  .ship         the craft, over the land
      5  .pad__fit     the verdict, traced over the craft
-     5  .splash       water thrown up over the craft
-     5  .crash        dust thrown up over the craft
-     6  .layer--hud   the frame (global)
+     5  .water-depth-overlay  the sea closing over a sinking craft
+     6  .fx-layer--front  the rest of the burst, over both
+     6  .layer--hud   the frame (global; not on screens 3-8)
      7  .hud          the caption and the tally (global)
      8  .confetti     the celebration, falling in front of both
      9  .topbar       the narration bar (global)
@@ -1242,8 +1246,8 @@ button { font: inherit; color: inherit; }
   /* the island's CENTRE OF AREA lands on (--cx, --land-y) */
   /* the triangle's own figures, overridden per pad on the round
      screens (see js/pages.js), where two shapes share one row */
-  --pcx: .4986;
-  --pcy: .6332;
+  --pcx: 0.4994;
+  --pcy: 0.6345;
   --cy: var(--land-y);
   left: calc(var(--cx) - var(--pcx) * var(--k) * var(--pu));
   top: calc(var(--cy) - var(--pcy) * var(--k) * var(--pu));
@@ -1298,7 +1302,7 @@ button { font: inherit; color: inherit; }
   /* dead on the island's centre of area, which is where a number
      printed on a triangle has to sit to look centred */
   left: var(--ax, 49.9%);
-  top: var(--ay, 62%);
+  top: var(--ay, 63.4%);
   z-index: 3;
   margin: 0;
   display: grid;
@@ -1356,7 +1360,7 @@ button { font: inherit; color: inherit; }
      islands stand close together and a square target would let a
      tap aimed at one triangle's empty corner land on its
      neighbour. Traced on the silhouette's own corners. */
-  clip-path: var(--clip, polygon(50.1% 7.7%, 98.6% 91.4%, 1.1% 91.4%));
+  clip-path: var(--clip, polygon(50% 10.9%, 96.5% 89.8%, 3.3% 89.6%));
   opacity: 0;
   pointer-events: none;
   cursor: pointer;
@@ -1426,125 +1430,41 @@ button { font: inherit; color: inherit; }
     drop-shadow(0 0 16px rgba(var(--ok), .75));
 }
 
-/* the two that did not fit keep the thin flash they had: a border
-   that stays is the mark of the right answer */
-.pad.is-loose .pad__fit { color: #ffbe3d; opacity: 1; animation: fitFlash .5s ease-out 3; }
-.pad.is-tight .pad__fit { color: #ff5b4e; opacity: 1; animation: fitFlash .45s ease-out 3; }
+/* The two that did not fit flash rather than settle: a border that
+   STAYS is the mark of the right answer, and these are drawn over
+   the craft (z 5 against the ship's 4) because that is the only way
+   to see them at all.
 
+   The red one is the heaviest of the three failures on purpose. On
+   an island too small for the craft the hull covers the land
+   completely — there is nothing left to look at — and this outline
+   is then the ONLY thing on screen saying how little rock was
+   underneath. A hairline said it too quietly to teach anything. */
+.pad.is-loose .pad__fit { opacity: 1; animation: fitFlash .5s ease-out 3; }
+.pad.is-tight .pad__fit { opacity: 1; animation: fitFlash .45s ease-out 3; }
 
-/* ---------------------------------------------------------- water impact
-   Parked over the point the craft actually went in, by JS — the
-   impact is wherever it toppled off to, not a fixed spot. */
-.splash {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 5;
-  width: calc(17 * var(--pu));
-  aspect-ratio: 1;
-  margin-left: calc(-8.5 * var(--pu));
-  margin-top: calc(-8.5 * var(--pu));
-  pointer-events: none;
-  opacity: 0;
-}
-.splash.is-on { opacity: 1; }
+/* ONE red for both. A wrong answer is a wrong answer: amber for the
+   island that was too big read as a half-mark beside the red the
+   island that was too small got, and neither of them is closer to
+   right than the other. Green is the only colour on this screen
+   that means anything else. */
+.pad.is-loose .pad__fit,
+.pad.is-tight .pad__fit { color: #ff5b4e; }
 
-.splash__foam,
-.splash__ring {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(.2);
-  opacity: 0;
+.pad.is-loose .pad__fit path,
+.pad.is-tight .pad__fit path {
+  stroke-width: 4.4;
+  filter: drop-shadow(0 0 3px #ff5b4e)
+          drop-shadow(0 0 15px rgba(255, 91, 78, .75));
 }
 
-.splash__foam {
-  width: 100%;
-  aspect-ratio: 1;
-  background: radial-gradient(closest-side, rgba(238, 251, 255, .92), rgba(190, 235, 255, 0) 70%);
-  filter: blur(4px);
-}
 
-.splash__ring {
-  width: 88%;
-  aspect-ratio: 1;
-  border: max(2px, .13vw) solid rgba(196, 240, 255, .65);
-  box-shadow: 0 0 16px rgba(150, 225, 255, .45);
-}
-
-.splash.is-on .splash__foam    { animation: splashFoam 1.1s ease-out forwards; }
-.splash.is-on .splash__ring    { animation: splashOut 1.9s ease-out .06s forwards; }
-.splash.is-on .splash__ring--b { animation: splashOut 2.2s ease-out .34s forwards; }
-
-
-/* ---------------------------------------------------------- ground impact
-   The 30-unit island is far bigger than the craft, so a craft that
-   loses its balance on it never reaches the water: it goes over ON
-   THE LAND and stays there. This is the dust that comes up when it
-   does — same job as .splash, thrown over dry rock instead of sea,
-   and parked on the point of impact by JS for the same reason. */
-.crash {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 5;
-  width: calc(15 * var(--pu));
-  aspect-ratio: 1;
-  margin-left: calc(-7.5 * var(--pu));
-  margin-top: calc(-7.5 * var(--pu));
-  pointer-events: none;
-  opacity: 0;
-}
-.crash.is-on { opacity: 1; }
-
-.crash__flash,
-.crash__dust,
-.crash__ring {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  border-radius: 50%;
-  transform: translate(-50%, -50%) scale(.2);
-  opacity: 0;
-}
-
-/* the hit itself — one frame of white heat */
-.crash__flash {
-  width: 52%;
-  aspect-ratio: 1;
-  background: radial-gradient(closest-side, rgba(255, 251, 236, .95), rgba(255, 196, 92, 0) 70%);
-}
-
-/* what it kicks up: the island's own dust, so the burst is the
-   colour of the rock rather than of sea foam */
-.crash__dust {
-  width: 100%;
-  aspect-ratio: 1;
-  background: radial-gradient(closest-side, rgba(232, 148, 74, .78), rgba(150, 74, 30, 0) 68%);
-  filter: blur(5px);
-}
-
-.crash__ring {
-  width: 86%;
-  aspect-ratio: 1;
-  border: max(2px, .13vw) solid rgba(255, 206, 138, .7);
-  box-shadow: 0 0 16px rgba(255, 170, 80, .45);
-}
-
-.crash.is-on .crash__flash  { animation: crashFlash .42s ease-out forwards; }
-.crash.is-on .crash__dust   { animation: crashDust 1.35s ease-out forwards; }
-.crash.is-on .crash__ring   { animation: crashOut 1.6s ease-out .05s forwards; }
-.crash.is-on .crash__ring--b { animation: crashOut 1.9s ease-out .3s forwards; }
-
-/* The wreck: scorched, and no longer catching the light the way a
-   flying craft does. Left on the island until the retry resets it. */
-.ship.is-wrecked .ship__img {
-  filter:
-    brightness(.72) saturate(.6)
-    drop-shadow(0 0 16px rgba(60, 20, 6, .7));
-  transition: filter .5s ease;
-}
+/* ---------------------------------------------------------- impacts
+   Moved out. The water thrown up by a craft that slid off an
+   island, the dust thrown up by one that went over on the rock, and
+   the wreck's own scorched look are all in css/failure.css now,
+   built as generated particles inside the two .fx-layer elements
+   instead of as a fixed .splash / .crash burst. */
 
 
 /* ---------------------------------------------------------- confetti

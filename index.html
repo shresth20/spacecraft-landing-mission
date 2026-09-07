@@ -9,6 +9,12 @@
   <link rel="stylesheet" href="css/animation.css" />
   <!-- screens 4-8: the five one-shape-per-screen rounds -->
   <link rel="stylesheet" href="css/rounds.css" />
+  <!-- the landing and its two failures, for screens 3 to 8.
+       After style.css and rounds.css, and it has to stay there:
+       the phase rules take the craft back off the idle bob and the
+       arrival flight, and they do it on equal specificity, so being
+       later in the cascade is the whole mechanism. -->
+  <link rel="stylesheet" href="css/failure.css" />
   <link rel="stylesheet" href="css/responsive.css" />
   <!-- the shore, the shallows, the foam and the sea itself.
        Last, because the two rules it overrides outright
@@ -84,8 +90,8 @@
       <button class="launch" id="launchBtn" type="button" aria-label="Launch the survey drone">
         <span class="launch__ring" aria-hidden="true"></span>
         <span class="launch__body">
-          <!-- the plate reads "LAUNCH" itself, so it carries no alt text -->
-          <img class="launch__plate" src="assets/images/launch-btn.png" alt="" draggable="false">
+          <!-- decorative: the button's name is on the <button> itself -->
+          <img class="launch__plate" src="assets/images/launch-btn.svg" alt="" draggable="false">
           <span class="launch__flash" aria-hidden="true"></span>
         </span>
       </button>
@@ -177,28 +183,28 @@
        Geometry note: both pieces of artwork are 1254x1254 squares with a
        shape painted on them. Measured off the alpha channel:
 
-         Triangle.png            a clean triangle — apex (50.1%, 7.7%),
-                                 base y 91.4% from x 1.1% to 98.6%.
-                                 Fills 40.857% of the canvas; its centre
-                                 of area is (49.86%, 63.32%).
+         Triangle.png            a clean triangle — apex (50.0%, 10.9%),
+                                 base y 89.7% from x 3.3% to 96.5%.
+                                 Fills 36.623% of the canvas; its centre
+                                 of area is (49.94%, 63.45%).
 
          Triangle spaceship.png  hull apex (50.0%, 2.8%), base y 70.0%
-                                 from x 4.94% to 94.82%. Fills 31.389%;
+                                 from x 4.94% to 94.82%. Fills 31.407%;
                                  centre of area (49.92%, 47.72%).
 
        The camera looks straight down, so there is no ground line to stand
        on: a landing is one flat shape coming down onto another, and both
        sides are anchored on their CENTRE OF AREA. Every number below, in
-       the screen-3 block of style.css, and in padPlan() comes off those
-       two readings — which is what puts the craft square on the island
+       the screen-3 block of style.css, and in plan() (js/failure.js)
+       comes off those two readings — which is what puts the craft square on the island
        instead of nudged into place by eye.
 
        The two triangles are not the same SHAPE, though: the land is
-       97.45 x 83.73 (ratio 1.164), the hull 89.87 x 67.86 (ratio 1.324).
-       Matched on AREA — which is the thing the lesson is about — the
-       craft lands 5.2% wider and 7.5% shorter than the island it fits.
-       Closing that is an artwork change, not a code one: see the note
-       over SHIP_FIT in js/animation.js.
+       93.2 x 78.9 (ratio 1.18) and the hull 89.87 across. Matched on
+       AREA — which is the thing the lesson is about — the two do not
+       come out the same proportions. Closing that is an artwork
+       change, not a code one: see the note over SHIP_FIT in
+       js/failure.js.
        ══════════════════════════════════════════════════════════════════════ -->
   <section class="screen screen--landing" id="screenLanding">
 
@@ -207,9 +213,26 @@
 
     <!-- ░░ the spaceship, with its measurements called out ░░ -->
     <div class="ship" id="ship">
+
+      <!-- The craft's shadow on the water is NOT here: js/water.js
+           inserts .ship__cast and .ship__wash at the front of this
+           element, and css/failure.css animates the cast one as the
+           landing shadow rather than adding a second. -->
+
+      <!-- dust pushed out from under the hull as its weight comes
+           on. Before .ship__craft, and z 0 against the craft's 1 -->
+      <span class="ship__dust" aria-hidden="true"></span>
+
       <div class="ship__craft" id="shipCraft">
         <img class="ship__img" src="assets/images/Triangle spaceship.png"
              alt="Triangular spaceship, base 8 units, height 5 units" />
+
+        <!-- The exhaust is painted into the artwork, so this is off
+             by default and the engine's state is told through the
+             hull's glow instead. Give .ship a data-flame="on" and
+             this lights up, flickers, throttles back on the descent
+             and goes out on impact. See css/failure.css, block 2. -->
+        <span class="engine-flame" aria-hidden="true"></span>
 
         <!-- Dimension overlay. The viewBox is in PERCENT OF THE SHIP BOX
              (-28..104 on both axes), and the element is placed at exactly
@@ -247,7 +270,7 @@
       <div class="pad pad--l" data-shape="triangle" data-area="30">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50.1 7.7 98.6 91.4H1.1z" />
+          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
         </svg>
         <p class="pad__area"><b>30</b><i>sq units</i></p>
         <button class="pad__hit" type="button" tabindex="-1"
@@ -257,7 +280,7 @@
       <div class="pad pad--m" data-shape="triangle" data-area="12">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50.1 7.7 98.6 91.4H1.1z" />
+          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
         </svg>
         <p class="pad__area"><b>12</b><i>sq units</i></p>
         <button class="pad__hit" type="button" tabindex="-1"
@@ -267,7 +290,7 @@
       <div class="pad pad--r" data-shape="triangle" data-area="20">
         <img class="pad__img" src="assets/images/Triangle.png" alt="" />
         <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50.1 7.7 98.6 91.4H1.1z" />
+          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
         </svg>
         <p class="pad__area"><b>20</b><i>sq units</i></p>
         <button class="pad__hit" type="button" tabindex="-1"
@@ -275,21 +298,27 @@
       </div>
     </div>
 
-    <!-- water thrown up where a failed landing goes in; parked by JS -->
-    <div class="splash" id="splash" aria-hidden="true">
-      <span class="splash__foam"></span>
-      <span class="splash__ring"></span>
-      <span class="splash__ring splash__ring--b"></span>
-    </div>
+    <!-- ░░ the landing's effect layers ░░
+         Empty until something hits something. js/failure.js parks
+         the dust, the debris, the spray, the bubbles and the rings
+         inside these, on the point the craft actually went over —
+         never at a fixed spot.
 
-    <!-- dust thrown up where a craft that overbalanced on the
-         30-unit island goes over ON the rock; parked by JS -->
-    <div class="crash" id="crash" aria-hidden="true">
-      <span class="crash__flash"></span>
-      <span class="crash__dust"></span>
-      <span class="crash__ring"></span>
-      <span class="crash__ring crash__ring--b"></span>
-    </div>
+         Two layers, not one, and the ship is between them: the
+         BACK one (z 3) is under the craft, so the scorch mark it
+         leaves is under the wreck and half the spray goes up
+         behind the hull. The FRONT one (z 6) is over both the
+         craft and the water overlay. That split is what makes an
+         impact read as happening AROUND the craft rather than
+         being painted on top of it. -->
+    <div class="fx-layer fx-layer--back" id="fxBack" aria-hidden="true"></div>
+
+    <!-- a patch of sea painted ABOVE the craft (z 5 against the
+         ship's 4) and faded up as it goes down, so a sinking
+         spacecraft passes UNDER something instead of dissolving -->
+    <div class="water-depth-overlay" id="waterDepth" aria-hidden="true"></div>
+
+    <div class="fx-layer fx-layer--front" id="fxFront" aria-hidden="true"></div>
 
     <!-- ░░ celebration ░░
          Paper falls from the top of the frame the moment the craft
@@ -400,6 +429,10 @@
 <script src="js/waveform.js"></script>
 <script src="js/typewriter.js"></script>
 <script src="js/animation.js"></script>
+<!-- the landing and its two failures. After animation.js (it uses
+     the same GeoLife-backed wait) and before script.js, which calls
+     GeoFail from every one of screens 3 to 8. -->
+<script src="js/failure.js"></script>
 <!-- screens 4-8: the shape data and the markup built from it. Before
      script.js, which asks it for the rounds while it is booting. -->
 <script src="js/pages.js"></script>

@@ -1,0 +1,1167 @@
+/* ============================================================
+   Geo Drone — THE LANDING, AND THE TWO WAYS IT GOES WRONG
+
+   Screens 3 to 8 all end the same way: the player names an island,
+   the craft flies down onto it, and the geometry decides. There are
+   exactly three outcomes, and every one of them is played out here:
+
+     AREA TOO LARGE   the craft touches down on far more land than
+                      it needs. Nothing is holding it, it goes
+                      unstable, tips, slides across the rock and
+                      comes to rest as a wreck — ON THE LAND.
+     AREA TOO SMALL   the craft is wider than the island. It cannot
+                      settle, one side is left unsupported, it tips
+                      off the edge, hits the water and sinks.
+     EXACT            it comes down, compresses once and plants.
+
+   ── HOW THIS FILE IS DRIVEN ────────────────────────────────────
+   Every one of those is a chain of CSS animations. JavaScript
+   (js/failure.js) does two things and nothing else:
+
+     1. measures the scene with getBoundingClientRect() and writes
+        the result onto .ship as custom properties — --target-x,
+        --crash-x, --fall-y and the rest, all in px
+     2. adds one phase class per beat, in order, and never removes
+        one until the whole attempt is reset
+
+   Because the classes ACCUMULATE, the phase rules below are ordered
+   so that the newest one always wins on equal specificity — that is
+   why the order of the blocks in this file is load-bearing, and why
+   each keyframe's 0% restates the previous keyframe's 100% instead
+   of assuming the element is somewhere in particular.
+
+   ── WHERE THE MOTION LIVES ─────────────────────────────────────
+     .ship        the FLIGHT: where in the frame the craft is.
+                  transform-origin is the box corner (css/style.css)
+                  so a plan is plain translate/scale arithmetic.
+     .ship__craft the CRAFT'S OWN motion: the descent dip, the
+                  touchdown squash, the wobble, the tilt, the
+                  sinking fade. Pivots on its centre of area,
+                  because the camera looks straight down and there
+                  is no ground line to stand on.
+
+   Keeping those apart is what lets a wobble not care where the ship
+   is, and a descent not care that the craft is wobbling.
+
+   ── TUNING ─────────────────────────────────────────────────────
+   Every duration is a custom property on .ship, declared at the top
+   of the next block. Change one number there and the whole beat
+   changes — nothing below hard-codes a time.
+   ============================================================ */
+
+
+/* ============================================================
+   1 · THE DIALS
+   ============================================================ */
+
+.ship {
+  /* ---- durations. The only place any of these are written. ---- */
+  --approach-ms:  860ms;   /* cross to the island and come down     */
+  --touchdown-ms: 200ms;   /* the compression as weight goes on     */
+  --unstable-ms:  820ms;   /* the wobble on an island that is loose */
+  --crash-ms:     540ms;   /* tip, slide, drop, one bounce, stop    */
+  --misfit-ms:    620ms;   /* the failed attempt to settle          */
+  --slip-ms:      560ms;   /* off the edge and down to the water    */
+  --sink-ms:     1700ms;   /* under it goes                         */
+  --plant-ms:     740ms;   /* the exact fit, snapping into place    */
+
+  /* ---- geometry, all written from js/failure.js in px ---- */
+  --target-x: 0px;   /* to the island's centre of area              */
+  --target-y: 0px;
+  --target-s: 1;     /* the craft's TRUE size on this screen        */
+  --hover-lift: 0px; /* how high it crosses before it comes down    */
+
+  --crash-x: 0px;    /* where a wreck comes to rest, on the rock    */
+  --crash-y: 0px;
+  --crash-hop: 5px;  /* the one bounce off the ground               */
+
+  --fall-x: 0px;     /* where it goes into the water                */
+  --fall-y: 0px;
+  --sink-x: 0px;     /* and where it is when it is gone             */
+  --sink-y: 0px;
+
+  /* Which way it loses its footing: +1 or -1, set from JS. The
+     wobble, the tilt and the fall all multiply by it, so the whole
+     failure leans ONE way instead of swinging back through
+     vertical between beats. Declared in css/style.css too; repeated
+     here so this file reads on its own. */
+  --lean: 1;
+
+  /* how far over a wreck ends up. 7-12deg is the band that reads as
+     "it fell over" without reading as "it was destroyed". */
+  --rotation: 9deg;
+
+  /* ---- easings, named for what they are ---- */
+  --ease-flight: cubic-bezier(.22, .8, .3, 1);
+  --ease-impact: cubic-bezier(.25, .8, .35, 1);
+  --ease-fall:   cubic-bezier(.45, .05, .75, .45);
+  --ease-sink:   cubic-bezier(.35, .05, .65, 1);
+
+  will-change: transform;
+}
+
+/* the craft sits over its own shadow and its own dust */
+.ship__craft { z-index: 1; }
+
+
+/* ============================================================
+   2 · WHAT HANGS OFF THE CRAFT
+   The shadow, the touchdown dust and the engine flame all live
+   inside .ship, so they travel with the flight for free. The
+   shadow and the dust are OUTSIDE .ship__craft on purpose: a
+   shadow that rolled with the hull would give the game away the
+   moment the craft tipped.
+   ============================================================ */
+
+/* ---------------------------------------------------------- landing shadow
+   The craft already HAS a shadow: .ship__cast, built by js/water.js
+   and dressed in css/water.css, anchored on the hull's centre of
+   area and offset down-sun by the same bearing every island uses.
+   The landing does not add a second one — it animates that one.
+
+   Seen from overhead there is no shadow cast down the screen, so
+   what tells you the craft is coming down is the shadow drawing IN
+   under it: wide and pale up high, tight and dark at touchdown.
+   (css/water.css narrows and darkens the gradient itself the moment
+   .is-committed goes on; what is here is the movement.)
+
+   Only transform and opacity, deliberately — .ship__cast is a soft
+   radial gradient with no edge to sharpen, and blurring a blur
+   costs a filter pass for nothing. */
+.ship__cast { will-change: transform, opacity; }
+
+/* ---------------------------------------------------------- touchdown dust
+   One soft ring of the island's own dust, pushed out from under the
+   hull the moment its weight comes on. Ring, not disc: a disc under
+   an opaque craft is invisible. */
+.ship__dust {
+  position: absolute;
+  left: calc(var(--scx) * 100%);
+  top: calc(var(--scy) * 100%);
+  z-index: 0;
+  width: 86%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.34);
+  background: radial-gradient(closest-side,
+              rgba(240, 186, 118, 0) 50%,
+              rgba(232, 158, 84, .46) 74%,
+              rgba(232, 158, 84, 0) 100%);
+  filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ---------------------------------------------------------- engine flame
+   The mission's artwork paints its own exhaust into the hull, so
+   this element is OFF by default and the engine's state is told
+   instead through the craft's glow (block 3 below), which works
+   whether the flame is painted or not.
+
+   If you swap in a craft PNG with no flame on it, put
+   data-flame="on" on the .ship element and this lights up, flickers
+   at rest, shrinks on the way down and goes out on impact — no
+   other change needed. Position it for that artwork with --flame-x
+   / --flame-y / --flame-w / --flame-h, in box percentages. */
+.engine-flame {
+  position: absolute;
+  left: var(--flame-x, 50%);
+  top: var(--flame-y, 70%);
+  z-index: -1;
+  width: var(--flame-w, 16%);
+  height: var(--flame-h, 30%);
+  transform: translate(-50%, 0) scaleY(1);
+  transform-origin: 50% 0;
+  border-radius: 50% 50% 46% 46% / 24% 24% 76% 76%;
+  background: linear-gradient(to bottom,
+              rgba(255, 255, 255, .95),
+              rgba(126, 226, 255, .85) 32%,
+              rgba(64, 150, 255, .38) 70%,
+              rgba(64, 150, 255, 0) 100%);
+  filter: blur(1.5px);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.ship[data-flame="on"] .engine-flame {
+  opacity: 1;
+  animation: flameIdle .26s ease-in-out infinite alternate;
+}
+
+@keyframes flameIdle {
+  from { transform: translate(-50%, 0) scale(.94, .92); opacity: .82; }
+  to   { transform: translate(-50%, 0) scale(1.04, 1.06); opacity: 1; }
+}
+
+/* burning down as the craft descends */
+@keyframes flameEase {
+  0%   { transform: translate(-50%, 0) scale(1, 1);     opacity: 1; }
+  100% { transform: translate(-50%, 0) scale(.8, .42);  opacity: .6; }
+}
+
+/* the last irregular gutters before it dies */
+@keyframes flameGutter {
+  0%   { transform: translate(-50%, 0) scale(.8, .42);  opacity: .6; }
+  17%  { transform: translate(-50%, 0) scale(.9, .58);  opacity: .95; }
+  31%  { transform: translate(-50%, 0) scale(.62, .2);  opacity: .25; }
+  52%  { transform: translate(-50%, 0) scale(.86, .5);  opacity: .8; }
+  69%  { transform: translate(-50%, 0) scale(.5, .14);  opacity: .18; }
+  84%  { transform: translate(-50%, 0) scale(.7, .3);   opacity: .45; }
+  100% { transform: translate(-50%, 0) scale(.4, .06);  opacity: 0; }
+}
+
+
+/* ============================================================
+   3 · THE ENGINE, TOLD THROUGH THE HULL
+
+   The mission's craft artwork has its EXHAUST PAINTED INTO THE PNG,
+   and the brief is that the PNG does not change. So "throttling
+   back", "guttering" and "out" have to be said about a flame that
+   is already part of the picture.
+
+   Two filters on .ship__img do it:
+
+     the CYAN BLOOM   .ship__img's own drop-shadow (css/style.css)
+                      reads as the drive being lit, so fading it is
+                      the glow coming off the water.
+
+     SATURATION       and this is the one that does the real work.
+                      On a silver-grey hull the painted flame is by
+                      far the most saturated thing in the frame, so
+                      pulling saturate() down takes the ORANGE out
+                      of the exhaust while barely touching the hull.
+                      A flicker in saturation reads as a flame
+                      guttering; saturate(.14) reads as one that has
+                      gone out and left scorch behind.
+
+   Which means all of this works just as well on a craft PNG with no
+   flame painted on it — there it simply dims the hull — and a
+   separate .engine-flame element (block 2) rides the same beats.
+   ============================================================ */
+
+@keyframes engineEase {
+  0%   { filter: saturate(1) brightness(1)
+                 drop-shadow(0 14px 26px rgba(0, 0, 0, .5))
+                 drop-shadow(0 0 30px rgba(90, 200, 255, .35)); }
+  100% { filter: saturate(.84) brightness(.97)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .58))
+                 drop-shadow(0 0 14px rgba(90, 200, 255, .16)); }
+}
+
+/* Irregular on purpose — a dying drive does not blink on a metre.
+   The saturation is the half you actually see: the painted flame
+   flares, all but vanishes, comes back weaker, and so on. */
+@keyframes engineFlicker {
+  0%   { filter: saturate(.84) brightness(.97)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .58))
+                 drop-shadow(0 0 14px rgba(90, 200, 255, .16)); }
+  13%  { filter: saturate(1) brightness(1.05)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .58))
+                 drop-shadow(0 0 22px rgba(120, 214, 255, .34)); }
+  27%  { filter: saturate(.38) brightness(.87)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .6))
+                 drop-shadow(0 0 5px rgba(90, 200, 255, .05)); }
+  46%  { filter: saturate(.88) brightness(1)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .58))
+                 drop-shadow(0 0 18px rgba(120, 214, 255, .28)); }
+  61%  { filter: saturate(.26) brightness(.84)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .62))
+                 drop-shadow(0 0 3px rgba(90, 200, 255, .03)); }
+  82%  { filter: saturate(.58) brightness(.92)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .6))
+                 drop-shadow(0 0 10px rgba(120, 214, 255, .14)); }
+  100% { filter: saturate(.32) brightness(.86)
+                 drop-shadow(0 6px 10px rgba(0, 0, 0, .62))
+                 drop-shadow(0 0 0 rgba(90, 200, 255, 0)); }
+}
+
+
+/* ============================================================
+   4 · PHASE 1 — THE APPROACH   (both failures, and the fit)
+
+   It crosses to a point above the island, then comes down onto it.
+   One animation and not two, so the traverse and the descent read
+   as one approach rather than a move followed by a drop.
+
+   The craft dips to .96 on the way down. That is the whole trick
+   for a camera looking straight down: nothing can move "towards
+   the ground", so getting smaller is what descending looks like —
+   and it comes back to exactly 1 at touchdown, because the fit
+   outline drawn on the island afterwards has to be honest.
+   ============================================================ */
+
+.ship.ship-approaching {
+  animation: shipApproach var(--approach-ms) var(--ease-flight) forwards;
+}
+
+@keyframes shipApproach {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    animation-timing-function: cubic-bezier(.4, 0, .5, .45);
+  }
+  56% {
+    /* above the island, still at cruise height */
+    transform: translate3d(var(--target-x),
+                           calc(var(--target-y) - var(--hover-lift)), 0)
+               scale(var(--target-s));
+    animation-timing-function: cubic-bezier(.3, 0, .25, 1);
+  }
+  100% {
+    transform: translate3d(var(--target-x), var(--target-y), 0)
+               scale(var(--target-s));
+  }
+}
+
+.ship.ship-approaching .ship__craft {
+  animation: craftDescend var(--approach-ms) var(--ease-flight) forwards;
+}
+
+@keyframes craftDescend {
+  0%   { transform: rotate(0deg) scale(1, 1); }
+  58%  { transform: rotate(calc(var(--lean) * -.7deg)) scale(.978, .978); }
+  100% { transform: rotate(0deg) scale(.96, .96); }
+}
+
+.ship.ship-approaching .ship__cast {
+  animation: shadowClose var(--approach-ms) var(--ease-flight) forwards;
+}
+
+/* wide, pale and blurred → tight, dark and sharp */
+@keyframes shadowClose {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(1.34); }
+  22%  { opacity: .28; }
+  100% { opacity: .5;  transform: translate(-50%, -50%) scale(.94);  }
+}
+
+.ship.ship-approaching .ship__img {
+  animation: engineEase var(--approach-ms) linear forwards;
+}
+
+.ship.ship-approaching .engine-flame {
+  animation: flameEase var(--approach-ms) ease-in forwards;
+}
+
+
+/* ============================================================
+   5 · PHASE 2 — TOUCHDOWN   (too-large, and the fit)
+
+   Weight comes on: one short compression, wider than it is tall,
+   and a ring of dust pushed out from under the hull. Nothing has
+   gone wrong yet — that is the point of having this beat at all.
+   ============================================================ */
+
+.ship.ship-touchdown .ship__craft {
+  animation: craftTouchdown var(--touchdown-ms) var(--ease-impact) forwards;
+}
+
+@keyframes craftTouchdown {
+  0%   { transform: rotate(0deg) scale(.96, .96); }
+  40%  { transform: rotate(0deg) scale(1.02, .97); }
+  74%  { transform: rotate(0deg) scale(.996, 1.008); }
+  100% { transform: rotate(0deg) scale(1, 1); }
+}
+
+.ship.ship-touchdown .ship__dust {
+  animation: dustRing calc(var(--touchdown-ms) * 3) ease-out forwards;
+}
+
+@keyframes dustRing {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.34); }
+  16%  { opacity: .85; transform: translate(-50%, -50%) scale(.72); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.5); }
+}
+
+.ship.ship-touchdown .ship__cast {
+  animation: shadowSet calc(var(--touchdown-ms) * 1.6) var(--ease-impact) forwards;
+}
+
+@keyframes shadowSet {
+  0%   { opacity: .5;  transform: translate(-50%, -50%) scale(.94); }
+  44%  { opacity: .58; transform: translate(-50%, -50%) scale(1.02); }
+  100% { opacity: .52; transform: translate(-50%, -50%) scale(.97); }
+}
+
+
+/* ============================================================
+   6 · PHASE 3 — INSTABILITY   (too-large only)
+
+   The island is half as big again as the craft, so the hull is
+   sitting on a plateau with nothing to brace against. It hunts for
+   a footing and does not find one.
+
+   The keyframe stops are 0/14/29/47/68/83/100 and the angles run
+   0 → -2 → 3 → -4 → 2 → -4.8 → 5.4. Deliberately not a metronome:
+   an evenly-spaced shake reads as a CSS effect, an unevenly-spaced
+   one reads as a thing losing its balance. Each swing is also a
+   little wider than the last, so the beat has somewhere to go.
+   ============================================================ */
+
+.ship.ship-unstable .ship__craft {
+  animation: craftUnstable var(--unstable-ms) cubic-bezier(.36, .07, .19, .97) forwards;
+}
+
+@keyframes craftUnstable {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1, 1);
+  }
+  14% {
+    transform: translate(calc(var(--lean) * -.55%), .1%)
+               rotate(calc(var(--lean) * -2deg)) scale(1, 1);
+  }
+  29% {
+    transform: translate(calc(var(--lean) * .8%), -.14%)
+               rotate(calc(var(--lean) * 3deg)) scale(1.004, .997);
+  }
+  47% {
+    transform: translate(calc(var(--lean) * -1.1%), .28%)
+               rotate(calc(var(--lean) * -4deg)) scale(1, 1);
+  }
+  68% {
+    transform: translate(calc(var(--lean) * 1.45%), .12%)
+               rotate(calc(var(--lean) * 2deg)) scale(1.006, .995);
+  }
+  83% {
+    transform: translate(calc(var(--lean) * -1.8%), .42%)
+               rotate(calc(var(--lean) * -4.8deg)) scale(1, 1);
+  }
+  100% {
+    transform: translate(calc(var(--lean) * 2.3%), .66%)
+               rotate(calc(var(--lean) * 5.4deg)) scale(1, 1);
+  }
+}
+
+/* the shadow slides about under it, on its own uneven beat, so the
+   two are not obviously the same animation twice */
+.ship.ship-unstable .ship__cast {
+  animation: shadowHunt var(--unstable-ms) ease-in-out forwards;
+}
+
+@keyframes shadowHunt {
+  0%   { opacity: .52; transform: translate(-50%, -50%) scale(.97); }
+  31%  { opacity: .46; transform: translate(calc(-50% + var(--lean) * 2%), -50%) scale(1.02); }
+  62%  { opacity: .5;  transform: translate(calc(-50% - var(--lean) * 2.6%), -49%) scale(.99); }
+  100% { opacity: .44; transform: translate(calc(-50% + var(--lean) * 3.4%), -48.6%) scale(1.05); }
+}
+
+.ship.ship-unstable .ship__img {
+  animation: engineFlicker var(--unstable-ms) linear forwards;
+}
+
+.ship.ship-unstable .engine-flame {
+  animation: flameGutter var(--unstable-ms) linear forwards;
+}
+
+
+/* ============================================================
+   7 · PHASE 4 — THE CRASH ON LAND   (too-large only)
+
+   It gives up: tips over, skids across the rock, drops the last
+   few pixels, bounces once and stops. The craft STAYS on the
+   island, lit dimly and lying over — the beat the player is meant
+   to read is a working spacecraft sitting uselessly in the middle
+   of far too much land, which is exactly the mistake they made.
+
+   No fireball. The tilt is 9 degrees, not 90.
+   ============================================================ */
+
+.ship.ship-crashing {
+  animation: shipCrashSlide var(--crash-ms) var(--ease-impact) forwards;
+}
+
+@keyframes shipCrashSlide {
+  0% {
+    transform: translate3d(var(--target-x), var(--target-y), 0) scale(var(--target-s));
+    animation-timing-function: cubic-bezier(.16, .72, .3, 1);
+  }
+  64% {
+    /* the skid is over before the hull comes down */
+    transform: translate3d(var(--crash-x), var(--crash-y), 0) scale(var(--target-s));
+    animation-timing-function: cubic-bezier(.3, 0, .3, 1);
+  }
+  80% {
+    transform: translate3d(var(--crash-x),
+                           calc(var(--crash-y) - var(--crash-hop)), 0)
+               scale(var(--target-s));
+  }
+  100% {
+    transform: translate3d(var(--crash-x), var(--crash-y), 0) scale(var(--target-s));
+  }
+}
+
+/* Overshoots and comes back: the hull swings past where it ends up,
+   catches the ground, and settles. One curve straight to --rotation
+   would read as a lever being pulled. */
+.ship.ship-crashing .ship__craft {
+  animation: craftCrashTilt var(--crash-ms) var(--ease-impact) forwards;
+}
+
+@keyframes craftCrashTilt {
+  0% {
+    transform: translate(calc(var(--lean) * 2.3%), .66%)
+               rotate(calc(var(--lean) * 5.4deg)) scale(1, 1);
+    animation-timing-function: cubic-bezier(.5, .02, .85, .6);
+  }
+  /* The sideways travel here is deliberately small — 3% of the box,
+     around 7px. The SKID is the ship's own translate below
+     (shipCrashSlide), which is sized to the spare rock the island
+     actually has; if this pitched in much more the wreck would end
+     up hanging off the shore of an island the whole point of which
+     is that it had land to spare. */
+  58% {
+    transform: translate(calc(var(--lean) * 2.6%), 2.1%)
+               rotate(calc(var(--lean) * var(--rotation) * 1.38)) scale(1.016, .982);
+    animation-timing-function: cubic-bezier(.3, 0, .2, 1);
+  }
+  79% {
+    transform: translate(calc(var(--lean) * 2.9%), 1.4%)
+               rotate(calc(var(--lean) * var(--rotation) * .88)) scale(.992, 1.008);
+  }
+  100% {
+    transform: translate(calc(var(--lean) * 3%), 1.9%)
+               rotate(calc(var(--lean) * var(--rotation))) scale(1, 1);
+  }
+}
+
+/* the shadow collapses under the hull as it comes down on it */
+.ship.ship-crashing .ship__cast {
+  animation: shadowFlatten var(--crash-ms) var(--ease-impact) forwards;
+}
+
+@keyframes shadowFlatten {
+  0%   { opacity: .44; transform: translate(calc(-50% + var(--lean) * 3.4%), -48.6%) scale(1.05); }
+  64%  { opacity: .62; transform: translate(calc(-50% + var(--lean) * 2.8%), -50%) scale(.92); }
+  100% { opacity: .5;  transform: translate(calc(-50% + var(--lean) * 3%), -50%) scale(1.06); }
+}
+
+.ship.ship-crashing .ship__img { animation: engineOut var(--crash-ms) linear forwards; }
+.ship.ship-crashing .engine-flame { animation: flameGutter calc(var(--crash-ms) * .45) linear forwards; }
+
+/* one amber flare off the rock as it lands, and then out */
+@keyframes engineOut {
+  0%   { filter: saturate(.32) brightness(.86)
+                 drop-shadow(0 6px 10px rgba(0, 0, 0, .62))
+                 drop-shadow(0 0 8px rgba(120, 214, 255, .12)); }
+  22%  { filter: saturate(.7) brightness(1.04)
+                 drop-shadow(0 6px 10px rgba(0, 0, 0, .62))
+                 drop-shadow(0 0 16px rgba(255, 206, 138, .3)); }
+  100% { filter: saturate(.14) brightness(.72)
+                 drop-shadow(0 4px 10px rgba(0, 0, 0, .6))
+                 drop-shadow(0 0 14px rgba(70, 28, 8, .6)); }
+}
+
+/* ---- the wreck's resting state ----
+   Held after the animation, and the only thing left on screen when
+   the beat is over: dimmed, scorched, engine dead, still whole.
+   saturate(.14) is what takes the colour out of the painted flame,
+   so the exhaust reads as cold rather than as still burning. */
+.ship.ship-wrecked .ship__img {
+  filter: saturate(.14) brightness(.72)
+          drop-shadow(0 4px 10px rgba(0, 0, 0, .6))
+          drop-shadow(0 0 14px rgba(70, 28, 8, .6));
+}
+
+.ship.ship-wrecked .engine-flame { opacity: 0; animation: none; }
+
+
+/* ============================================================
+   8 · PHASE 2b — THE FAILED FIT   (too-small only)
+
+   This is the beat that has to teach. The craft comes down, tries
+   to settle, and is visibly WIDER THAN THE ISLAND — it is drawn at
+   its true size on every attempt (see the note in js/failure.js),
+   so the overhang is real, not staged.
+
+   It holds still for a moment — that pause is what makes the
+   overhang readable — then one side goes down, because there is
+   nothing under it.
+   ============================================================ */
+
+.ship.ship-failed-fit .ship__craft {
+  animation: craftMisfit var(--misfit-ms) cubic-bezier(.34, .05, .5, 1) forwards;
+}
+
+@keyframes craftMisfit {
+  /* it settles, and for a third of a second it looks like it worked */
+  0%   { transform: translate(0, 0) rotate(0deg) scale(.96, .96); }
+  14%  { transform: translate(0, 0) rotate(0deg) scale(1.02, .97); }
+  26%  { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
+  46%  { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
+  /* then the unsupported side drops away */
+  63%  { transform: translate(calc(var(--lean) * 1.2%), .5%)
+                    rotate(calc(var(--lean) * 3.4deg)) scale(1, 1); }
+  78%  { transform: translate(calc(var(--lean) * .6%), .2%)
+                    rotate(calc(var(--lean) * 1.6deg)) scale(1, 1); }
+  100% { transform: translate(calc(var(--lean) * 2.2%), .9%)
+                    rotate(calc(var(--lean) * 4.6deg)) scale(1, 1); }
+}
+
+/* the shadow slides off the island with the hull that is over it */
+.ship.ship-failed-fit .ship__cast {
+  animation: shadowSlip var(--misfit-ms) cubic-bezier(.34, .05, .5, 1) forwards;
+}
+
+@keyframes shadowSlip {
+  0%   { opacity: .5;  transform: translate(-50%, -50%) scale(.94); }
+  46%  { opacity: .54; transform: translate(-50%, -50%) scale(.98); }
+  100% { opacity: .36; transform: translate(calc(-50% + var(--lean) * 4%), -49%) scale(1.12); }
+}
+
+.ship.ship-failed-fit .ship__img { animation: engineFlicker var(--misfit-ms) linear forwards; }
+.ship.ship-failed-fit .engine-flame { animation: flameGutter var(--misfit-ms) linear forwards; }
+
+
+/* ============================================================
+   9 · PHASE 3b — OFF THE EDGE   (too-small only)
+
+   Gravity takes it. The easing accelerates all the way out —
+   cubic-bezier(.45,.05,.75,.45) — and the rotation keeps building,
+   so nothing about this beat looks like a decision the craft made.
+   ============================================================ */
+
+.ship.ship-slipping {
+  animation: shipSlip var(--slip-ms) var(--ease-fall) forwards;
+}
+
+@keyframes shipSlip {
+  0%   { transform: translate3d(var(--target-x), var(--target-y), 0) scale(var(--target-s)); }
+  100% { transform: translate3d(var(--fall-x), var(--fall-y), 0) scale(var(--target-s)); }
+}
+
+.ship.ship-slipping .ship__craft {
+  animation: craftSlip var(--slip-ms) var(--ease-fall) forwards;
+}
+
+@keyframes craftSlip {
+  0%   { transform: translate(calc(var(--lean) * 2.2%), .9%)
+                    rotate(calc(var(--lean) * 4.6deg)) scale(1, 1); }
+  44%  { transform: translate(calc(var(--lean) * 3.4%), 1.6%)
+                    rotate(calc(var(--lean) * 8deg)) scale(1, 1); }
+  100% { transform: translate(calc(var(--lean) * 4.4%), 2.2%)
+                    rotate(calc(var(--lean) * 12deg)) scale(1, 1); }
+}
+
+/* the shadow is gone: there is no longer any ground under it */
+.ship.ship-slipping .ship__cast {
+  animation: shadowLost var(--slip-ms) var(--ease-fall) forwards;
+}
+
+@keyframes shadowLost {
+  0%   { opacity: .36; transform: translate(calc(-50% + var(--lean) * 4%), -49%) scale(1.12); }
+  100% { opacity: 0;   transform: translate(calc(-50% + var(--lean) * 7%), -47%) scale(1.3);  }
+}
+
+.ship.ship-slipping .ship__img { animation: engineOutCold var(--slip-ms) linear forwards; }
+.ship.ship-slipping .engine-flame { animation: flameGutter calc(var(--slip-ms) * .6) linear forwards; }
+
+/* No flare on this one: it goes over water, not onto rock, so the
+   drive simply gives out on the way down. */
+@keyframes engineOutCold {
+  0%   { filter: saturate(.32) brightness(.86)
+                 drop-shadow(0 6px 10px rgba(0, 0, 0, .6))
+                 drop-shadow(0 0 10px rgba(120, 214, 255, .14)); }
+  38%  { filter: saturate(.5) brightness(.94)
+                 drop-shadow(0 6px 10px rgba(0, 0, 0, .6))
+                 drop-shadow(0 0 18px rgba(120, 214, 255, .26)); }
+  100% { filter: saturate(.12) brightness(.78)
+                 drop-shadow(0 6px 12px rgba(0, 0, 0, .55))
+                 drop-shadow(0 0 0 rgba(120, 214, 255, 0)); }
+}
+
+
+/* ============================================================
+   10 · PHASE 4b — WATER IMPACT, AND PHASE 5b — SINKING
+
+   The impact itself is drawn by the burst elements in block 12.
+   What the SHIP does is drift on down and go dim, blue and blurred
+   — and the water overlay (block 11) is painted OVER it, which is
+   the whole illusion: it is not fading out, it is going under
+   something.
+   ============================================================ */
+
+.ship.ship-water-impact .ship__craft {
+  animation: craftPlunge calc(var(--sink-ms) * .12) ease-out forwards;
+}
+
+/* the check as it hits the surface — water is not nothing */
+@keyframes craftPlunge {
+  0%   { transform: translate(calc(var(--lean) * 4.4%), 2.2%)
+                    rotate(calc(var(--lean) * 12deg)) scale(1, 1); }
+  100% { transform: translate(calc(var(--lean) * 4.4%), 2.2%)
+                    rotate(calc(var(--lean) * 12.6deg)) scale(.99, .985); }
+}
+
+.ship.ship-sinking {
+  animation: shipSinkDrift var(--sink-ms) var(--ease-sink) forwards;
+}
+
+@keyframes shipSinkDrift {
+  0%   { transform: translate3d(var(--fall-x), var(--fall-y), 0) scale(var(--target-s)); }
+  100% { transform: translate3d(var(--sink-x), var(--sink-y), 0) scale(var(--target-s)); }
+}
+
+/* Scale, opacity and filter all move on their own uneven stops, so
+   the craft does not simply dissolve on a straight line. The blur
+   and the loss of saturation are what say "water between us and
+   it"; the opacity alone never would. */
+.ship.ship-sinking .ship__craft {
+  animation: craftSink var(--sink-ms) var(--ease-sink) forwards;
+}
+
+@keyframes craftSink {
+  /* exactly where craftPlunge left it, squash and all */
+  0% {
+    transform: translate(calc(var(--lean) * 4.4%), 2.2%)
+               rotate(calc(var(--lean) * 12.6deg)) scale(.99, .985);
+    opacity: 1;
+    filter: brightness(1) saturate(1) blur(0);
+  }
+  22% {
+    transform: translate(calc(var(--lean) * 4.6%), 2.6%)
+               rotate(calc(var(--lean) * 14deg)) scale(.96, .96);
+    opacity: .9;
+    filter: brightness(.9) saturate(.9) blur(.3px);
+  }
+  50% {
+    transform: translate(calc(var(--lean) * 4.9%), 3.1%)
+               rotate(calc(var(--lean) * 15.4deg)) scale(.9, .9);
+    opacity: .65;
+    filter: brightness(.82) saturate(.8) blur(.7px);
+  }
+  78% {
+    transform: translate(calc(var(--lean) * 5.2%), 3.5%)
+               rotate(calc(var(--lean) * 16.8deg)) scale(.865, .865);
+    opacity: .25;
+    filter: brightness(.66) saturate(.66) blur(1.2px);
+  }
+  100% {
+    transform: translate(calc(var(--lean) * 5.4%), 3.8%)
+               rotate(calc(var(--lean) * 17.6deg)) scale(.84, .84);
+    opacity: 0;
+    filter: brightness(.55) saturate(.55) blur(1.6px);
+  }
+}
+
+.ship.ship-sinking .ship__cast { opacity: 0; animation: none; }
+.ship.ship-sinking .engine-flame { opacity: 0; animation: none; }
+
+
+/* ============================================================
+   11 · THE WATER OVERLAY
+
+   A patch of sea painted ABOVE the craft (z-index 5, the ship is 4)
+   and parked on the point it went in. Fading this up as the craft
+   fades down is what turns "the sprite disappeared" into "it went
+   under the water" — the two crossfade, so for most of the beat you
+   are looking at a hull THROUGH water rather than at a hull that is
+   half gone.
+   ============================================================ */
+
+.water-depth-overlay {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  width: calc(26 * var(--pu));
+  aspect-ratio: 1;
+  margin-left: calc(-13 * var(--pu));
+  margin-top: calc(-13 * var(--pu));
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side,
+      rgba(0, 180, 220, .46) 0%,
+      rgba(6, 140, 194, .34) 46%,
+      rgba(4, 96, 150, .14) 74%,
+      rgba(0, 180, 220, 0) 100%);
+  filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.water-depth-overlay.is-on {
+  animation: waterDeepen var(--overlay-ms, 1700ms) cubic-bezier(.35, .05, .65, 1) forwards;
+}
+
+@keyframes waterDeepen {
+  0%   { opacity: 0; }
+  18%  { opacity: .5; }
+  62%  { opacity: .88; }
+  86%  { opacity: .7; }
+  100% { opacity: 0; }
+}
+
+
+/* ============================================================
+   12 · THE BURSTS
+
+   Two layers, one behind the craft and one in front, both parked
+   over the whole screen and both empty until something hits
+   something. js/failure.js appends the particles into them with
+   their own size, direction, delay and tint as custom properties —
+   the same idiom the starfield and the confetti already use, so a
+   burst of thirty pieces is thirty compositor animations and no
+   per-frame JavaScript.
+
+   Splitting front from back is what makes an impact read as
+   happening AROUND the craft rather than on top of it: half the
+   spray goes up in front of the hull, half behind it.
+   ============================================================ */
+
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fx-layer--back  { z-index: 3; }   /* under the ship (4) */
+.fx-layer--front { z-index: 6; }   /* over the ship and the water overlay (5) */
+
+/* every particle is parked at the impact point by left/top, set
+   once at birth, and then only ever moves on transform/opacity */
+.fx-layer > * {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ---------------------------------------------------------- water impact */
+
+/* MAIN SPLASH RING — the surface opening up.
+
+   White, and heavier than a ripple on paper would be. These are
+   drawn on a bright turquoise sea that is itself full of moving
+   caustics, and the first cut of this ring — 2px of pale cyan —
+   simply disappeared into it. What separates from that water is
+   white, thick enough to survive the background, with a cyan bloom
+   on both sides of the stroke so the ring still reads as water
+   rather than as a drawn circle. */
+.water-ripple {
+  width: var(--sz);
+  aspect-ratio: 1;
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: max(3px, .22vw) solid rgba(255, 255, 255, .95);
+  box-shadow: 0 0 22px rgba(126, 226, 255, .8),
+              inset 0 0 18px rgba(126, 226, 255, .6);
+  opacity: 0;
+  animation: rippleOut var(--dur, 700ms) cubic-bezier(.15, .7, .3, 1) var(--delay, 0ms) forwards;
+}
+
+/* SECOND RIPPLE — later, larger, thinner, fainter */
+.water-ripple-secondary {
+  width: var(--sz);
+  aspect-ratio: 1;
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: max(2px, .12vw) solid rgba(238, 252, 255, .8);
+  box-shadow: 0 0 16px rgba(126, 226, 255, .5);
+  opacity: 0;
+  animation: rippleOut var(--dur, 950ms) cubic-bezier(.15, .7, .3, 1) var(--delay, 130ms) forwards;
+}
+
+@keyframes rippleOut {
+  0%   { opacity: 0;   transform: translate3d(0, 0, 0) scale(.3); }
+  14%  { opacity: var(--peak, .8); }
+  100% { opacity: 0;   transform: translate3d(0, 0, 0) scale(var(--grow, 2)); }
+}
+
+/* WATER GLOW — one bright cyan bloom under the hull at the moment
+   of entry. Short: it is the flash of disturbed water, not a lamp. */
+.water-glow {
+  width: var(--sz);
+  aspect-ratio: 1;
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+              rgba(240, 253, 255, .92),
+              rgba(126, 226, 255, .55) 42%,
+              rgba(64, 176, 255, 0) 76%);
+  filter: blur(5px);
+  opacity: 0;
+  animation: glowFlash var(--dur, 620ms) ease-out forwards;
+}
+
+@keyframes glowFlash {
+  0%   { opacity: 0;  transform: scale(.28); }
+  15%  { opacity: 1;  transform: scale(1); }
+  100% { opacity: 0;  transform: scale(1.7); }
+}
+
+/* WATER SPLASH PARTICLES — thrown out from the entry point.
+   --dx/--dy carry a direction that is different for every piece, so
+   the spray has no pattern to it. */
+.water-splash {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: var(--tint, rgba(255, 255, 255, .96));
+  box-shadow: 0 0 10px rgba(150, 225, 255, .85),
+              0 0 3px rgba(255, 255, 255, .9);
+  opacity: 0;
+  animation: splashOutward var(--dur, 620ms) cubic-bezier(.16, .74, .3, 1) var(--delay, 0ms) forwards;
+}
+
+@keyframes splashOutward {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0) scale(.4); }
+  12%  { opacity: 1; transform: translate3d(calc(var(--dx) * .22), calc(var(--dy) * .22), 0) scale(1.05); }
+  100% { opacity: 0; transform: translate3d(var(--dx), var(--dy), 0) scale(.32); }
+}
+
+/* BUBBLES — rising off the hull all the way down. Rings, not
+   discs: a bubble seen from above is a bright rim and nothing in
+   the middle. Staggered, and each one a different size, drift and
+   climb, so the six of them never read as one animation. */
+.water-bubble {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: max(1px, .06vw) solid rgba(216, 248, 255, .8);
+  background: radial-gradient(closest-side,
+              rgba(190, 240, 255, .1), rgba(190, 240, 255, 0) 74%);
+  opacity: 0;
+  animation: bubbleUp var(--dur, 1200ms) cubic-bezier(.35, .1, .5, 1) var(--delay, 0ms) forwards;
+}
+
+@keyframes bubbleUp {
+  0%   { opacity: 0;   transform: translate3d(0, 0, 0) scale(.5); }
+  18%  { opacity: .85; }
+  70%  { opacity: .6;  transform: translate3d(calc(var(--dx) * .7), calc(var(--dy) * .7), 0) scale(.94); }
+  100% { opacity: 0;   transform: translate3d(var(--dx), var(--dy), 0) scale(1); }
+}
+
+/* ---------------------------------------------------------- ground impact */
+
+/* DUST PUFF — the island's own colour, so the burst belongs to the
+   rock rather than looking like sea foam thrown onto it */
+.crash-dust {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  /* The tint is held flat across the middle before it falls away.
+     A plain two-stop gradient puts the colour only at the very
+     centre, which on a 20px puff is a handful of pixels and reads
+     as nothing at all against warm rock. */
+  background: radial-gradient(closest-side,
+              var(--tint, rgba(240, 194, 144, .8)) 0%,
+              var(--tint, rgba(240, 194, 144, .8)) 40%,
+              rgba(178, 112, 56, 0) 82%);
+  filter: blur(1.8px);
+  opacity: 0;
+  animation: dustOutward var(--dur, 760ms) cubic-bezier(.16, .74, .3, 1) var(--delay, 0ms) forwards;
+}
+
+@keyframes dustOutward {
+  0%   { opacity: 0;   transform: translate3d(0, 0, 0) scale(.35); }
+  14%  { opacity: .95; transform: translate3d(calc(var(--dx) * .26), calc(var(--dy) * .26), 0) scale(1); }
+  100% { opacity: 0;   transform: translate3d(var(--dx), var(--dy), 0) scale(1.6); }
+}
+
+/* IMPACT RING — thin, elliptical, gone in under half a second */
+.impact-ring {
+  width: var(--sz);
+  aspect-ratio: 1;
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: max(2px, .12vw) solid rgba(255, 214, 152, .8);
+  box-shadow: 0 0 14px rgba(255, 176, 84, .45);
+  opacity: 0;
+  animation: impactRingOut var(--dur, 420ms) cubic-bezier(.15, .7, .3, 1) var(--delay, 0ms) forwards;
+}
+
+@keyframes impactRingOut {
+  0%   { opacity: 0;  transform: translate3d(0, 0, 0) scaleX(.3) scaleY(.22); }
+  16%  { opacity: .9; }
+  100% { opacity: 0;  transform: translate3d(0, 0, 0) scaleX(var(--grow, 2.1)) scaleY(calc(var(--grow, 2.1) * .74)); }
+}
+
+/* SMALL DEBRIS — chips of rock. They go 10-30px and no further:
+   anything that flies across the island reads as an explosion. */
+.crash-debris {
+  width: var(--sz);
+  height: calc(var(--sz) * .74);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 30%;
+  background: var(--tint, #a46634);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .4);
+  opacity: 0;
+  animation: debrisOut var(--dur, 520ms) cubic-bezier(.2, .7, .4, 1) var(--delay, 0ms) forwards;
+}
+
+@keyframes debrisOut {
+  0%   { opacity: 0;  transform: translate3d(0, 0, 0) rotate(0deg); }
+  10%  { opacity: 1; }
+  70%  { opacity: .8; transform: translate3d(calc(var(--dx) * .9), calc(var(--dy) * .9 - var(--sz)), 0) rotate(calc(var(--rot, 180deg) * .8)); }
+  100% { opacity: 0;  transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot, 180deg)); }
+}
+
+/* SCORCH MARK — the one thing an impact leaves behind. It is in the
+   BACK layer, so the wreck lies on it. Faint on purpose: 0.2 is a
+   scuff on the rock, and anything darker starts to look like a
+   crater. */
+.scorch-mark {
+  width: var(--sz);
+  height: calc(var(--sz) * .62);
+  margin: calc(var(--sz) * -.31) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+              rgba(26, 12, 4, .9), rgba(40, 20, 6, .35) 58%, rgba(40, 20, 6, 0) 100%);
+  filter: blur(5px);
+  opacity: 0;
+  transform: rotate(var(--rot, 0deg));
+  animation: scorchIn var(--dur, 520ms) ease-out var(--delay, 0ms) forwards;
+}
+
+@keyframes scorchIn {
+  0%   { opacity: 0; transform: rotate(var(--rot, 0deg)) scale(.5); }
+  100% { opacity: var(--peak, .22); transform: rotate(var(--rot, 0deg)) scale(1); }
+}
+
+/* AFTER-RIPPLES — what is left on the water once the craft is gone.
+   Slow, wide and almost transparent: the sea closing over it. */
+.water-ripple.is-residual,
+.water-ripple-secondary.is-residual {
+  border-color: rgba(196, 240, 255, .38);
+  box-shadow: 0 0 10px rgba(150, 225, 255, .2);
+  animation-timing-function: cubic-bezier(.25, .6, .35, 1);
+}
+
+
+/* ============================================================
+   13 · THE FIT — the answer, for completeness
+
+   Not a failure, but it belongs in the same chain: same approach,
+   same touchdown, and then it simply stops moving. The settle is
+   short and there is no wobble at all, because the whole read is
+   "that one was right and nothing else happened".
+   ============================================================ */
+
+.ship.ship-landed .ship__craft {
+  animation: craftPlant var(--plant-ms) cubic-bezier(.2, 1, .3, 1) forwards;
+}
+
+/* starts on exactly where craftTouchdown left it, so the two run
+   as one movement and the hull never jumps between them */
+@keyframes craftPlant {
+  0%   { transform: translateY(0)    rotate(0deg) scale(1, 1); }
+  30%  { transform: translateY(.55%) rotate(0deg) scale(1.014, .984); }
+  62%  { transform: translateY(-.4%) rotate(0deg) scale(.995, 1.008); }
+  100% { transform: translateY(0)    rotate(0deg) scale(1, 1); }
+}
+
+.ship.ship-landed .ship__cast {
+  animation: shadowPlant var(--plant-ms) cubic-bezier(.2, 1, .3, 1) forwards;
+}
+
+@keyframes shadowPlant {
+  0%   { opacity: .52; transform: translate(-50%, -50%) scale(.97); }
+  100% { opacity: .46; transform: translate(-50%, -50%) scale(1);   }
+}
+
+/* the drive idles down rather than cutting out — it landed */
+.ship.ship-landed .ship__img {
+  animation: engineIdle var(--plant-ms) ease-out forwards;
+}
+
+/* back up to full colour: this drive did not fail, it arrived */
+@keyframes engineIdle {
+  0%   { filter: saturate(.84) brightness(.97)
+                 drop-shadow(0 8px 14px rgba(0, 0, 0, .58))
+                 drop-shadow(0 0 14px rgba(90, 200, 255, .16)); }
+  100% { filter: saturate(1) brightness(1)
+                 drop-shadow(0 10px 20px rgba(0, 0, 0, .5))
+                 drop-shadow(0 0 26px rgba(90, 200, 255, .3)); }
+}
+
+.ship.ship-landed .engine-flame {
+  animation: flameEase calc(var(--plant-ms) * .7) ease-out forwards;
+}
+
+
+/* ============================================================
+   14 · REDUCED MOTION
+
+   The rule is not "show less" — a player who cannot watch the
+   animation still has to be able to tell WHY the landing failed.
+   So every beat survives; what goes is the time it takes, the
+   shaking, and the loose particles.
+
+     · durations cut to roughly a quarter
+     · the wobble and the judder are flattened to a single lean
+     · dust, debris, spray and bubbles are not built at all
+       (js/failure.js checks the same query)
+     · the END STATE is untouched: the wreck still lies tilted and
+       scorched on the rock, and the sunk craft still goes under
+       the water overlay
+   ============================================================ */
+
+/* The two flattened beats. Declared at the top level, not inside
+   the media block below: a @keyframes written inside a media query
+   only exists while that query matches, and the `.is-reduced`
+   rules at the end of this file have to be able to reach them. */
+@keyframes craftLeanOnly {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
+  100% { transform: translate(calc(var(--lean) * 2.3%), .66%)
+                    rotate(calc(var(--lean) * 5.4deg)) scale(1, 1); }
+}
+
+@keyframes craftMisfitPlain {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(.96, .96); }
+  40%  { transform: translate(0, 0) rotate(0deg) scale(1, 1); }
+  100% { transform: translate(calc(var(--lean) * 2.2%), .9%)
+                    rotate(calc(var(--lean) * 4.6deg)) scale(1, 1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ship {
+    --approach-ms:  260ms;
+    --touchdown-ms: 100ms;
+    --unstable-ms:  240ms;
+    --crash-ms:     240ms;
+    --misfit-ms:    300ms;
+    --slip-ms:      240ms;
+    --sink-ms:      620ms;
+    --plant-ms:     240ms;
+  }
+
+  /* one lean, held — no judder */
+  .ship.ship-unstable .ship__craft {
+    animation: craftLeanOnly var(--unstable-ms) ease-out forwards;
+  }
+
+  .ship.ship-failed-fit .ship__craft {
+    animation: craftMisfitPlain var(--misfit-ms) ease-out forwards;
+  }
+
+  .ship[data-flame="on"] .engine-flame { animation: none; opacity: .9; }
+}
+
+/* The same dials again, for the class js/script.js sets on <body>
+   when the query matched at boot. Written out rather than folded
+   into the block above because a media query and a class cannot
+   share a selector list. */
+.is-reduced .ship {
+  --approach-ms:  260ms;
+  --touchdown-ms: 100ms;
+  --unstable-ms:  240ms;
+  --crash-ms:     240ms;
+  --misfit-ms:    300ms;
+  --slip-ms:      240ms;
+  --sink-ms:      620ms;
+  --plant-ms:     240ms;
+}
+
+.is-reduced .ship.ship-unstable .ship__craft {
+  animation: craftLeanOnly var(--unstable-ms) ease-out forwards;
+}
+
+.is-reduced .ship.ship-failed-fit .ship__craft {
+  animation: craftMisfitPlain var(--misfit-ms) ease-out forwards;
+}
+
+.is-reduced .ship[data-flame="on"] .engine-flame { animation: none; opacity: .9; }

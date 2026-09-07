@@ -33,19 +33,20 @@
    channel of the PNG it describes:
 
      land          fill %  centre of area      craft            fill %  centre of area
-     Triangle       40.857  (49.86, 63.32)     Triangle ship     31.407  (49.92, 47.72)
-     Square         62.728  (49.98, 50.01)     Square ship       37.389  (49.84, 37.83)
-     Rectangle      40.671  (50.00, 49.00)     Rectangle ship    26.957  (49.81, 43.16)
-     Parallelogram  37.538  (49.55, 48.79)     Trapezium ship    29.117  (50.26, 38.85)
-     Trapezium      42.410  (49.99, 55.66)     Parallelogram sh  39.193  (49.92, 45.09)
-     Rhombus        38.159  (49.80, 49.21)     Rhombus ship      21.258  (49.89, 41.49)
+     Triangle       36.623  (49.94, 63.45)     Triangle ship     31.407  (49.92, 47.72)
+     Square         59.110  (50.04, 50.08)     Square ship       37.389  (49.84, 37.83)
+     Rectangle      28.000  (49.97, 49.93)     Rectangle ship    26.957  (49.81, 43.16)
+     Parallelogram  36.281  (50.15, 49.98)     Trapezium ship    29.117  (50.26, 38.85)
+     Trapezium      38.396  (49.96, 56.36)     Parallelogram sh  39.193  (49.92, 45.09)
+     Rhombus        31.797  (50.00, 49.82)     Rhombus ship      21.258  (49.89, 41.49)
 
    A craft's fill is its HULL: the flame is masked out by colour,
    which is what reproduces the 31.407% / (49.92, 47.72) that screen
    3 was built on. Everything else — the pad sizes, the ship box,
-   the fall arithmetic in padPlan() — is derived from those two
-   columns at load, so there is one place to correct if a PNG is
-   ever redrawn, and no figure is repeated anywhere it could drift.
+   the fall arithmetic in plan() (js/failure.js) — is derived from
+   those two columns at load, so there is one place to correct if a
+   PNG is ever redrawn, and no figure is repeated anywhere it could
+   drift.
 
    ── the two pieces of artwork that are swapped ─────────────────
 
@@ -60,20 +61,39 @@
    are not: the files are. Renaming the two PNGs and swapping these
    two lines back is a safe change to make later.
 
-   ── where the artwork still does not quite agree ───────────────
+   ── where the artwork still does not quite agree ─────────────
 
-   Matched on area, a craft and its island are not always the same
-   PROPORTIONS, because the two drawings were not drawn to one
-   ratio. Screen 3 already documents this for the triangle (the
-   craft lands 5.2% wider and 7.5% shorter than the island it
-   fits); the others come out at 3% (square), 8% (rectangle), 5%
-   (parallelogram), 7% (rhombus), and worst for the trapezium,
-   whose land tapers to 28% of its base while the hull only tapers
-   to 48%. The areas are exact in every case — that is what the
-   lesson is about — but closing the shape gap is an artwork
-   change, not a code one. Forcing it here (a non-uniform squash,
-   or scaling to a side instead of to the area) would make the
-   too-small and too-large verdicts lie.
+   Matched on AREA, a craft and its island are not always the same
+   PROPORTIONS, because the two sets of drawings were not drawn to
+   one ratio. The AREAS are exact in every case — that is what the
+   lesson rests on, and it follows from the two fills alone — but a
+   silhouette can still come out wider or shorter than the one it
+   matches. Closing that is an artwork change, not a code one:
+   forcing it here (a non-uniform squash, or scaling to a side
+   instead of to the area) would make the too-small and too-large
+   verdicts lie.
+
+   The land as it now stands, painted, in per cent of its own box:
+
+     triangle       93.2 x 78.9   ratio 1.18
+     square         77.5 x 76.8   ratio 1.01
+     rectangle      70.0 x 40.0   ratio 1.75
+     parallelogram  96.9 x 57.0   ratio 1.70
+     trapezium      95.4 x 56.6   ratio 1.69
+     rhombus        69.2 x 92.6   ratio 0.75
+
+   Those are new. The previous artwork had the rectangle at 2.14
+   and the rhombus at 0.96, so the pairing each round strikes with
+   its (unchanged) craft has moved: the rectangle round now agrees
+   far better than it did — 1.75 against its hull's 1.82 — and the
+   rhombus round is the tall one at both ends. (The rectangle read
+   1.32 here until its tile was squared up: 70.0 x 53.2 was two
+   percentages of a 4:3 canvas being divided as though the canvas
+   were square. See the note over LAND.) Measure the hulls off the craft PNGs before trying to
+   close any of the remaining gaps — the figures that used to sit
+   here were read off the hull's own triangle rather than its
+   painted extent, and on a craft with a nozzle below the base
+   those are not the same reading.
    ============================================================ */
 
 (function (global) {
@@ -82,60 +102,88 @@
   var doc = document;
 
   /* ---------------------------------------------------------- the land
-     One entry per shape of island. `fill` and `c` come off the alpha
-     channel; `outline` and `clip` are the silhouette traced in the
-     same box units, so the verdict outline is the actual coastline
-     and the tap target is the actual land.
+     One entry per shape of island, and every figure in it is read
+     off that PNG's alpha channel rather than chosen: `fill` is how
+     much of the canvas the painted land covers, `cx`/`cy` its centre
+     of area, `outline` and `clip` the silhouette traced in the same
+     box units. So the verdict outline is the actual coastline, the
+     tap target is the actual land, the water's shore is built on the
+     actual shore, and `label` is the point a printed number has to
+     sit on to look centred.
 
-     There was a third figure here, `ring`: the radius of a CIRCLE
-     in the water around each island, worked out to clear every
-     corner of that shape's silhouette. The circle is gone (see THE
-     INVITATION in css/water.css — a round cue drawn around a shape
-     that is not round was half of what made the islands look stuck
-     onto the sea), and so is the figure, because js/water.js builds
-     the shore and its ripples off `clip` and `c` and works the
-     reach out for itself.                                          */
+     EVERY ONE OF THESE PNGs MUST BE SQUARE. The figures are per cent
+     of the canvas, .zone and .pad are `aspect-ratio: 1`, and every
+     <svg> the water draws on them — shore, laps, surf, blast — has
+     `viewBox="0 0 100 100"`. A land tile that is not square renders
+     at 100% x (h/w) of that box and top-aligns, so its painting ends
+     up somewhere its own percentages do not describe: the coast, the
+     foam and the wake all draw in the right place for the box and
+     the wrong place for the land. Rectangle.png shipped 1448 x 1086
+     and did exactly that — its shore sat a tenth of a box below its
+     shoreline. It is now padded out to 1448 x 1448, transparently,
+     with the painting untouched.
+
+     Padding a tile does not change how big the island comes out:
+     boxFor() sizes the box from `fill`, so a tile that covers less
+     of its canvas simply gets a bigger box and the painted land is
+     the same number of pixels either way.
+
+     Re-measured when the six land PNGs were redrawn. The trace is a
+     convex hull of the alpha mask simplified to the shape's own
+     corner count; each polygon's own area agrees with the measured
+     coverage to better than 1%, which is the check that it snapped
+     to the real corners rather than near them.
+
+     The land moved and the CRAFT artwork did not, so everything
+     downstream of the two together — the box factors, the ship box,
+     FIT_AREA — is derived at load from these figures and the CRAFT
+     ones, and none of it is written down twice. */
   var LAND = {
     triangle: {
-      img: 'Triangle.png', fill: 40.857, cx: 0.4986, cy: 0.6332,
-      outline: 'M50.1 7.7 98.6 91.4H1.1z',
-      clip: 'polygon(50.1% 7.7%, 98.6% 91.4%, 1.1% 91.4%)',
-      label: [49.9, 62],
+      img: 'Triangle.png', fill: 36.623, cx: 0.4994, cy: 0.6345,
+      outline: 'M50 10.9L96.5 89.8L3.3 89.6z',
+      clip: 'polygon(50% 10.9%, 96.5% 89.8%, 3.3% 89.6%)',
+      label: [49.9, 63.4],
       adjective: 'triangular'
     },
+
     square: {
-      img: 'Square.png', fill: 62.728, cx: 0.4998, cy: 0.5001,
-      outline: 'M10.3 10.5H89.7V89.5H10.3z',
-      clip: 'polygon(10.3% 10.5%, 89.7% 10.5%, 89.7% 89.5%, 10.3% 89.5%)',
-      label: [50, 50],
+      img: 'Square.png', fill: 59.110, cx: 0.5004, cy: 0.5008,
+      outline: 'M11.4 11.7L88.8 11.7L88.8 88.5L11.3 88.5z',
+      clip: 'polygon(11.4% 11.7%, 88.8% 11.7%, 88.8% 88.5%, 11.3% 88.5%)',
+      label: [50.0, 50.1],
       adjective: 'square'
     },
+
     rectangle: {
-      img: 'Rectangle.png', fill: 40.671, cx: 0.5000, cy: 0.4900,
-      outline: 'M3.4 27.2H96.6V70.8H3.4z',
-      clip: 'polygon(3.4% 27.2%, 96.6% 27.2%, 96.6% 70.8%, 3.4% 70.8%)',
-      label: [50, 49],
+      img: 'Rectangle.png', fill: 28.000, cx: 0.4997, cy: 0.4993,
+      outline: 'M85 30L85 70L15 70L15 30z',
+      clip: 'polygon(85% 30%, 85% 70%, 15% 70%, 15% 30%)',
+      label: [50.0, 49.9],
       adjective: 'rectangular'
     },
+
     parallelogram: {
-      img: 'Parallelogram.png', fill: 37.538, cx: 0.4955, cy: 0.4879,
-      outline: 'M34.4 18.8H97L64.8 78.9H2.2z',
-      clip: 'polygon(34.4% 18.8%, 97% 18.8%, 64.8% 78.9%, 2.2% 78.9%)',
-      label: [49.6, 48.8],
+      img: 'Parallelogram.png', fill: 36.281, cx: 0.5015, cy: 0.4998,
+      outline: 'M34.5 21.5L98.5 21.5L65.7 78.5L1.6 78.4z',
+      clip: 'polygon(34.5% 21.5%, 98.5% 21.5%, 65.7% 78.5%, 1.6% 78.4%)',
+      label: [50.1, 50.0],
       adjective: 'parallelogram'
     },
+
     trapezium: {
-      img: 'Trapezium.png', fill: 42.410, cx: 0.4999, cy: 0.5566,
-      outline: 'M36.3 15.7H63.7L99.2 82.9H0.8z',
-      clip: 'polygon(36.3% 15.7%, 63.7% 15.7%, 99.2% 82.9%, 0.8% 82.9%)',
-      label: [50, 55],
+      img: 'Trapezium.png', fill: 38.396, cx: 0.4996, cy: 0.5636,
+      outline: 'M29.5 24.3L70.5 24.3L97.6 80.9L2.2 80.8z',
+      clip: 'polygon(29.5% 24.3%, 70.5% 24.3%, 97.6% 80.9%, 2.2% 80.8%)',
+      label: [50.0, 56.4],
       adjective: 'trapezium'
     },
+
     rhombus: {
-      img: 'Rhombus.png', fill: 38.159, cx: 0.4980, cy: 0.4921,
-      outline: 'M49.9 4.6 92.5 48.9 49.9 93.1 7.2 48.9z',
-      clip: 'polygon(49.9% 4.6%, 92.5% 48.9%, 49.9% 93.1%, 7.2% 48.9%)',
-      label: [49.8, 49.2],
+      img: 'Rhombus.png', fill: 31.797, cx: 0.5000, cy: 0.4982,
+      outline: 'M50 3.5L84.6 50L49.8 96.1L15.4 49.9z',
+      clip: 'polygon(50% 3.5%, 84.6% 50%, 49.8% 96.1%, 15.4% 49.9%)',
+      label: [50.0, 49.8],
       adjective: 'rhombus'
     }
   };
@@ -413,7 +461,7 @@
   /* ---------------------------------------------------------- sizing
 
      FIT_AREA is what screen 3's 20-unit island actually covers:
-     17 box units squared, of which the triangle paints 40.857%. Every
+     17 box units squared, of which the triangle paints 36.623%. Every
      round's own fit island is drawn to cover the SAME painted area,
      so a 36-unit square and a 20-unit triangle look like the same
      amount of ground and the series keeps one scale throughout.
@@ -429,7 +477,7 @@
      DECOY_AREA is a bit under half the fit island: enough to read as
      an island, small enough to sit in the middle distance without
      competing with the row that carries the question.               */
-  var FIT_AREA = 17 * 17 * 0.40857;      /* = 118.08 box units of land */
+  var FIT_AREA = 17 * 17 * 0.36623;      /* = 105.84 box units of land */
   var DECOY_AREA = FIT_AREA * 0.45;
 
   function boxFor(paintedArea, land) {
@@ -704,7 +752,7 @@
   /* The three that matched go home to the row to be compared. Their
      row positions are the ones they were laid out at, so dropping
      the scatter is the whole move — and it is the LAYOUT that
-     changes, not a transform, so padPlan() still reads the position
+     changes, not a transform, so the landing still reads the position
      each island is really at. `left`/`top` transition in
      css/rounds.css, which is what turns the change into a glide. */
   function regroup(round) {
@@ -793,10 +841,18 @@
 
       '<div class="layer layer--bg s3-bg" aria-hidden="true"></div>' +
 
+      /* .ship__cast and .ship__wash are not written here: js/water.js
+         inserts them at the front of .ship, and css/failure.css
+         animates the cast one as the landing shadow. .ship__dust is
+         the touchdown puff, and .engine-flame is off unless the
+         craft artwork has no exhaust painted on it — see block 2 of
+         css/failure.css. */
       '<div class="ship">' +
+        '<span class="ship__dust" aria-hidden="true"></span>' +
         '<div class="ship__craft">' +
           '<img class="ship__img" src="assets/images/' + encodeURI(craft.img) +
                '" alt="' + craft.alt + '" />' +
+          '<span class="engine-flame" aria-hidden="true"></span>' +
           '<svg class="ship__dims" viewBox="-28 -6 132 132" aria-hidden="true">' +
             craft.dims +
           '</svg>' +
@@ -805,18 +861,15 @@
 
       '<div class="pads">' + pads.join('') + '</div>' +
 
-      '<div class="splash" aria-hidden="true">' +
-        '<span class="splash__foam"></span>' +
-        '<span class="splash__ring"></span>' +
-        '<span class="splash__ring splash__ring--b"></span>' +
-      '</div>' +
-
-      '<div class="crash" aria-hidden="true">' +
-        '<span class="crash__flash"></span>' +
-        '<span class="crash__dust"></span>' +
-        '<span class="crash__ring"></span>' +
-        '<span class="crash__ring crash__ring--b"></span>' +
-      '</div>' +
+      /* The landing's effect layers, one either side of the craft:
+         the back one (z 3) holds the scorch mark the wreck lies on
+         and half the spray, the front one (z 6) the rest. Between
+         them sits the water overlay (z 5), which is painted OVER a
+         sinking craft so it goes under something rather than
+         fading out. All three are filled by js/failure.js. */
+      '<div class="fx-layer fx-layer--back" aria-hidden="true"></div>' +
+      '<div class="water-depth-overlay" aria-hidden="true"></div>' +
+      '<div class="fx-layer fx-layer--front" aria-hidden="true"></div>' +
 
       '<div class="confetti" aria-hidden="true"></div>' +
 
@@ -852,7 +905,7 @@
      Each round comes back with its elements already looked up (there
      are no ids on these screens: five copies of one screen cannot
      each own an id, and the flow is handed the round it is playing
-     anyway) and with the four figures padPlan() needs.             */
+     anyway) and with the four figures the landing's plan() needs.  */
   function build(stage, before) {
     if (!stage) return [];
 
@@ -876,8 +929,6 @@
         padList: pads,
         /* the order they surface in, near and far alternating */
         reveal: REVEAL.map(function (i) { return pads[i]; }),
-        splash: node.querySelector('.splash'),
-        crash: node.querySelector('.crash'),
         confetti: node.querySelector('.confetti'),
         hud: node.querySelector('.hud'),
         caption: node.querySelector('.hud__caption'),

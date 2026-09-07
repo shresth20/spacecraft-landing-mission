@@ -57,6 +57,11 @@
   var W = global.GeoWave;
   var T = global.GeoType;
 
+  /* js/failure.js — the landing and its two failures, shared by
+     screen 3 and all five round screens. Every one of the three
+     outcomes below goes through it. */
+  var F = global.GeoFail;
+
   /* js/water.js, or a stand-in that does nothing. The water is the
      scene's finish rather than its plumbing: with the module
      missing the islands keep their hard edges and every beat below
@@ -126,7 +131,7 @@
       'launchSlot', 'launchBtn', 'oceanBg', 'blackout', 'scanner',
       'zones',
       'topbar', 'topbarText',
-      'screenLanding', 'ship', 'shipCraft', 'shipDims', 'pads', 'splash', 'crash',
+      'screenLanding', 'ship', 'shipCraft', 'shipDims', 'pads',
       'confetti', 'advanceBtn',
       'landHud', 'landCaption', 'landTally', 'landTopbar', 'landTopbarText',
       'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
@@ -574,8 +579,8 @@
        20  it comes down, squares up and plants itself
 
      The craft is drawn at its TRUE size on every attempt (see
-     padPlan in js/animation.js), so all three outcomes are the
-     honest consequence of the numbers, not three canned cutscenes.
+     plan() in js/failure.js), so all three outcomes are the honest
+     consequence of the numbers, not three canned cutscenes.
      ============================================================ */
 
   var SHIP_AREA = 20;            /* 1/2 x 8 x 5 */
@@ -606,9 +611,11 @@
 
     if (global.GeoPages) global.GeoPages.deal(padList(), LAND_SLOTS);
 
-    M.shipReset(el.ship, el.shipCraft);
-    el.ship.classList.remove('is-in', 'is-committed', 'is-planted');
-    el.ship.classList.remove('is-teeter', 'is-rock', 'is-wrecked');
+    /* GeoFail.resetSpaceship takes every phase class off the craft
+       and empties both effect layers, so the wreck, the scorch and
+       any spray still in the air go with it */
+    F.resetSpaceship(el.ship);
+    el.ship.classList.remove('is-in');
     el.shipDims.classList.remove('is-drawn');
 
     el.pads.classList.remove('is-choosing');
@@ -617,9 +624,6 @@
       var hit = pad.querySelector('.pad__hit');
       if (hit) hit.tabIndex = -1;
     });
-
-    el.splash.classList.remove('is-on');
-    el.crash.classList.remove('is-on');
 
     M.confettiClear(el.confetti);
     hideAdvance();
@@ -742,8 +746,19 @@
     });
   }
 
+  /* The whole question, answered in one branch.
+
+       exact       it comes down and plants
+       too large   it lands, finds nothing holding it, tips and
+                   wrecks ON the island
+       too small   it cannot fit, slides off the edge and sinks
+
+     `landing` and GeoFail's own busy flag both guard the click, so
+     a second island cannot be picked while an attempt is playing
+     out — the first one is the game's state, the second is the
+     animation's, and neither is allowed to be the only one. */
   function onPadPick(pad) {
-    if (!choosing || landing) return;
+    if (!choosing || landing || F.isAnimating(el.ship)) return;
 
     var area = +pad.dataset.area;
     var ref = correctPad();
@@ -759,18 +774,13 @@
     disarmChoice();
     A.sfx('click', { volume: 0.4 });
 
-    /* the callouts and the idle bob come off: the craft is flying
-       now, and a measurement drawing riding along through a crash
-       would read as part of the wreck */
+    /* the callouts come off: the craft is flying now, and a
+       measurement drawing riding along through a crash would read
+       as part of the wreck */
     el.ship.classList.add('is-committed');
 
-    var plan = M.padPlan(el.ship, pad, ref);
-
-    M.shipDescend(el.ship, plan).then(function () {
-      if (!live(id)) return;
-      if (area === SHIP_AREA) return plant(pad, id);
-      return fail(pad, plan, area < SHIP_AREA, id);
-    });
+    if (area === SHIP_AREA) return plant(pad, ref, id);
+    return fail(pad, ref, area < SHIP_AREA, id);
   }
 
   /* ---------------------------------------------------------- the reward
@@ -831,25 +841,42 @@
     el.advanceBtn.hidden = true;
   }
 
-  /* ---------------------------------------------------------- it fits */
-  function plant(pad, id) {
+  /* ---------------------------------------------------------- it fits
+     Approach, touchdown, and then nothing else happens — which is
+     the point. The verdict outline, the chime and the confetti are
+     all hung off the touchdown, so they land on the frame the craft
+     actually settles rather than a beat after it. */
+  function plant(pad, ref, id) {
     solved = true;
-    el.ship.classList.add('is-planted');
-    pad.classList.add('is-fit');
-    /* the craft's weight coming onto the island, read off its
-       shore. settle(), not approve(): the green is the SHAPE task's
-       answer, and this island is already wearing the fit outline. */
-    SEA.settle(pad);
 
-    el.landCaption.textContent = 'PERFECT FIT · 20 SQ UNITS';
-    el.landCaption.classList.add('is-shown');
-    el.landTally.textContent = 'AREA = ½ × 8 × 5 = 20';
+    return F.successfulLanding(el.ship, pad, {
+      refPad: ref,
+      alive: function () { return live(id); },
 
-    A.sfx('correct', { volume: 0.6 });
+      onTouchdown: function () {
+        pad.classList.add('is-fit');
+        /* the craft's weight coming onto the island, read off its
+           shore. settle(), not approve(): the green is the SHAPE
+           task's answer, and this island already wears the fit
+           outline. */
+        SEA.settle(pad);
 
-    /* a beat after the chime, so the two sounds read as one cue */
-    M.wait(220).then(function () { if (live(id)) celebrate(); });
+        el.landCaption.textContent = 'PERFECT FIT · 20 SQ UNITS';
+        el.landCaption.classList.add('is-shown');
+        el.landTally.textContent = 'AREA = ½ × 8 × 5 = 20';
 
+        A.sfx('correct', { volume: 0.6 });
+
+        /* a beat after the chime, so the two sounds read as one cue */
+        M.wait(220).then(function () { if (live(id)) celebrate(); });
+      }
+    }).then(function () {
+      if (!live(id)) return;
+      return sayPlanted(id);
+    });
+  }
+
+  function sayPlanted(id) {
     return narrate(el.landTopbarText, 'perfectFit')
       .then(function () {
         if (!live(id)) return;
@@ -890,42 +917,29 @@
      the line starts as the craft begins to lose its footing and is
      still going while it goes over. The chain waits for the line at
      the end, so a slow connection delays the retry prompt instead
-     of talking over it. */
-  function fail(pad, plan, tight, id) {
+     of talking over it — which is what `said` is holding.
+
+     The MOTION is all js/failure.js; what is left here is the
+     lesson: which island wears which verdict, what the HUD says,
+     and what is spoken over the top of it. */
+  function fail(pad, ref, tight, id) {
     pad.classList.add(tight ? 'is-tight' : 'is-loose');
 
     el.landCaption.textContent =
       pad.dataset.area + ' SQ UNITS — THE CRAFT NEEDS 20';
     el.landCaption.classList.add('is-shown');
 
-    A.sfx('wrong', { volume: 0.45 });
-    /* the wobble and the fall have to lean the same way, or the
-       craft swings back through vertical between them */
-    el.ship.style.setProperty('--lean', tight ? plan.dir : plan.into);
-    el.ship.classList.add(tight ? 'is-teeter' : 'is-rock');
+    var said = null;
 
-    var said = narrate(el.landTopbarText, tight ? 'tooSmall' : 'tooLarge');
-
-    return M.wait(tight ? 1150 : 1600)
-      .then(function () {
-        if (!live(id)) return null;
-        return tight
-          ? M.shipTopple(el.ship, el.shipCraft, plan)
-          : M.shipCrash(el.ship, el.shipCraft, plan);
-      })
-      .then(function (point) {
-        if (!live(id) || !point) return;
-        return tight ? intoTheWater(point, plan) : ontoTheRock(point);
-      })
+    return failFlight(el.ship, pad, ref, tight, null, id, function () {
+      said = narrate(el.landTopbarText, tight ? 'tooSmall' : 'tooLarge');
+    })
       .then(function () { return said; })
       .then(function () {
         if (!live(id)) return;
         /* put it back on the rail, callouts and all */
         pad.classList.remove('is-tight', 'is-loose');
-        el.ship.classList.remove('is-committed', 'is-teeter', 'is-rock', 'is-wrecked');
-        M.shipReset(el.ship, el.shipCraft);
-        el.splash.classList.remove('is-on');
-        el.crash.classList.remove('is-on');
+        F.resetSpaceship(el.ship);
         el.shipDims.classList.add('is-drawn');
         return M.wait(760);
       })
@@ -938,42 +952,51 @@
       });
   }
 
-  /* Both bursts are parked on the point the motion handed back —
-     the craft goes over wherever it went over, not at a fixed spot —
-     and both are restarted from zero so a retry replays them. */
-  function burstAt(node, point) {
-    node.style.transform =
-      'translate(' + point.x.toFixed(1) + 'px,' + point.y.toFixed(1) + 'px)';
-    node.classList.remove('is-on');
-    void node.offsetWidth;
-    node.classList.add('is-on');
-  }
+  /* ---------------------------------------------------------- the fall
+     The half of a failed landing that is the same on all six
+     screens: one call into js/failure.js, with the sounds and the
+     water's own answer hung off its two callbacks.
 
-  /* too small: it went off the edge, so it keeps going down */
-  function intoTheWater(point, plan) {
-    burstAt(el.splash, point);
-    /* The splash is what comes UP out of the water; the front is
-       what goes OUT across it, and it is the half that tells the
-       player the three islands are standing in one sea. Fired on
-       the same point, so the two are one event. */
-    SEA.impact(el.splash, point, { size: 54 });
-    A.sfx('rock', { volume: 0.72, rate: 0.9 });
-    return M.shipSink(el.ship, plan);
-  }
+     `tight` true  → the island was too small: it slides off the
+                     edge, hits the water and sinks
+     `tight` false → the island was too big: it goes over ON the
+                     rock and stays there
 
-  /* too big: it went over on the island, and that is where it stays.
-     No sink to follow — the beat is the craft lying wrecked on all
-     that spare land, which is the point the 30-unit island was
-     making in the first place. */
-  function ontoTheRock(point) {
-    burstAt(el.crash, point);
-    /* Smaller, and for a different reason than the splash: nothing
-       went into the sea here, so what reaches the water is the
-       shock through the rock rather than the craft itself. */
-    SEA.impact(el.crash, point, { size: 32 });
-    el.ship.classList.add('is-wrecked');
-    A.sfx('rock', { volume: 0.8, rate: 0.78 });
-    return M.wait(620);
+     `onSettle` is fired the moment the craft begins to lose its
+     footing, which is where the spoken verdict starts. `onImpact`
+     is fired on the frame something is actually hit, and carries
+     the point it was hit at — the craft goes over wherever it went
+     over, never at a fixed spot. */
+  function failFlight(ship, pad, ref, tight, geo, id, onSettle) {
+    var opts = {
+      refPad: ref,
+      geo: geo || undefined,
+      alive: function () { return live(id); },
+
+      onTouchdown: function () { A.sfx('wrong', { volume: 0.45 }); },
+      onSettle: onSettle,
+
+      onImpact: function (point, kind) {
+        if (kind === 'water') {
+          /* The splash is what comes UP out of the water; SEA's
+             front is what goes OUT across it, and it is the half
+             that tells the player the islands are standing in one
+             sea. Fired on the same point, so the two are one
+             event. */
+          SEA.impact(ship, point, { size: 54 });
+          A.sfx('rock', { volume: 0.72, rate: 0.9 });
+        } else {
+          /* Smaller, and for a different reason: nothing went into
+             the sea here, so what reaches the water is the shock
+             through the rock rather than the craft itself. */
+          SEA.impact(ship, point, { size: 32 });
+          A.sfx('rock', { volume: 0.8, rate: 0.78 });
+        }
+      }
+    };
+
+    return tight ? F.sinkInWater(ship, pad, opts)
+                 : F.crashOnLand(ship, pad, opts);
   }
 
   /* ============================================================
@@ -1037,9 +1060,10 @@
     round.landing = false;
     round.solved = false;
 
-    M.shipReset(e.ship, e.shipCraft);
-    e.ship.classList.remove('is-in', 'is-committed', 'is-planted',
-                            'is-teeter', 'is-rock', 'is-wrecked');
+    /* takes every phase class off the craft and empties both effect
+       layers, so a wreck and its scorch go with the reset */
+    F.resetSpaceship(e.ship);
+    e.ship.classList.remove('is-in');
     e.ship.style.removeProperty('--lean');
     e.shipDims.classList.remove('is-drawn');
 
@@ -1052,8 +1076,6 @@
       if (hit) hit.tabIndex = -1;
     });
 
-    e.splash.classList.remove('is-on');
-    e.crash.classList.remove('is-on');
     M.confettiClear(e.confetti);
 
     e.advance.classList.remove('is-in');
@@ -1147,8 +1169,8 @@
       /* ── and the three that matched line up to be compared ──
          Fired, then given the length of the glide. The wait also
          matters mechanically: `left` and `top` are what move, so
-         offsetLeft is mid-glide until it lands, and padPlan() must
-         not be asked anything until then. */
+         an island's box is mid-glide until it lands, and the
+         landing's plan() must not measure anything until then. */
       function () {
         if (global.GeoPages) global.GeoPages.regroup(round);
         return M.wait(M.reduced() ? 200 : 1120);
@@ -1390,6 +1412,7 @@
 
   function onRoundAreaPick(round, pad) {
     if (round.landing || pad.dataset.area == null) return;
+    if (F.isAnimating(round.el.ship)) return;
 
     var ref = roundRef(round);
     if (!ref) return;
@@ -1407,44 +1430,57 @@
     disarmRound(round);
     A.sfx('click', { volume: 0.4 });
 
-    /* the callouts and the idle bob come off: the craft is flying
-       now, and a measurement drawing riding through a crash would
-       read as part of the wreck */
+    /* the callouts come off: the craft is flying now, and a
+       measurement drawing riding through a crash would read as part
+       of the wreck */
     e.ship.classList.add('is-committed');
 
-    var plan = M.padPlan(e.ship, pad, ref, round.geo);
-
-    return M.shipDescend(e.ship, plan).then(function () {
-      if (!live(id)) return;
-      return area === round.area
-        ? plantRound(round, pad, id)
-        : failRound(round, pad, plan, area < round.area, id);
-    });
+    return area === round.area
+      ? plantRound(round, pad, ref, id)
+      : failRound(round, pad, ref, area < round.area, id);
   }
 
   /* ---------------------------------------------------------- it fits */
-  function plantRound(round, pad, id) {
+  function plantRound(round, pad, ref, id) {
     var e = round.el;
 
     round.solved = true;
-    e.ship.classList.add('is-planted');
-    pad.classList.add('is-fit');
-    SEA.settle(pad);
 
-    e.caption.textContent = 'PERFECT FIT · ' + round.area + ' SQ UNITS';
-    e.caption.classList.add('is-shown');
-    e.tally.textContent = round.copy.sum;
+    return F.successfulLanding(e.ship, pad, {
+      refPad: ref,
+      geo: round.geo,
+      alive: function () { return live(id); },
 
-    A.sfx('correct', { volume: 0.6 });
+      /* everything is hung off the touchdown, so the verdict
+         outline, the chime and the confetti land on the frame the
+         craft settles rather than a beat after it */
+      onTouchdown: function () {
+        pad.classList.add('is-fit');
+        SEA.settle(pad);
 
-    /* a beat after the chime, so the two sounds read as one cue. The
-       shower is fired and not awaited: it runs on the compositor
-       while the narration carries on underneath. */
-    M.wait(220).then(function () {
+        e.caption.textContent = 'PERFECT FIT · ' + round.area + ' SQ UNITS';
+        e.caption.classList.add('is-shown');
+        e.tally.textContent = round.copy.sum;
+
+        A.sfx('correct', { volume: 0.6 });
+
+        /* a beat after the chime, so the two sounds read as one
+           cue. The shower is fired and not awaited: it runs on the
+           compositor while the narration carries on underneath. */
+        M.wait(220).then(function () {
+          if (!live(id)) return;
+          A.sfx('cheer', { volume: 0.5 });
+          M.confetti(e.confetti);
+        });
+      }
+    }).then(function () {
       if (!live(id)) return;
-      A.sfx('cheer', { volume: 0.5 });
-      M.confetti(e.confetti);
+      return sayRoundPlanted(round, id);
     });
+  }
+
+  function sayRoundPlanted(round, id) {
+    var e = round.el;
 
     return narrate(e.topbarText, 'perfectFit')
       .then(function () {
@@ -1471,7 +1507,7 @@
                   side, nothing is holding it, and there is no edge
                   within reach to go over — so it wrecks ON the rock
                   and never reaches the sea                         */
-  function failRound(round, pad, plan, tight, id) {
+  function failRound(round, pad, ref, tight, id) {
     var e = round.el;
 
     pad.classList.add(tight ? 'is-tight' : 'is-loose');
@@ -1480,49 +1516,20 @@
       pad.dataset.area + ' SQ UNITS — THE CRAFT NEEDS ' + round.area;
     e.caption.classList.add('is-shown');
 
-    A.sfx('wrong', { volume: 0.45 });
-    /* the wobble and the fall have to lean the same way, or the craft
-       swings back through vertical between them */
-    e.ship.style.setProperty('--lean', tight ? plan.dir : plan.into);
-    e.ship.classList.add(tight ? 'is-teeter' : 'is-rock');
-
     /* the verdict is SPOKEN OVER the struggle rather than after it,
        and awaited at the end, so a slow connection delays the retry
        prompt instead of talking over it */
-    var said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
+    var said = null;
 
-    return M.wait(tight ? 1150 : 1600)
-      .then(function () {
-        if (!live(id)) return null;
-        return tight
-          ? M.shipTopple(e.ship, e.shipCraft, plan)
-          : M.shipCrash(e.ship, e.shipCraft, plan);
-      })
-      .then(function (point) {
-        if (!live(id) || !point) return;
-
-        if (tight) {
-          burstAt(e.splash, point);
-          SEA.impact(e.splash, point, { size: 54 });
-          A.sfx('rock', { volume: 0.72, rate: 0.9 });
-          return M.shipSink(e.ship, plan);
-        }
-
-        burstAt(e.crash, point);
-        SEA.impact(e.crash, point, { size: 32 });
-        e.ship.classList.add('is-wrecked');
-        A.sfx('rock', { volume: 0.8, rate: 0.78 });
-        return M.wait(620);
-      })
+    return failFlight(e.ship, pad, ref, tight, round.geo, id, function () {
+      said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
+    })
       .then(function () { return said; })
       .then(function () {
         if (!live(id)) return;
         /* put it back on the rail, callouts and all */
         pad.classList.remove('is-tight', 'is-loose');
-        e.ship.classList.remove('is-committed', 'is-teeter', 'is-rock', 'is-wrecked');
-        M.shipReset(e.ship, e.shipCraft);
-        e.splash.classList.remove('is-on');
-        e.crash.classList.remove('is-on');
+        F.resetSpaceship(e.ship);
         e.shipDims.classList.add('is-drawn');
         return M.wait(760);
       })

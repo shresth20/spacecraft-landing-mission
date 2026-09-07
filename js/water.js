@@ -301,7 +301,7 @@
   }
 
   /* An island's centre of area, in the screen's own coordinates —
-     the frame `.wave`, `.splash` and `.crash` are all parked in.
+     the frame `.wave` and the landing's `.fx-layer`s are parked in.
 
      A `.zone` is placed by its MIDDLE (left/top plus a
      translate(-50%,-50%)) while a `.pad` is placed by its box, so
@@ -719,7 +719,7 @@
      EVENTS
 
      The one rule these all share: a point is in the SCREEN's
-     coordinates, which is the frame `.splash` and `.crash` are
+     coordinates, which is the frame the landing's effect layers are
      already parked in by js/script.js, so a caller that has a
      point for one of those has a point for this.
      ============================================================ */

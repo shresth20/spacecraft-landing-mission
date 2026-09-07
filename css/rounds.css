@@ -2,9 +2,10 @@
    Geo Drone — screens 4 to 8 (one round per shape)
 
    These screens reuse screen 3's stylesheet wholesale: the same
-   .ship, .ship__dims, .pads, .pad, .splash, .crash, .confetti,
-   .hud, .topbar and .advance, laid out off the same --pu unit and
-   the same centre-of-area arithmetic. What this file adds is only
+   .ship, .ship__dims, .pads, .pad, .fx-layer, .confetti, .hud,
+   .topbar and .advance, laid out off the same --pu unit and the
+   same centre-of-area arithmetic — and the same landing chain in
+   css/failure.css, which is what decides all three outcomes. What this file adds is only
    the three things a round does that the landing does not:
 
      · five islands instead of three, in two ranks — the round's
@@ -98,9 +99,9 @@
    Dropping `.is-scattered` puts an island back at the row position
    it was laid out at, and because `left`/`top` transition it GLIDES
    there. It has to be the layout that moves and not a transform:
-   padPlan() reads offsetLeft/offsetTop to work out where the craft
-   is flying, so a translated island would have the craft coming
-   down on open water beside it. */
+   the landing measures an island's box to work out where the craft
+   is flying (plan() in js/failure.js), so a translated island would
+   have the craft coming down on open water beside it. */
 .screen--round .pads .pad.is-scattered {
   --cx: var(--sx);
   --cy: var(--sy);
@@ -130,9 +131,12 @@
    from.
 
    `:not(.is-committed)` so that the instant the player commits to an
-   island this rule stops matching and screen 3's own verdicts take
-   the element back — `animation: none`, then shipSettle,
-   shipTremble or shipWobble, in the order they are written there. */
+   island this rule stops matching and the landing takes the element
+   back: `animation: none` in css/style.css, and then whichever
+   phase class css/failure.css is up to. Both of those are later in
+   the cascade than this rule, but neither is as SPECIFIC, so it is
+   the .is-committed the flow adds — not the load order — that
+   releases the craft. */
 .screen--round .ship.is-in:not(.is-committed) .ship__craft {
   animation: shipArrive 1.55s cubic-bezier(.24, .86, .3, 1) both,
              shipBob 3.6s ease-in-out 1.55s infinite;

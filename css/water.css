@@ -686,7 +686,7 @@
   position: absolute;
   inset: 0;
   z-index: 2;
-  clip-path: var(--clip, polygon(50.1% 7.7%, 98.6% 91.4%, 1.1% 91.4%));
+  clip-path: var(--clip, polygon(50% 10.9%, 96.5% 89.8%, 3.3% 89.6%));
   pointer-events: none;
   opacity: 0;
   transition: opacity .9s ease;

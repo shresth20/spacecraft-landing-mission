@@ -29,17 +29,19 @@
   100% { box-shadow: 0 0 0 0 rgba(255, 68, 48, 0); }
 }
 
-/* the click: the plate flares white-hot, then settles back */
+/* the click: the cap flares, then settles back. Gentler than a
+   painted plate would take — most of this artwork is a pale tray,
+   and brightness much past 1.3 blows it out to flat white. */
 @keyframes launchFlare {
-  0%   { filter: brightness(1.65) saturate(1.15); }
-  30%  { filter: brightness(.88); }
+  0%   { filter: brightness(1.34) saturate(1.12); }
+  30%  { filter: brightness(.9); }
   100% { filter: brightness(1); }
 }
 
 /* the bloom thrown out of the plate */
 @keyframes launchBurst {
-  0%   { opacity: .95; transform: translate(-50%, -50%) scale(.55); }
-  100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.7); }
+  0%   { opacity: .8; transform: translate(-50%, -50%) scale(.5); }
+  100% { opacity: 0;  transform: translate(-50%, -50%) scale(2.6); }
 }
 
 /* the shockwave — one hard ring thrown outward. It is a scaling
@@ -226,46 +228,11 @@
   50%      { transform: translateY(-3.2%) rotate(.8deg); }
 }
 
-/* TOO SMALL: the craft is wider than the land it is standing on, so
-   it never gets a grip. High-frequency judder, growing, no travel —
-   it is trying to hold still and failing.
+/* The three verdicts that used to be here — shipTremble, shipWobble
+   and shipSettle — are in css/failure.css now, as the phase classes
+   the landing chain adds one at a time. What stays is shipBob: it
+   is the craft WAITING, not the craft answering. */
 
-   --lean (set from JS, +1 or -1) flips both of these towards the side
-   the craft is about to fall off, so the judder, the rock and the
-   topple all run one way instead of swinging back through vertical
-   before it goes over. */
-@keyframes shipTremble {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  12%  { transform: translate(calc(var(--lean) * -.7%), 0) rotate(calc(var(--lean) * -1deg)); }
-  25%  { transform: translate(calc(var(--lean) * .9%), .3%) rotate(calc(var(--lean) * 1.4deg)); }
-  37%  { transform: translate(calc(var(--lean) * -1.2%), 0) rotate(calc(var(--lean) * -1.9deg)); }
-  50%  { transform: translate(calc(var(--lean) * 1.4%), .4%) rotate(calc(var(--lean) * 2.3deg)); }
-  62%  { transform: translate(calc(var(--lean) * -1.8%), 0) rotate(calc(var(--lean) * -2.9deg)); }
-  75%  { transform: translate(calc(var(--lean) * 2.1%), .6%) rotate(calc(var(--lean) * 3.4deg)); }
-  87%  { transform: translate(calc(var(--lean) * -2.5%), 0) rotate(calc(var(--lean) * -4deg)); }
-  100% { transform: translate(calc(var(--lean) * 2.6%), .8%) rotate(calc(var(--lean) * 5deg)); }
-}
-
-/* TOO LARGE: it is standing on plenty of land but nothing is
-   holding it in place, so it rocks heel to heel — slow, and each
-   swing further over than the last. */
-@keyframes shipWobble {
-  0%   { transform: rotate(0deg); }
-  14%  { transform: rotate(calc(var(--lean) * -4deg)); }
-  30%  { transform: rotate(calc(var(--lean) * 5.5deg)); }
-  46%  { transform: rotate(calc(var(--lean) * -8deg)); }
-  62%  { transform: rotate(calc(var(--lean) * 10deg)); }
-  78%  { transform: rotate(calc(var(--lean) * -13deg)); }
-  100% { transform: rotate(calc(var(--lean) * 16deg)); }
-}
-
-/* the moment it fits: a short settling squash, then still */
-@keyframes shipSettle {
-  0%   { transform: translateY(-2.4%) scale(1); }
-  38%  { transform: translateY(.6%) scale(1.02, .97); }
-  68%  { transform: translateY(-.5%) scale(.995, 1.01); }
-  100% { transform: translateY(0) scale(1); }
-}
 
 /* The pads breaching, gentler than the survey screen's — these are
    being offered to the player, not discovered. Same overhead camera,
@@ -297,44 +264,10 @@
   40%      { opacity: 1; }
 }
 
-/* Going in. Concentric with the point of impact — from overhead the
-   water opens outwards in every direction, so nothing here drifts up
-   the screen the way it did on the oblique sea. */
-@keyframes splashFoam {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
-  18%  { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.7); }
-}
-
-@keyframes splashOut {
-  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.22); }
-  16%  { opacity: .85; }
-  100% { opacity: 0;   transform: translate(-50%, -50%) scale(2.4); }
-}
-
-
-/* ---------------------------------------------------------- ground impact
-   Going over on the land instead of into the water. Faster and
-   harder than the splash: rock does not give, so the flash is one
-   beat and the dust hangs about after the rings have gone. */
-@keyframes crashFlash {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.2); }
-  14%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
-}
-
-@keyframes crashDust {
-  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.22); }
-  12%  { opacity: .95; transform: translate(-50%, -50%) scale(.9); }
-  55%  { opacity: .6;  transform: translate(-50%, -50%) scale(1.35); }
-  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.75); }
-}
-
-@keyframes crashOut {
-  0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.24); }
-  14%  { opacity: .9; }
-  100% { opacity: 0;  transform: translate(-50%, -50%) scale(2.2); }
-}
+/* The splash and the ground burst that used to be here — splashFoam,
+   splashOut, crashFlash, crashDust and crashOut — went with the
+   .splash / .crash elements they drove. Their replacements are in
+   css/failure.css, block 12. */
 
 
 /* ---------------------------------------------------------- reduced motion */

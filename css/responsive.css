@@ -10,14 +10,14 @@
 /* ---------------------------------------------------------- wide desktop */
 /* ---------------------------------------------------------- tablet */
 @media (max-width: 900px) {
-  .launch__body { --btn-w: clamp(122px, 22vw, 250px); }
+  .launch__body { --btn-w: clamp(86px, 13vw, 150px); }
 
   .subtitle { width: min(74%, 620px); }
 }
 
 /* ---------------------------------------------------------- phone */
 @media (max-width: 620px) {
-  .launch__body { --btn-w: clamp(118px, 34vw, 210px); }
+  .launch__body { --btn-w: clamp(82px, 25vw, 134px); }
 
   .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
   .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
@@ -84,7 +84,7 @@
    Portrait stretches the cockpit vertically. The button and the
    readout follow the artwork, so only sizes need easing. */
 @media (max-aspect-ratio: 3/4) {
-  .launch__body { --btn-w: clamp(130px, 38vw, 240px); }
+  .launch__body { --btn-w: clamp(90px, 27vw, 150px); }
   .flyout__drone { width: 34%; }
 
   /* In portrait the LANDING tableau is bound by width, not height:
