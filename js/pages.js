@@ -1,11 +1,13 @@
 /* ============================================================
    Geo Drone — screens 4 to 8, one round per shape
 
-   Screens 1-3 teach the mission in two halves: the survey feed
-   asks "which of these is the same SHAPE as the craft", and the
-   landing asks "which of these is the same AREA". From screen 4 on,
-   each screen is one complete round that asks both, for a new shape
-   and a new area formula:
+   Screen 2, the survey, teaches the mission in two halves on one
+   sea: its first site asks "which of these is the same SHAPE as
+   the craft", and its second asks "which of these is the same
+   AREA" (see buildSurvey below, and runSurvey in js/script.js).
+   From screen 4 on -- there is no screen 3 any more; the landing
+   moved onto the survey -- each screen is one complete round that
+   asks both, for a new shape and a new area formula:
 
      4  square         area = side x side
      5  rectangle      area = length x width
@@ -514,12 +516,10 @@
      without ever looking at a shape, and the question stops being a
      question.
 
-     The survey feed asks that same question of that same five —
-     three matches and two decoys — so it lays its zones out through
-     the same strew() below, on the same stations, with the same
-     shuffle. It used to carry five hand-picked positions of its own,
-     which put its archipelago in a tighter band than every screen
-     after it and gave the mission two different-looking seas.
+     The survey's first site asks that same question of that same
+     five — three matches and two decoys — so it is laid out through
+     the same scatter() below, on the same stations, with the same
+     shuffle (see buildSurvey, and resetSurvey in js/script.js).
 
      Once the shape task is over the three survivors drop the scatter
      and go home to the row, which is the arrangement everything
@@ -690,30 +690,6 @@
     round.el.reveal = REVEAL.map(function (i) { return pads[i]; });
   }
 
-  /* And the survey feed's. Its zones are anchored on their centre of
-     area too (see .zone in css/style.css), so a station goes
-     straight in as a percentage here as well — but the anchoring
-     needs each shape's own centre, and this is the only place in the
-     project that holds it, so the two figures are handed over with
-     the position rather than written out a second time in the
-     stylesheet. */
-  function strewZones(sec, zones) {
-    var W = sec.clientWidth || 1;
-    var H = sec.clientHeight || 1;
-
-    zones.forEach(function (el) {
-      var land = LAND[el.dataset.shape];
-      if (!land) return;
-      el.style.setProperty('--zcx', land.cx);
-      el.style.setProperty('--zcy', land.cy);
-    });
-
-    return strew(sec, zones, function (el, x, y) {
-      el.style.setProperty('--x', (x / W * 100).toFixed(3) + '%');
-      el.style.setProperty('--y', (y / H * 100).toFixed(3) + '%');
-    });
-  }
-
   /* ---------------------------------------------------------- dealing
 
      Hand `classes` out among `els` at random, dropping whichever of
@@ -759,6 +735,285 @@
     round.el.padList.forEach(function (pad) {
       if (pad.dataset.shape === round.shape) pad.classList.remove('is-scattered');
     });
+  }
+
+
+  /* ============================================================
+     THE SURVEY -- screen 2's two sites and the sea between them
+
+     The survey is one shot over one sea, and the lens comes down on
+     it twice. Each place it comes down on is a SITE: a frame-sized
+     coordinate box inside the camera plate (see .site in
+     css/style.css), holding five islands laid out exactly as a
+     round screen lays out its five -- same stations, same --pu,
+     same centre-of-area anchoring -- so the shape task and the
+     landing are played on the same kind of island as every screen
+     after them.
+
+       site A   three triangles of three sizes, two other shapes.
+                Strewn across the five stations on every entry,
+                as a round is. The SHAPE question.
+       site B   three triangles of 30, 12 and 20 square units,
+                dealt across the row, and the craft. Nothing else:
+                the shape question has been answered by the time
+                the lens gets here, so the only islands on the
+                water are the three the area question is about.
+                What used to be screen 3, on the same sea as the
+                shape question instead of a screen of its own.
+
+     Site A carries all five other shapes as decoys and shows TWO
+     of them, a different pair every visit: an island's shoreline
+     is built from its silhouette at load (js/water.js), so
+     swapping a pad's shape later would leave it wearing the wrong
+     coast. Hiding three of five is the same random pair with none
+     of that.
+
+     And around and between the two sites, the ISLETS: the rest of
+     the archipelago, twenty-odd small islands of every shape,
+     which are what the wide shot is of. Scenery -- no shoreline,
+     no tap target, no number -- and kept out of both sites'
+     frames, so neither task ever has a sixth island in it.
+
+     The site objects come back shaped like a round (the same `el`
+     fields, `shape`, `area`, `copy`, `geo`), because that is what
+     lets js/script.js play them through the round helpers rather
+     than a second copy of them.
+     ============================================================ */
+
+  var SURVEY = {
+    shape: 'triangle',
+    area: 20,                        /* 1/2 x 8 x 5 */
+    copy: {
+      formula: 'AREA = ½ × BASE × HEIGHT',
+      tally:   'BASE 8 · HEIGHT 5',
+      sum:     'AREA = ½ × 8 × 5 = 20'
+    },
+
+    /* site A's three triangles are sizes, not answers: the areas
+       are never printed there, they only make the three visibly
+       different -- and out of step with the two decoys, which are
+       drawn to the fit island's own painted area so that the
+       biggest three and the smallest three are both wrong. */
+    sizesA: [26, 12, 20],
+
+    /* site B's row, as screen 3 had it: 30 too much room, 12 too
+       little, 20 the fit */
+    row: [30, 12, 20],
+
+    /* every shape that is not the craft's */
+    decoys: ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus'],
+
+    /* the islets: how many, and the range of land they cover, in
+       painted box units -- between a third and two thirds of the
+       fit island */
+    islets: 16,
+    isletArea: [FIT_AREA * 0.30, FIT_AREA * 0.66],
+
+    /* the world the islets are strewn over, in per cent of one
+       frame. Site A's frame is (0..100, 0..100); site B's is a
+       frame right and 45% down (css/style.css). The lens at
+       survey height (--cam-wide .32, centred between the two)
+       sees about -56..256 by -84..229, so this is the part of it
+       with a margin, and EXCLUDE is the two sites' frames with a
+       margin of their own. */
+    world: { l: -44, r: 244, t: -68, b: 214 },
+    exclude: [
+      { l: -8,  r: 108, t: -8, b: 108 },
+      { l: 92,  r: 208, t: 37, b: 153 }
+    ]
+  };
+
+  /* the shape order the islets cycle through, so all six land
+     tiles are on the water however few islets fit */
+  var ISLET_SHAPES = ['triangle', 'square', 'rectangle',
+                      'parallelogram', 'trapezium', 'rhombus'];
+
+  function isletHTML(shape, k) {
+    var land = LAND[shape];
+    return '<div class="islet" data-shape="' + shape + '"' +
+                ' style="--k:' + round2(k) + ';--icx:' + land.cx + ';--icy:' + land.cy + '">' +
+      '<span class="islet__wake"></span>' +
+      '<span class="islet__splash"></span>' +
+      '<img class="islet__img" src="assets/images/' + encodeURI(land.img) + '" alt="" />' +
+    '</div>';
+  }
+
+  /* Build one site's islands into its .pads: three triangles and,
+     where `decoyArea` is given, all five decoys, hidden until
+     arrangeSite() shows a pair. `areas` null for a site that never
+     prints a number. Decoys first in the DOM, so they paint behind
+     the row that carries the question -- the same order a round is
+     built in, and the order REVEAL indexes. */
+  function siteHTML(sizes, areas, decoyArea) {
+    var land = LAND[SURVEY.shape];
+    var kFit = boxFor(FIT_AREA, land);
+    var out = [];
+
+    if (decoyArea != null) {
+      SURVEY.decoys.forEach(function (shape) {
+        out.push(padHTML(shape, {
+          k: boxFor(decoyArea, LAND[shape]),
+          slot: 'far1',
+          area: null
+        }));
+      });
+    }
+
+    sizes.forEach(function (size, i) {
+      out.push(padHTML(SURVEY.shape, {
+        k: kFit * Math.sqrt(size / SURVEY.area),
+        slot: 'row' + (i + 1),
+        area: areas ? areas[i] : null
+      }));
+    });
+
+    return out.join('');
+  }
+
+  function siteOf(node, key, offset) {
+    var all = Array.prototype.slice.call(node.querySelectorAll('.pad'));
+    return {
+      key: key,
+      node: node,
+      offset: offset,
+      shape: SURVEY.shape,
+      area: SURVEY.area,
+      copy: SURVEY.copy,
+      geo: null,                         /* the triangle's: plan()'s default */
+      el: {
+        pads: node.querySelector('.pads'),
+        all: all,
+        padList: all.slice(),
+        reveal: all.slice(),
+        ship: node.querySelector('.ship'),
+        shipCraft: node.querySelector('.ship__craft'),
+        shipDims: node.querySelector('.ship__dims')
+      }
+    };
+  }
+
+  /* Called once, at boot, before js/water.js dresses the stage, so
+     every pad built here gets its shoreline with the rest. */
+  function buildSurvey(screen) {
+    if (!screen) return null;
+
+    var a = screen.querySelector('.site--a');
+    var b = screen.querySelector('.site--b');
+    var sea = screen.querySelector('.islets');
+    if (!a || !b || !sea) return null;
+
+    a.querySelector('.pads').innerHTML = siteHTML(SURVEY.sizesA, null, FIT_AREA);
+    b.querySelector('.pads').innerHTML = siteHTML(SURVEY.row, SURVEY.row, null);
+
+    var islets = [];
+    for (var i = 0; i < SURVEY.islets; i++) {
+      var shape = ISLET_SHAPES[i % ISLET_SHAPES.length];
+      var area = SURVEY.isletArea[0] +
+                 Math.random() * (SURVEY.isletArea[1] - SURVEY.isletArea[0]);
+      islets.push(isletHTML(shape, boxFor(area, LAND[shape])));
+    }
+    sea.innerHTML = islets.join('');
+
+    return {
+      shape: SURVEY.shape,
+      area: SURVEY.area,
+      copy: SURVEY.copy,
+      decoys: SURVEY.decoys.slice(),
+      sites: {
+        a: siteOf(a, 'a', { x: 0, y: 0 }),
+        b: siteOf(b, 'b', { x: 100, y: 45 })
+      },
+      islets: Array.prototype.slice.call(sea.querySelectorAll('.islet'))
+    };
+  }
+
+  /* Show two of a site's five decoys and hide the rest, and hand
+     the pair the slots the site's layout wants them on -- the far
+     rank, which is the scatter's fallback. Sets padList to the
+     islands in play, decoys first. A site built without decoys
+     (site B) comes out as its three triangles. */
+  function arrangeSite(site, pair, slots) {
+    var tris = [], shown = [];
+
+    site.el.all.forEach(function (pad) {
+      var shape = pad.dataset.shape;
+      if (shape === site.shape) { tris.push(pad); return; }
+      var on = pair.indexOf(shape) >= 0;
+      pad.hidden = !on;
+      if (on) shown.push(pad);
+    });
+
+    /* in the order the pair was drawn, so the slot deal is random
+       with respect to the shape */
+    shown.sort(function (p, q) {
+      return pair.indexOf(p.dataset.shape) - pair.indexOf(q.dataset.shape);
+    });
+    site.el.all.forEach(function (pad) {
+      ['pad--far1', 'pad--far2'].forEach(function (c) { pad.classList.remove(c); });
+    });
+    shown.forEach(function (pad, i) { if (slots[i]) pad.classList.add(slots[i]); });
+
+    site.el.padList = shown.concat(tris);
+    site.el.reveal = REVEAL.map(function (i) { return site.el.padList[i]; })
+                           .filter(function (pad) { return !!pad; });
+    return site.el.padList;
+  }
+
+  /* Two different decoys, drawn at random */
+  function drawPair(pool) {
+    var a = shuffled(pool);
+    return [a[0], a[1]];
+  }
+
+  /* Strew the islets over the world, clear of the two sites and of
+     each other. Rejection sampling, like the pads' own scatter: a
+     spot is drawn, measured against the exclusions and against
+     every islet already placed, and kept only if it is clear.
+     Returns the islets back to front, the order they should
+     surface in. */
+  function strewIslets(cam, islets) {
+    var W = cam.clientWidth || 1;
+    var H = cam.clientHeight || 1;
+    var world = SURVEY.world;
+    var placed = [];
+
+    function clear(x, y, rx, ry) {
+      var i, e, o;
+      for (i = 0; i < SURVEY.exclude.length; i++) {
+        e = SURVEY.exclude[i];
+        if (x + rx > e.l && x - rx < e.r && y + ry > e.t && y - ry < e.b) return false;
+      }
+      for (i = 0; i < placed.length; i++) {
+        o = placed[i];
+        if (Math.abs(x - o.x) < rx + o.rx + 4 && Math.abs(y - o.y) < ry + o.ry + 4) return false;
+      }
+      return true;
+    }
+
+    islets.forEach(function (el) {
+      var w = el.offsetWidth || 1;
+      var rx = w / W * 100 / 2;
+      var ry = w / H * 100 / 2;
+      var t, x, y;
+
+      for (t = 0; t < 80; t++) {
+        x = world.l + rx + Math.random() * (world.r - world.l - 2 * rx);
+        y = world.t + ry + Math.random() * (world.b - world.t - 2 * ry);
+        if (clear(x, y, rx, ry)) break;
+      }
+      if (t === 80) {
+        /* nowhere clear: park it well off the visible sea */
+        x = world.l - 60; y = world.t - 60;
+      }
+
+      el.style.setProperty('--wx', x.toFixed(2) + '%');
+      el.style.setProperty('--wy', y.toFixed(2) + '%');
+      placed.push({ x: x, y: y, rx: rx, ry: ry, el: el });
+    });
+
+    return placed.slice()
+      .sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
+      .map(function (o) { return o.el; });
   }
 
 
@@ -951,7 +1206,9 @@
 
   global.GeoPages = {
     build: build, scatter: scatter, regroup: regroup,
-    strewZones: strewZones, deal: deal, dealRow: dealRow,
-    rounds: ROUNDS, land: LAND, craft: CRAFT
+    deal: deal, dealRow: dealRow,
+    buildSurvey: buildSurvey, arrangeSite: arrangeSite,
+    drawPair: drawPair, strewIslets: strewIslets,
+    rounds: ROUNDS, survey: SURVEY, land: LAND, craft: CRAFT
   };
 })(window);

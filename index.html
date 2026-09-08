@@ -7,9 +7,11 @@
   <title>Spacecraft Landing Mission/</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/animation.css" />
-  <!-- screens 4-8: the five one-shape-per-screen rounds -->
+  <!-- the survey's two sites and screens 4-8: the shape task, the
+       area task and the islands they are played on -->
   <link rel="stylesheet" href="css/rounds.css" />
-  <!-- the landing and its two failures, for screens 3 to 8.
+  <!-- the landing and its two failures, for the survey and screens
+       4 to 8.
        After style.css and rounds.css, and it has to stay there:
        the phase rules take the craft back off the idle bob and the
        arrival flight, and they do it on equal specificity, so being
@@ -90,20 +92,15 @@
     <!-- narration subtitle, read against the canopy -->
     <p class="subtitle" id="cockpitCaption" role="status" aria-live="polite"></p>
 
-    <!-- ░░ LAUNCH button (the yellow cap) ░░ -->
+    <!-- ░░ LAUNCH button ░░ -->
     <div class="launch-slot" id="launchSlot">
       <button class="launch" id="launchBtn" type="button" aria-label="Launch the survey drone">
         <span class="launch__ring" aria-hidden="true"></span>
         <span class="launch__body">
-          <!-- the cap is drawn in CSS: a pale rim around a glossy
-               yellow face. Decorative — the button's name is on the
-               <button> itself, so the label repeats it silently. -->
-          <span class="launch__plate" aria-hidden="true">
-            <span class="launch__face">
-              <span class="launch__gloss"></span>
-              <span class="launch__label">LAUNCH</span>
-            </span>
-          </span>
+          <!-- decorative: the cap carries no type of its own, and
+               the button's name is on the <button> itself -->
+          <img class="launch__plate" src="assets/images/Launch%20button.png"
+               alt="" draggable="false">
           <span class="launch__flash" aria-hidden="true"></span>
         </span>
       </button>
@@ -112,7 +109,59 @@
   </section>
 
 
-  <!-- ══════════════════════════ SCREEN 2 — DRONE FEED ══════════════════════════ -->
+  <!-- ══════════════════════════ SCREEN 2 — THE SURVEY ══════════════════════════
+
+       One screen, one continuous shot, both halves of the lesson.
+
+       The drone's lens opens on the whole archipelago from survey
+       height — twenty-odd small islands of every shape in the
+       mission, breaking the surface across a sea several frames
+       wide — and comes down twice:
+
+         SITE A   three triangles of three sizes and two other
+                  shapes. The SHAPE question: "select all the
+                  triangular landing zones."
+         SITE B   three triangles of three sizes, in the row the
+                  landing is laid out on, and nothing else. The
+                  craft arrives and the AREA question is asked:
+                  "choose the landing zone with the exact area."
+                  What used to be screen 3 happens here.
+
+       Between the two the lens climbs back to altitude, crosses
+       the water, and descends on the second site — see THE CAMERA
+       in js/animation.js and runSurvey() in js/script.js.
+
+       ── the world ──
+
+       `.cam` is the camera plate and everything inside it is in
+       WORLD coordinates: per cent of one frame, with site A's frame
+       at (0..100, 0..100) and site B's a frame to the right and
+       half a frame down (see .site--b in css/style.css). The
+       islets are strewn over the water between and around the two.
+       The camera's ground state at either site is a translate and
+       a scale of exactly 1, so the layout each task is measured on
+       is the layout itself.
+
+       ── geometry ──
+
+       Both pieces of artwork are 1254x1254 squares with a shape
+       painted on them. Measured off the alpha channel:
+
+         Triangle.png            a clean triangle — apex (50.0%, 10.9%),
+                                 base y 89.7% from x 3.3% to 96.5%.
+                                 Fills 36.623% of the canvas; its centre
+                                 of area is (49.94%, 63.45%).
+
+         Triangle spaceship.png  hull apex (50.0%, 2.8%), base y 70.0%
+                                 from x 4.94% to 94.82%. Fills 31.407%;
+                                 centre of area (49.92%, 47.72%).
+
+       The camera looks straight down, so there is no ground line to
+       stand on: a landing is one flat shape coming down onto
+       another, and both sides are anchored on their CENTRE OF AREA.
+       Every figure in the survey block of css/style.css and in
+       plan() (js/failure.js) comes off those two readings.
+       ══════════════════════════════════════════════════════════════════════ -->
   <section class="screen screen--drone" id="screenDrone">
 
     <!-- ocean, faded up once the scan completes -->
@@ -123,57 +172,118 @@
 
     <!-- ░░ THE CAMERA ░░
 
-         The lens, and everything it actually flies over: the five
-         islands and the fronts they throw into the water. The bezel,
-         the scanner, the haze, the altimeter and the narration bar
-         are all OUTSIDE it — they are on the lens, not under it, so
-         they hold still while the water comes up to meet them.
+         The lens, and everything it actually flies over. The bezel,
+         the scanner, the haze, the altimeter, the narration bar,
+         the HUD lines and the NEXT button are all OUTSIDE it — they
+         are on the lens, not under it, so they hold still while the
+         water moves.
 
-         Its ground state is no transform at all, which is the state
-         the shape task is played in; js/animation.js parks it at
-         survey height (camWide), flies it down (camPush) and hands
-         the layout back untransformed at the bottom. js/water.js
-         mounts the wave fronts in here too — see the .cam block in
-         css/style.css for why they cannot stay outside. -->
+         js/water.js mounts the wave fronts in here too, and the
+         landing's effect layers live inside site B: both are placed
+         from layout positions, which cannot see a transform, so
+         they have to be on this side of it. See the .cam block in
+         css/style.css. -->
     <div class="cam" id="cam">
 
-      <!-- five landing zones surfacing out of the water -->
-      <div class="zones" id="zones">
-        <div class="zone zone--a" data-shape="triangle">
-          <span class="zone__wake"></span>
-          <span class="zone__splash"></span>
-          <img class="zone__img" src="assets/images/Triangle.png" alt="Large triangular landing zone" />
-          <button class="zone__hit" type="button" tabindex="-1"
-                  aria-label="Large triangular landing zone"></button>
+      <!-- the wider sea: small islands of every shape, strewn over
+           the water around and between the two sites by
+           GeoPages.buildSurvey(). Scenery, not controls. -->
+      <div class="islets" id="islets" aria-hidden="true"></div>
+
+      <!-- ░░ SITE A — the shape question ░░
+           Five islands, filled in by js/pages.js: three triangles of
+           three sizes and two shapes drawn from the other five, a
+           different pair every visit. Strewn across the five
+           stations on every entry, exactly as a round screen is. -->
+      <div class="site site--a" id="siteA">
+        <div class="pads" id="padsA"></div>
+      </div>
+
+      <!-- ░░ SITE B — the landing ░░
+           A frame to the right and half a frame down. Three
+           triangles of 30, 12 and 20 square units dealt across the
+           row -- nothing else: the shape question is behind the
+           player by now -- and the craft that has to come down on
+           the 20. -->
+      <div class="site site--b" id="siteB">
+
+        <!-- ░░ the spaceship, with its measurements called out ░░ -->
+        <div class="ship" id="ship">
+
+          <!-- The craft's shadow on the water is NOT here: js/water.js
+               inserts .ship__cast and .ship__wash at the front of this
+               element, and css/failure.css animates the cast one as the
+               landing shadow rather than adding a second. -->
+
+          <!-- dust pushed out from under the hull as its weight comes
+               on. Before .ship__craft, and z 0 against the craft's 1 -->
+          <span class="ship__dust" aria-hidden="true"></span>
+
+          <div class="ship__craft" id="shipCraft">
+            <img class="ship__img" src="assets/images/Triangle spaceship.png"
+                 alt="Triangular spaceship, base 8 units, height 5 units" />
+
+            <!-- The exhaust is painted into the artwork, so this is off
+                 by default and the engine's state is told through the
+                 hull's glow instead. Give .ship a data-flame="on" and
+                 this lights up, flickers, throttles back on the descent
+                 and goes out on impact. See css/failure.css, block 2. -->
+            <span class="engine-flame" aria-hidden="true"></span>
+
+            <!-- Dimension overlay. The viewBox is in PERCENT OF THE SHIP BOX
+                 (-28..104 on both axes), and the element is placed at exactly
+                 those percentages, so one user unit is one percent of the ship
+                 and every coordinate can be read straight off the measurements
+                 in the comment above. -->
+            <svg class="ship__dims" id="shipDims" viewBox="-28 -6 132 132" aria-hidden="true">
+              <!-- perpendicular height, apex down to the middle of the base -->
+              <path class="dim__inner" d="M49.9 2.8V69.8" />
+              <path class="dim__square" d="M49.9 62.4H57.3V69.8" />
+
+              <!-- height: 5 units, called out down the left. The line runs
+                   the measured length and is capped with a tick at each
+                   end — no witness lines back to the hull's corners; see
+                   the note over across() in js/pages.js, which builds the
+                   same callouts for the round screens. -->
+              <path class="dim__line" d="M-8 2.8V69.8" />
+              <path class="dim__tip" d="M-11.6 2.8H-4.4M-11.6 69.8H-4.4" />
+              <text class="dim__text" x="-15" y="36.3"
+                    transform="rotate(-90 -15 36.3)">5 units</text>
+
+              <!-- base: 8 units, called out under the exhaust -->
+              <path class="dim__line" d="M4.94 101H94.74" />
+              <path class="dim__tip" d="M4.94 97.4V104.6M94.74 97.4V104.6" />
+              <text class="dim__text" x="49.9" y="116">8 units</text>
+            </svg>
+          </div>
         </div>
-        <div class="zone zone--b" data-shape="square">
-          <span class="zone__wake"></span>
-          <span class="zone__splash"></span>
-          <img class="zone__img" src="assets/images/Square.png" alt="Square landing zone" />
-          <button class="zone__hit" type="button" tabindex="-1"
-                  aria-label="Square landing zone"></button>
-        </div>
-        <div class="zone zone--c" data-shape="triangle">
-          <span class="zone__wake"></span>
-          <span class="zone__splash"></span>
-          <img class="zone__img" src="assets/images/Triangle.png" alt="Medium triangular landing zone" />
-          <button class="zone__hit" type="button" tabindex="-1"
-                  aria-label="Medium triangular landing zone"></button>
-        </div>
-        <div class="zone zone--d" data-shape="trapezium">
-          <span class="zone__wake"></span>
-          <span class="zone__splash"></span>
-          <img class="zone__img" src="assets/images/Trapezium.png" alt="Trapezium landing zone" />
-          <button class="zone__hit" type="button" tabindex="-1"
-                  aria-label="Trapezium landing zone"></button>
-        </div>
-        <div class="zone zone--e" data-shape="triangle">
-          <span class="zone__wake"></span>
-          <span class="zone__splash"></span>
-          <img class="zone__img" src="assets/images/Triangle.png" alt="Small triangular landing zone" />
-          <button class="zone__hit" type="button" tabindex="-1"
-                  aria-label="Small triangular landing zone"></button>
-        </div>
+
+        <div class="pads" id="padsB"></div>
+
+        <!-- ░░ the landing's effect layers ░░
+             Empty until something hits something. js/failure.js
+             parks the dust, the debris, the spray, the bubbles and
+             the rings inside these, on the point the craft actually
+             went over — never at a fixed spot.
+
+             Two layers, not one, and the ship is between them: the
+             BACK one (z 3) is under the craft, so the scorch mark it
+             leaves is under the wreck and half the spray goes up
+             behind the hull. The FRONT one (z 6) is over both the
+             craft and the water overlay.
+
+             In here, inside the site, rather than on the screen:
+             the points they are parked on are worked out in screen
+             coordinates, and with the lens down on this site the
+             site's box IS the screen's box. -->
+        <div class="fx-layer fx-layer--back" id="fxBack" aria-hidden="true"></div>
+
+        <!-- a patch of sea painted ABOVE the craft (z 5 against the
+             ship's 4) and faded up as it goes down, so a sinking
+             spacecraft passes UNDER something instead of dissolving -->
+        <div class="water-depth-overlay" id="waterDepth" aria-hidden="true"></div>
+
+        <div class="fx-layer fx-layer--front" id="fxFront" aria-hidden="true"></div>
       </div>
 
     </div>
@@ -187,9 +297,9 @@
 
     <!-- the acquisition bracket. Drawn at FRAME scale rather than
          inside the camera, so its corners are placed on where the
-         wide lens is showing the islands (see fixBox() in
-         js/script.js) and its line weight does not shrink with
-         them. Released halfway down the descent. -->
+         wide lens is showing a site (see siteBox() in js/script.js)
+         and its line weight does not shrink with it. Released
+         partway down each descent. -->
     <div class="fix" aria-hidden="true">
       <div class="fix__box">
         <span class="fix__ring"></span>
@@ -202,10 +312,8 @@
 
     <!-- ░░ altimeter ░░ the one instrument on the feed, and it is
          here to say that what is changing is the CAMERA and not the
-         islands: five shapes growing on their own is a different
-         event from a lens coming down onto them. Counts on its own
-         clock, not the shot's easing — see altRun() in
-         js/script.js. -->
+         islands. It follows the lens itself — see altFollow() in
+         js/script.js — so it climbs, holds and descends with it. -->
     <div class="alt" id="altHud" aria-hidden="true">
       <span class="alt__track"><i class="alt__mark"></i></span>
       <span class="alt__read">
@@ -228,6 +336,19 @@
     <!-- HUD frame, stretched to fill — retired once the scan lands -->
     <div class="layer layer--hud drone-hud" id="droneHud" aria-hidden="true"></div>
 
+    <!-- ░░ celebration ░░
+         Paper falls from the top of the frame the moment the craft
+         is planted. Built by JS (see M.confetti) so the count
+         follows the viewport and the shower can be torn down if the
+         player jumps away mid-cheer. -->
+    <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+    <!-- the formula and the tally, under the landing -->
+    <div class="hud" id="landHud">
+      <p class="hud__caption" id="landCaption" role="status" aria-live="polite"></p>
+      <p class="hud__tally" id="landTally" role="status" aria-live="polite"></p>
+    </div>
+
     <!-- ░░ narration bar — typed in step with the voice-over ░░ -->
     <header class="topbar" id="topbar">
       <div class="topbar__frame">
@@ -243,189 +364,9 @@
       </div>
     </header>
 
-  </section>
-
-
-  <!-- ══════════════════════════ SCREEN 3 — THE LANDING ══════════════════════════
-
-       Geometry note: both pieces of artwork are 1254x1254 squares with a
-       shape painted on them. Measured off the alpha channel:
-
-         Triangle.png            a clean triangle — apex (50.0%, 10.9%),
-                                 base y 89.7% from x 3.3% to 96.5%.
-                                 Fills 36.623% of the canvas; its centre
-                                 of area is (49.94%, 63.45%).
-
-         Triangle spaceship.png  hull apex (50.0%, 2.8%), base y 70.0%
-                                 from x 4.94% to 94.82%. Fills 31.407%;
-                                 centre of area (49.92%, 47.72%).
-
-       The camera looks straight down, so there is no ground line to stand
-       on: a landing is one flat shape coming down onto another, and both
-       sides are anchored on their CENTRE OF AREA. Every number below, in
-       the screen-3 block of style.css, and in plan() (js/failure.js)
-       comes off those two readings — which is what puts the craft square on the island
-       instead of nudged into place by eye.
-
-       The two triangles are not the same SHAPE, though: the land is
-       93.2 x 78.9 (ratio 1.18) and the hull 89.87 across. Matched on
-       AREA — which is the thing the lesson is about — the two do not
-       come out the same proportions. Closing that is an artwork
-       change, not a code one: see the note over SHIP_FIT in
-       js/failure.js.
-       ══════════════════════════════════════════════════════════════════════ -->
-  <section class="screen screen--landing" id="screenLanding">
-
-    <!-- open water, darker than the survey feed -->
-    <div class="layer layer--bg s3-bg" aria-hidden="true"></div>
-
-    <!-- ░░ the spaceship, with its measurements called out ░░ -->
-    <div class="ship" id="ship">
-
-      <!-- The craft's shadow on the water is NOT here: js/water.js
-           inserts .ship__cast and .ship__wash at the front of this
-           element, and css/failure.css animates the cast one as the
-           landing shadow rather than adding a second. -->
-
-      <!-- dust pushed out from under the hull as its weight comes
-           on. Before .ship__craft, and z 0 against the craft's 1 -->
-      <span class="ship__dust" aria-hidden="true"></span>
-
-      <div class="ship__craft" id="shipCraft">
-        <img class="ship__img" src="assets/images/Triangle spaceship.png"
-             alt="Triangular spaceship, base 8 units, height 5 units" />
-
-        <!-- The exhaust is painted into the artwork, so this is off
-             by default and the engine's state is told through the
-             hull's glow instead. Give .ship a data-flame="on" and
-             this lights up, flickers, throttles back on the descent
-             and goes out on impact. See css/failure.css, block 2. -->
-        <span class="engine-flame" aria-hidden="true"></span>
-
-        <!-- Dimension overlay. The viewBox is in PERCENT OF THE SHIP BOX
-             (-28..104 on both axes), and the element is placed at exactly
-             those percentages, so one user unit is one percent of the ship
-             and every coordinate can be read straight off the measurements
-             in the comment above. -->
-        <svg class="ship__dims" id="shipDims" viewBox="-28 -6 132 132" aria-hidden="true">
-          <!-- perpendicular height, apex down to the middle of the base -->
-          <path class="dim__inner" d="M49.9 2.8V69.8" />
-          <path class="dim__square" d="M49.9 62.4H57.3V69.8" />
-
-          <!-- height: 5 units, called out down the left. The line runs
-               the measured length and is capped with a tick at each
-               end — no witness lines back to the hull's corners; see
-               the note over across() in js/pages.js, which builds the
-               same callouts for the round screens. -->
-          <path class="dim__line" d="M-8 2.8V69.8" />
-          <path class="dim__tip" d="M-11.6 2.8H-4.4M-11.6 69.8H-4.4" />
-          <text class="dim__text" x="-15" y="36.3"
-                transform="rotate(-90 -15 36.3)">5 units</text>
-
-          <!-- base: 8 units, called out under the exhaust -->
-          <path class="dim__line" d="M4.94 101H94.74" />
-          <path class="dim__tip" d="M4.94 97.4V104.6M94.74 97.4V104.6" />
-          <text class="dim__text" x="49.9" y="116">8 units</text>
-        </svg>
-      </div>
-    </div>
-
-    <!-- ░░ the three landing pads ░░
-         --k is the box width in layout units. It is 17 x sqrt(area / 20),
-         so the DRAWN areas are in true proportion to the numbers printed
-         on them and the 20-unit pad is exactly the size of the ship. -->
-    <div class="pads" id="pads">
-      <div class="pad pad--l" data-shape="triangle" data-area="30">
-        <img class="pad__img" src="assets/images/Triangle.png" alt="" />
-        <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
-        </svg>
-        <p class="pad__area"><b>30</b><i>sq units</i></p>
-        <button class="pad__hit" type="button" tabindex="-1"
-                aria-label="Landing zone of 30 square units"></button>
-      </div>
-
-      <div class="pad pad--m" data-shape="triangle" data-area="12">
-        <img class="pad__img" src="assets/images/Triangle.png" alt="" />
-        <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
-        </svg>
-        <p class="pad__area"><b>12</b><i>sq units</i></p>
-        <button class="pad__hit" type="button" tabindex="-1"
-                aria-label="Landing zone of 12 square units"></button>
-      </div>
-
-      <div class="pad pad--r" data-shape="triangle" data-area="20">
-        <img class="pad__img" src="assets/images/Triangle.png" alt="" />
-        <svg class="pad__fit" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50 10.9L96.5 89.8L3.3 89.6z" />
-        </svg>
-        <p class="pad__area"><b>20</b><i>sq units</i></p>
-        <button class="pad__hit" type="button" tabindex="-1"
-                aria-label="Landing zone of 20 square units"></button>
-      </div>
-    </div>
-
-    <!-- ░░ the landing's effect layers ░░
-         Empty until something hits something. js/failure.js parks
-         the dust, the debris, the spray, the bubbles and the rings
-         inside these, on the point the craft actually went over —
-         never at a fixed spot.
-
-         Two layers, not one, and the ship is between them: the
-         BACK one (z 3) is under the craft, so the scorch mark it
-         leaves is under the wreck and half the spray goes up
-         behind the hull. The FRONT one (z 6) is over both the
-         craft and the water overlay. That split is what makes an
-         impact read as happening AROUND the craft rather than
-         being painted on top of it. -->
-    <div class="fx-layer fx-layer--back" id="fxBack" aria-hidden="true"></div>
-
-    <!-- a patch of sea painted ABOVE the craft (z 5 against the
-         ship's 4) and faded up as it goes down, so a sinking
-         spacecraft passes UNDER something instead of dissolving -->
-    <div class="water-depth-overlay" id="waterDepth" aria-hidden="true"></div>
-
-    <div class="fx-layer fx-layer--front" id="fxFront" aria-hidden="true"></div>
-
-    <!-- ░░ celebration ░░
-         Paper falls from the top of the frame the moment the craft
-         is planted. The pieces are built by JS (see M.confetti) so
-         the count follows the viewport and the shower can be torn
-         down if the player jumps away mid-cheer. -->
-    <div class="confetti" id="confetti" aria-hidden="true"></div>
-
-    <!-- No HUD frame on this screen: the landing is watched from
-         outside the drone feed, so the tableau sits on open water and
-         the only chrome is the narration pill and the HUD lines. -->
-    <div class="hud" id="landHud">
-      <p class="hud__caption" id="landCaption" role="status" aria-live="polite"></p>
-      <p class="hud__tally" id="landTally" role="status" aria-live="polite"></p>
-    </div>
-
-    <!-- ░░ narration bar ░░ -->
-    <header class="topbar" id="landTopbar">
-      <div class="topbar__frame">
-        <span class="topbar__badge" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 2.2c2.7 2.8 4.1 6.3 4.1 9.8v3.4H7.9V12c0-3.5 1.4-7 4.1-9.8z" />
-            <path d="M7.9 12.4 5.1 15.3v3.4l2.8-2M16.1 12.4l2.8 2.9v3.4l-2.8-2" />
-            <path d="M10.2 15.8c0 2.2.7 4.1 1.8 5.4 1.1-1.3 1.8-3.2 1.8-5.4z" />
-            <circle cx="12" cy="9.2" r="1.7" />
-          </svg>
-        </span>
-        <p class="topbar__text" id="landTopbarText" role="status" aria-live="polite"></p>
-      </div>
-    </header>
-
     <!-- ░░ on to the next screen ░░
          Hidden until the craft is planted: it is the reward for the
-         right answer, not a way past the question.
-
-         The slot is what is centred, not the button — the button's
-         own transform is spoken for by its entry animation and its
-         press, so a translateX(-50%) on it would be clobbered by
-         both. -->
+         right answer, not a way past the question. -->
     <div class="advance" aria-hidden="false">
       <button class="advance__btn" id="advanceBtn" type="button" hidden>
         <span class="advance__label">NEXT</span>
@@ -461,7 +402,6 @@
          scales with the frame and is read out as a heading. -->
     <h1 class="gate__title">
       <span>Spaceship</span>
-      <span>Landing</span>
       <span>Mission</span>
     </h1>
 

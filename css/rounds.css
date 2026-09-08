@@ -22,6 +22,12 @@
    the tap outline, the ring, where the number sits — arrives on
    each element as a custom property from js/pages.js, measured off
    the artwork. Nothing about a particular shape is written here.
+
+   The survey screen (screen 2) plays the same two tasks on its
+   two sites, so the rules a round needs that the landing did not
+   are written for `:is(.screen--round, .screen--drone)` — one
+   selector, both screens, and the round-only figures (--pu, the
+   ranks, the rhombus exception) stay on .screen--round alone.
    ============================================================ */
 
 .screen--round {
@@ -83,12 +89,12 @@
    stations so that the two agree — a frame too cramped to scatter
    falls back to this arrangement, and it should not be a different
    one. */
-.screen--round .pad--far1 { --cx: 37%; --cy: var(--far-y); }
-.screen--round .pad--far2 { --cx: 63%; --cy: var(--far-y); }
+:is(.screen--round, .screen--drone) .pad--far1 { --cx: 37%; --cy: var(--far-y); }
+:is(.screen--round, .screen--drone) .pad--far2 { --cx: 63%; --cy: var(--far-y); }
 
-.screen--round .pad--row1 { --cx: 21%; --cy: var(--land-y); }
-.screen--round .pad--row2 { --cx: 50%; --cy: var(--land-y); }
-.screen--round .pad--row3 { --cx: 79%; --cy: var(--land-y); }
+:is(.screen--round, .screen--drone) .pad--row1 { --cx: 21%; --cy: var(--land-y); }
+:is(.screen--round, .screen--drone) .pad--row2 { --cx: 50%; --cy: var(--land-y); }
+:is(.screen--round, .screen--drone) .pad--row3 { --cx: 79%; --cy: var(--land-y); }
 
 
 /* ---------------------------------------------------------- the scatter
@@ -102,7 +108,7 @@
    the landing measures an island's box to work out where the craft
    is flying (plan() in js/failure.js), so a translated island would
    have the craft coming down on open water beside it. */
-.screen--round .pads .pad.is-scattered {
+:is(.screen--round, .screen--drone) .pads .pad.is-scattered {
   --cx: var(--sx);
   --cy: var(--sy);
 }
@@ -137,7 +143,7 @@
    the cascade than this rule, but neither is as SPECIFIC, so it is
    the .is-committed the flow adds — not the load order — that
    releases the craft. */
-.screen--round .ship.is-in:not(.is-committed) .ship__craft {
+:is(.screen--round, .screen--drone) .ship.is-in:not(.is-committed) .ship__craft {
   animation: shipArrive 1.55s cubic-bezier(.24, .86, .3, 1) both,
              shipBob 3.6s ease-in-out 1.55s infinite;
 }
@@ -145,7 +151,7 @@
 /* the fade is what used to announce the craft; the flight does it
    now, so the opacity is only there to keep it off the frame's edge
    for the first frame or two */
-.screen--round .ship { transition: opacity .22s ease; }
+:is(.screen--round, .screen--drone) .ship { transition: opacity .22s ease; }
 
 @keyframes shipArrive {
   0% {
@@ -164,7 +170,7 @@
 }
 
 /* reduced motion: it is simply where it is */
-.is-reduced .screen--round .ship.is-in:not(.is-committed) .ship__craft {
+.is-reduced :is(.screen--round, .screen--drone) .ship.is-in:not(.is-committed) .ship__craft {
   animation: none;
 }
 
@@ -223,7 +229,7 @@
    that answered the shape question should follow the islands into
    the one about area. The green goes at the same moment and for the
    same reason — see `.pads.is-cleared` in css/water.css. */
-.screen--round .pads.is-cleared .pad.is-picked .pad__img {
+:is(.screen--round, .screen--drone) .pads.is-cleared .pad.is-picked .pad__img {
   animation: padUnpick .45s ease forwards !important;
 }
 
@@ -252,7 +258,7 @@
    on matching it once the area task arms, and would light the tap
    target back up over empty water. Hence the extra `.pads` here:
    these have to outrank those, not tie with them. */
-.screen--round .pads .pad.is-up.is-sunk .pad__hit {
+:is(.screen--round, .screen--drone) .pads .pad.is-up.is-sunk .pad__hit {
   opacity: 0;
   pointer-events: none;
 }
@@ -268,7 +274,7 @@
    `.is-priced` is added to each surviving island as the second
    question opens, and the number then fades in on the base rule's
    own half-second delay. */
-.screen--round .pad:not(.is-priced) .pad__area {
+:is(.screen--round, .screen--drone) .pad:not(.is-priced) .pad__area {
   opacity: 0;
   transform: translate(-50%, -50%) scale(.7);
   transition-delay: 0s;
@@ -277,9 +283,9 @@
 
 
 /* ============================================================
-   RESPONSIVE — the same nudges responsive.css makes to screen 3,
-   which cannot reach these screens because it names
-   .screen--landing.
+   RESPONSIVE — the same nudges responsive.css makes to the survey's
+   landing site, which cannot reach these screens because it names
+   .screen--drone.
    ============================================================ */
 
 /* ---------------------------------------------------------- short / landscape phone
@@ -323,5 +329,5 @@
 @media (hover: none) {
   /* the coastline is a fair target with a mouse; a fingertip needs
      the ring's worth of slack around it */
-  .screen--round .pad__hit { inset: -4%; }
+  :is(.screen--round, .screen--drone) .pad__hit { inset: -4%; }
 }

@@ -336,6 +336,15 @@
   67%      { transform: scale(1.020) rotate(.09deg)  translate3d(.10%, .30%, 0); }
 }
 
+/* Not on the survey. There the sea's plate belongs to the CAMERA
+   (THE CAMERA, js/animation.js): it is scaled up for altitude and
+   moved a fraction of the way with every pan, and between flights
+   it is PINNED as an inline style. A CSS animation outranks an
+   inline style, so left running this one would snap the photograph
+   back to scale 1.02 the moment a flight landed. The lens's own
+   loiter is that screen's breathing. */
+.screen--drone .s2-bg { animation: none; }
+
 
 /* ============================================================
    THE SWELL — a wave train across the whole sea
@@ -1417,7 +1426,7 @@
    the area question: nothing that answered the shape question
    should follow the islands into the one about area. Same moment
    `padUnpick` fires in css/rounds.css, and for the same reason. */
-.screen--round .pads.is-cleared .pad.is-picked .shock {
+:is(.screen--round, .screen--drone) .pads.is-cleared .pad.is-picked .shock {
   opacity: 0;
   animation: none;
   transition: opacity .45s ease;

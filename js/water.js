@@ -680,8 +680,8 @@
   /* Every screen painted on water gets a sea under it, a sheet of
      glare over it, and its waves. Which screens those are is asked
      of the artwork rather than listed: the two backgrounds that
-     ARE the sea are .s2-bg (the survey feed) and .s3-bg (the
-     landing, and every round screen). */
+     ARE the sea are .s2-bg (the survey) and .s3-bg (every round
+     screen). */
   function dress(screen) {
     if (screen.dataset.wtr) return;
 

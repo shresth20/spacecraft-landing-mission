@@ -221,71 +221,92 @@
   /* ============================================================
      THE CAMERA
 
-     Screen 2 is one continuous shot. The lens opens on open water
-     at the drone's survey height, holds while the islands break
-     the surface a long way below it, and then comes down onto
-     them; the voice-over and the shape task start when it has
-     landed. Three calls, in that order:
+     Screen 2 is one continuous shot over one sea, and the lens
+     comes down on it twice. What this module owns is the LENS:
+     where it is, how it gets somewhere else, and the four plates
+     that have to move together for the move to read as a camera
+     and not as things sliding about on a screen.
 
-       camWide(screen, focus)   park the lens high, and set it
-                                loitering. Called from the screen's
-                                RESET, which runs under the veil,
-                                so the feed fades up already high.
-       camFix(screen, box)      the acquisition bracket, on the
-                                frame the islands arrive on.
-       camPush(screen, opts)    fly it down. Resolves when the lens
-                                has settled and the world has been
-                                handed back untransformed.
-       camReset(screen)         and back to the ground state, with
-                                nothing running.
+     ── a camera state ────────────────────────────────────────────
+
+       { s, x, y }   s   the zoom: 1 is "down", --cam-wide is
+                         survey height
+                     x,y the WORLD point under the middle of the
+                         frame, in per cent of one frame
+
+     World coordinates are the camera plate's own: site A's frame
+     is (0..100, 0..100), site B's is a frame to the right and
+     45% down, the islets lie around both (see .site and .islets
+     in css/style.css). A state with s = 1 and (x, y) on a site's
+     centre is that site laid out exactly as a screen of its own
+     would lay it out -- a translate and a scale of 1 -- which is
+     what lets the landing's plan() measure it as though the
+     camera were not there.
 
      ── the plates ────────────────────────────────────────────────
 
-     Four elements, moved as one shot -- same clock, same easing,
-     one call -- and each with its own travel:
+       .cam        the world. translate(50 - s*x, 50 - s*y) scale(s),
+                   with the origin at the corner: the one transform
+                   the state describes.
 
-       .cam        the world: the five islands and the fronts they
-                   throw. --cam-wide up to 1, and 1 exactly, because
-                   1 is the layout the shape task is played on.
+       the water   .s2-bg, .sea__deep and .sea__swell -- the three
+                   sea sheets with no transform of their own. The
+                   sea is one photograph stretched to the frame, so
+                   its plate can only be scaled UP, never under 1;
+                   it grows a little with the zoom (--cam-water-wide
+                   to --cam-water-near) and follows a pan at a
+                   fraction of the world's travel (--cam-parallax),
+                   clamped so its edge never comes into frame. That
+                   fraction is the depth cue: water that stayed put
+                   under a moving archipelago would read as islands
+                   drifting on it, and water that moved with it
+                   exactly would need a photograph three frames
+                   wide.
 
-       the water   .s2-bg, .sea__deep and .sea__swell. A fraction of
-                   the world's travel, and never below 1: the sea is
-                   one photograph stretched to the frame and a plate
-                   scaled under 1 shows its own edge. These are also
-                   the only three of the sea's nine sheets with no
-                   transform of their own -- the caustic drift, the
-                   glint sweep, the glare drift and the three roll
-                   sheets all own theirs -- so they are the three
-                   the camera is allowed to move.
+       .aerial     the haze between a lens at height and the water:
+                   1 - zoom, so it is full at survey height and gone
+                   on the ground.
 
-       .aerial     the haze between a lens at height and the water
-                   under it: full at the top of the descent, gone at
-                   the bottom.
+       .fix        the acquisition bracket. Frame-level and static;
+                   the script puts it where a site is being SHOWN
+                   (camProject) and takes it down partway through
+                   each descent.
 
-       .fix        the bracket. Drifts with the world but does not
-                   zoom with it, and is released halfway down.
+     ── one flight, many keyframes ────────────────────────────────
 
-     ── why the two shots join without a step ────────────────────
+     camFly takes a LIST of states, each with an offset and the
+     easing into the next, and writes one Web Animation per plate
+     with the same offsets and easings -- so the climb out of site
+     A, the crossing at altitude and the descent onto site B are a
+     single animation that never stops, rather than three that
+     each start from rest. The first keyframe is always the lens's
+     LIVE state (camRead), read off the world plate's own matrix,
+     so a flight asked for mid-loiter or mid-flight starts from the
+     frame that is on screen and not from where the last one was
+     supposed to end.
 
-     The loiter is a long drift that nothing waits for: the islands
-     surface on their own clock and the descent is asked for
-     whenever the script gets to it, which is never a round number
-     of frames into the drift. So camPush does not assume where the
-     loiter is -- it READS each plate's current transform off the
-     computed style, uses that matrix as its own first keyframe, and
-     only then cancels the loiter. Both happen in one task, with no
-     frame boundary between them, so there is no value the browser
-     could paint in between: the descent starts from exactly the
-     frame the loiter was showing.
+     Between two keyframes the browser interpolates translate and
+     scale each on a straight line, and for a camera that turns out
+     to be the right path: a zoom about a fixed point IS a straight
+     line in (translate, scale), and so is a pan at a fixed height.
 
-     ── generations ──────────────────────────────────────────────
+     ── pinning ───────────────────────────────────────────────────
 
-     camPush's tail clears the world's transform, and a player who
-     jumps screens mid-descent would otherwise have that tail land
-     on a camera the reset has already re-parked. Every park and
-     every reset bumps camGen; the tail checks the generation it
-     was started under, exactly as sequence() in js/script.js checks
-     runId.
+     When a flight lands the plates are PINNED -- their animations
+     cancelled and the end state written as inline style -- so
+     nothing is left running under a task the player is about to
+     spend a minute on. Inline needs the water's own CSS breathing
+     switched off on this screen (css/water.css does this), because
+     a CSS animation outranks an inline style and would take the
+     photograph back to scale 1 the moment the pin went in.
+
+     ── generations ───────────────────────────────────────────────
+
+     A flight's tail pins the lens, and a player who jumps screens
+     mid-flight would otherwise have that pin land on a camera the
+     reset has re-parked. Every set and every reset bumps camGen;
+     the tail checks the generation it was started under, exactly
+     as sequence() in js/script.js checks runId.
      ============================================================ */
 
   /* every animation this module starts is tagged, so camStop can
@@ -294,14 +315,6 @@
      Animations API does not come back */
   var CAM_ID = 'geo-cam';
 
-  /* The loiter, in per cent of the FRAME. Every plate it moves is
-     frame-sized, so one pair of figures is the same drift on a
-     phone as on a desktop -- and it is kept small on purpose: the
-     water's plate is only oversized by 1.05 while the lens is high
-     (see camPlates), and a drift wider than that would walk the
-     photograph's own edge into the frame. */
-  var LOITER = { x: 0.85, y: 0.5, ms: 17000 };
-
   var camGen = 0;
 
   function camVar(screen, name, fallback) {
@@ -309,25 +322,37 @@
     return isFinite(v) ? v : fallback;
   }
 
-  /* The plates and their two ends. `wide` is the scale while the
-     lens is high, `near` the scale it comes down to.
+  /* the screen's figures, read once per call so a media query can
+     retune them and the lens follows */
+  function camVars(screen) {
+    return {
+      wide:      camVar(screen, '--cam-wide', 0.32),
+      waterWide: camVar(screen, '--cam-water-wide', 1.14),
+      waterNear: camVar(screen, '--cam-water-near', 1.24),
+      parallax:  camVar(screen, '--cam-parallax', 0.10)
+    };
+  }
 
-     .fix is in the table for its DRIFT, not for a zoom: 1 at both
-     ends of the shot but for the flourish it is released on. */
+  function camWide(screen) { return camVars(screen).wide; }
+
+  function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+
+  /* 0 at survey height, 1 on the ground */
+  function camZoom(screen, s) {
+    var w = camWide(screen);
+    return w >= 1 ? 1 : clamp01((s - w) / (1 - w));
+  }
+
   function camPlates(screen) {
-    var wide = camVar(screen, '--cam-wide', 0.32);
-    var near = camVar(screen, '--cam-water', 1.13);
     var out = [];
-
-    function add(el, w, n) { if (el) out.push({ el: el, wide: w, near: n }); }
-
-    add(screen.querySelector('.cam'), wide, 1);
+    var world = screen.querySelector('.cam');
+    if (world) out.push({ el: world, kind: 'world' });
     Array.prototype.forEach.call(
       screen.querySelectorAll('.s2-bg, .sea__deep, .sea__swell'),
-      function (el) { add(el, 1.05, near); }
+      function (el) { out.push({ el: el, kind: 'water' }); }
     );
-    add(screen.querySelector('.fix'), 1, 1.5);
-
+    var haze = screen.querySelector('.aerial');
+    if (haze) out.push({ el: haze, kind: 'haze' });
     return out;
   }
 
@@ -338,26 +363,77 @@
     });
   }
 
-  /* what the plate is showing RIGHT NOW, as a keyframe value */
-  function camNow(el, prop) {
-    var v = global.getComputedStyle(el)[prop];
-    if (prop === 'transform') return (!v || v === 'none') ? 'none' : v;
-    return v;
+  function pct(n) { return n.toFixed(3) + '%'; }
+
+  /* the world plate, for a state */
+  function worldOf(st) {
+    return 'translate(' + pct(50 - st.s * st.x) + ', ' + pct(50 - st.s * st.y) + ') ' +
+           'scale(' + st.s.toFixed(5) + ')';
   }
 
-  /* One plate, one leg of the shot. Resolves the same three ways
-     sweep() does: the animation finishing, the animation being
-     cancelled, or the clock running out -- so a browser that never
-     fires onfinish cannot strand the script. */
-  function camAnim(el, frames, ms, easing) {
+  /* the water, for a state: a little bigger the lower the lens is,
+     and a fraction of the way towards where the lens has gone */
+  function waterOf(st, v) {
+    var t = v.wide >= 1 ? 1 : clamp01((st.s - v.wide) / (1 - v.wide));
+    var ws = v.waterWide + (v.waterNear - v.waterWide) * t;
+    var room = (ws - 1) * 50 * 0.92;
+    var dx = Math.max(-room, Math.min(room, -(st.x - 50) * v.parallax));
+    var dy = Math.max(-room, Math.min(room, -(st.y - 50) * v.parallax));
+    return 'translate(' + pct(50 - 50 * ws + dx) + ', ' + pct(50 - 50 * ws + dy) + ') ' +
+           'scale(' + ws.toFixed(5) + ')';
+  }
+
+  function hazeOf(st, v) {
+    var t = v.wide >= 1 ? 1 : clamp01((st.s - v.wide) / (1 - v.wide));
+    return String(1 - t);
+  }
+
+  function valueOf(plate, st, v) {
+    if (plate.kind === 'world') return { transform: worldOf(st) };
+    if (plate.kind === 'water') return { transform: waterOf(st, v) };
+    return { opacity: hazeOf(st, v) };
+  }
+
+  /* The lens's live state, read back off the world plate's matrix.
+     m.a is the scale; m.e / m.f the translate in px, which is
+     50 - s*x per cent of the frame. */
+  function camRead(screen) {
+    var world = screen && screen.querySelector('.cam');
+    if (!world) return { s: 1, x: 50, y: 50 };
+
+    var t = global.getComputedStyle(world).transform;
+    if (!t || t === 'none') return { s: 1, x: 50, y: 50 };
+
+    try {
+      var m = new DOMMatrixReadOnly(t);
+      var s = m.a || 1;
+      var W = world.clientWidth || 1;
+      var H = world.clientHeight || 1;
+      return {
+        s: s,
+        x: (50 - m.e / W * 100) / s,
+        y: (50 - m.f / H * 100) / s
+      };
+    } catch (e) {
+      return { s: 1, x: 50, y: 50 };
+    }
+  }
+
+  /* a world point, as the frame shows it under `st` -- per cent of
+     the frame both in and out */
+  function camProject(screen, st, wx, wy) {
+    return { x: 50 + st.s * (wx - st.x), y: 50 + st.s * (wy - st.y) };
+  }
+
+  /* One plate, one animation. Resolves the same three ways sweep()
+     does: finishing, being cancelled, or the clock running out --
+     so a browser that never fires onfinish cannot strand the
+     script. `frames` carry their own offsets and easings. */
+  function camAnim(el, frames, ms) {
     if (!el || !el.animate) return wait(ms);
 
     return new Promise(function (resolve) {
-      var anim = el.animate(frames, {
-        duration: ms,
-        easing: easing,
-        fill: 'forwards'
-      });
+      var anim = el.animate(frames, { duration: ms, fill: 'forwards' });
       anim.id = CAM_ID;
       anim.onfinish = resolve;
       anim.oncancel = resolve;
@@ -365,84 +441,118 @@
     });
   }
 
-  /* One plate's transform. The scale is written LAST, so it is
-     applied first and the drift that follows it is in per cent of
-     the frame rather than of the shrunken world -- which is what
-     lets one pair of figures in LOITER move every plate by the same
-     distance across the glass, whatever scale each of them is at. */
-  function camWrite(scale, tx, ty) {
-    return 'translate(' + tx.toFixed(3) + '%, ' + ty.toFixed(3) + '%) ' +
-           'scale(' + scale + ')';
+  /* Park the lens at `st`, now, with nothing running. */
+  function camSet(screen, st) {
+    if (!screen || !st) return;
+    camGen++;
+    var v = camVars(screen);
+    camPlates(screen).forEach(function (p) {
+      camStop(p.el);
+      var val = valueOf(p, st, v);
+      p.el.style.transformOrigin = '0 0';
+      p.el.style.willChange = p.kind === 'haze' ? 'opacity' : 'transform';
+      if (val.transform != null) p.el.style.transform = val.transform;
+      if (val.opacity != null) p.el.style.opacity = val.opacity;
+    });
   }
 
-  /* Everything back to the ground state: no animations of ours
-     running, no inline transform, and the shape task played on the
-     layout itself. */
+  /* Everything back to the ground state: no animations of ours, no
+     inline transform, the world at identity. */
   function camReset(screen) {
     if (!screen) return;
     camGen++;
 
-    var els = camPlates(screen).map(function (p) { return p.el; });
-    var haze = screen.querySelector('.aerial');
-    var fix = screen.querySelector('.fix');
-    if (haze) els.push(haze);
-
-    els.forEach(function (el) {
-      camStop(el);
-      el.style.transform = '';
-      el.style.transformOrigin = '';
-      el.style.willChange = '';
-      el.style.opacity = '';
-    });
-
-    if (fix) {
-      fix.classList.remove('is-on');
-      var box = fix.querySelector('.fix__box');
-      if (box) box.removeAttribute('style');
-    }
-  }
-
-  /* Park the lens at survey height and set it loitering. `focus` is
-     the point the descent will end on, in per cent of the frame,
-     and it is the transform origin of every plate -- so the shot
-     converges on the archipelago rather than on the middle of the
-     frame, and the islands the lens is holding on stay where they
-     are all the way down.
-
-     No promise: the loiter is a state, not a beat. Whatever asks
-     for the descent interrupts it. */
-  function camWide(screen, focus) {
-    if (!screen || !focus) return;
-    camGen++;
-
-    var origin = focus.x.toFixed(2) + '% ' + focus.y.toFixed(2) + '%';
-    var d = LOITER;
-
     camPlates(screen).forEach(function (p) {
       camStop(p.el);
-      p.el.style.transformOrigin = origin;
-      p.el.style.willChange = 'transform';
-      camAnim(p.el, [
-        { transform: camWrite(p.wide, -d.x, -d.y) },
-        { transform: camWrite(p.wide,  d.x,  d.y * 0.6) }
-      ], d.ms, 'cubic-bezier(.42, 0, .58, 1)');
+      p.el.style.transform = '';
+      p.el.style.transformOrigin = '';
+      p.el.style.willChange = '';
+      p.el.style.opacity = '';
     });
 
-    var haze = screen.querySelector('.aerial');
-    if (haze) { camStop(haze); haze.style.opacity = '1'; }
-
-    var fix = screen.querySelector('.fix');
-    if (fix) fix.style.opacity = '0';
+    camUnfix(screen, 0);
   }
 
-  /* The bracket, over the patch of water the islands have just
-     broken. `box` is that patch in per cent of the frame, already
-     projected to what the wide lens is showing it as -- see
-     fixBox() in js/script.js, which owns that arithmetic because it
-     is the side that knows where the islands were strewn. */
+  /* Fly. `keys` is a list of states with `offset` (0..1; the last
+     may omit it) and `easing` (OUT of that key, into the next; the
+     last's is ignored, as the Web Animations API ignores it). The
+     first keyframe is the live lens, and it leaves on opts.easing.
+     Resolves once every plate has landed and the lens has been
+     pinned. */
+  function camFly(screen, keys, opts) {
+    opts = opts || {};
+    if (!screen || !keys || !keys.length) return wait(0);
+
+    var gen = camGen;
+    var ms = opts.ms || 3400;
+    var v = camVars(screen);
+    var ease = opts.easing || 'cubic-bezier(.46, .02, .16, 1)';
+
+    /* the live lens leaves on the flight's own easing (opts.easing);
+       from a key onwards, that key's easing carries the lens to the
+       next one, so a state in the middle of a flight can say how it
+       is left -- linear for a drift, a settle for a descent */
+    var frames = [{ st: camRead(screen), offset: 0, easing: ease }];
+    keys.forEach(function (k, i) {
+      frames.push({
+        st: k,
+        offset: k.offset == null ? (i === keys.length - 1 ? 1 : null) : k.offset,
+        easing: k.easing || ease
+      });
+    });
+    /* any offset left null is spaced evenly between its neighbours */
+    frames.forEach(function (f, i) {
+      if (f.offset != null) return;
+      var j = i + 1;
+      while (frames[j].offset == null) j++;
+      var prev = frames[i - 1].offset;
+      f.offset = prev + (frames[j].offset - prev) / (j - i + 1);
+    });
+
+    var last = frames[frames.length - 1].st;
+
+    var jobs = camPlates(screen).map(function (p) {
+      camStop(p.el);
+      p.el.style.transformOrigin = '0 0';
+      p.el.style.willChange = p.kind === 'haze' ? 'opacity' : 'transform';
+      var kfs = frames.map(function (f) {
+        var val = valueOf(p, f.st, v);
+        val.offset = f.offset;
+        val.easing = f.easing;
+        return val;
+      });
+      return camAnim(p.el, kfs, ms);
+    });
+
+    return Promise.all(jobs).then(function () {
+      /* a jump mid-flight re-parks the lens before this lands */
+      if (gen !== camGen) return;
+      camSet(screen, last);
+    });
+  }
+
+  /* A slow drift at the current height, for the lens to hold on
+     while nothing is happening: `dx`/`dy` in world per cent. A
+     state, not a beat -- whatever asks for the next flight reads
+     the live lens and interrupts it wherever it has got to. */
+  function camLoiter(screen, st, o) {
+    o = o || {};
+    if (!screen || !st) return;
+    var to = { s: st.s, x: st.x + (o.dx || 1.6), y: st.y + (o.dy || 1.0) };
+    var v = camVars(screen);
+    camPlates(screen).forEach(function (p) {
+      camStop(p.el);
+      var a = valueOf(p, st, v); a.offset = 0; a.easing = 'cubic-bezier(.42, 0, .58, 1)';
+      var b = valueOf(p, to, v); b.offset = 1;
+      camAnim(p.el, [a, b], o.ms || 17000);
+    });
+  }
+
+  /* The bracket, over `box` -- a patch of the FRAME in per cent,
+     already projected (camProject) from wherever the site is. */
   function camFix(screen, box, ms) {
     var fix = screen && screen.querySelector('.fix');
-    if (!fix || !box) return Promise.resolve();
+    if (!fix || !box) return wait(0);
 
     var inner = fix.querySelector('.fix__box');
     if (inner) {
@@ -452,78 +562,39 @@
       inner.style.height = (box.b - box.t).toFixed(2) + '%';
     }
 
+    camStop(fix);
     fix.classList.add('is-on');
-    return camAnim(fix, [{ opacity: 0 }, { opacity: 1 }],
-                   ms || 620, 'cubic-bezier(.2, .8, .3, 1)');
+    return camAnim(fix, [
+      { opacity: getComputedStyle(fix).opacity, offset: 0, easing: 'cubic-bezier(.2, .8, .3, 1)' },
+      { opacity: 1, offset: 1 }
+    ], ms || 620);
   }
 
-  /* And down. Long, and eased so that it leaves slowly, carries
-     through the middle and settles for a good half-second at the
-     bottom -- a descent that arrives at speed reads as a cut. */
-  function camPush(screen, opts) {
-    opts = opts || {};
-    if (!screen) return Promise.resolve();
+  /* and down. `is-on` comes off at the end: with it off the
+     stylesheet holds the bracket at 0 whatever else is happening
+     (css/style.css), which is the guarantee a reset wants. */
+  function camUnfix(screen, ms) {
+    var fix = screen && screen.querySelector('.fix');
+    if (!fix) return wait(0);
 
-    var gen = camGen;
-    var ms = opts.ms || 3400;
-    var ease = opts.easing || 'cubic-bezier(.46, .02, .16, 1)';
-
-    var plates = camPlates(screen);
-    if (!plates.length) return Promise.resolve();
-
-    var haze = screen.querySelector('.aerial');
-    var fix = screen.querySelector('.fix');
-
-    /* Every plate's live value FIRST, before a single animation is
-       cancelled: the loiter is still running, and where its drift
-       has got to is where the descent has to start from. */
-    plates.forEach(function (p) { p.from = camNow(p.el, 'transform'); });
-    var hazeFrom = haze ? camNow(haze, 'opacity') : null;
-    var fixFrom = fix ? camNow(fix, 'opacity') : null;
-
-    var jobs = plates.map(function (p) {
-      camStop(p.el);
-      p.el.style.willChange = 'transform';
-      return camAnim(p.el, [
-        { transform: p.from },
-        { transform: 'scale(' + p.near + ')' }
-      ], ms, ease);
-    });
-
-    if (haze) {
-      camStop(haze);
-      jobs.push(camAnim(haze, [
-        { opacity: hazeFrom },
-        { opacity: 0 }
-      ], ms, 'cubic-bezier(.35, 0, .6, 1)'));
+    if (!ms) {
+      camStop(fix);
+      fix.classList.remove('is-on');
+      fix.style.opacity = '';
+      return wait(0);
     }
 
-    /* the bracket brightens as the lens commits, then lets go well
-       before the islands are big enough for it to be a box drawn
-       round the answer */
-    if (fix) {
-      jobs.push(camAnim(fix, [
-        { opacity: fixFrom, offset: 0 },
-        { opacity: 1, offset: 0.14 },
-        { opacity: 0, offset: 0.48 },
-        { opacity: 0, offset: 1 }
-      ], ms, 'linear'));
-    }
-
-    return Promise.all(jobs).then(function () {
-      /* A jump during the descent re-parks the lens before this
-         lands, and clearing the world's transform then would strand
-         the new shot at ground scale. */
-      if (gen !== camGen) return;
-
-      var world = screen.querySelector('.cam');
-      if (world) {
-        camStop(world);
-        world.style.transform = '';
-        world.style.transformOrigin = '';
+    var from = getComputedStyle(fix).opacity;
+    camStop(fix);
+    return camAnim(fix, [
+      { opacity: from, offset: 0, easing: 'cubic-bezier(.4, 0, .6, 1)' },
+      { opacity: 0, offset: 1 }
+    ], ms).then(function () {
+      if (fix.classList.contains('is-on')) {
+        camStop(fix);
+        fix.classList.remove('is-on');
+        fix.style.opacity = '';
       }
-      plates.forEach(function (p) { p.el.style.willChange = ''; });
-      if (fix) fix.classList.remove('is-on');
     });
   }
 
@@ -697,9 +768,15 @@
     sweep: sweep,
     surfaceZones: surfaceZones,
     camReset: camReset,
+    camSet: camSet,
+    camFly: camFly,
+    camLoiter: camLoiter,
+    camRead: camRead,
+    camProject: camProject,
+    camZoom: camZoom,
     camWide: camWide,
     camFix: camFix,
-    camPush: camPush,
+    camUnfix: camUnfix,
     sinkZones: sinkZones,
     confetti: confetti,
     confettiClear: confettiClear,

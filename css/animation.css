@@ -327,7 +327,7 @@
      refuse and sink animations carry meaning, so they stay. What a
      choosable island is offered WITH under reduced motion is set in
      the reduced-motion block of css/water.css, on its shore. */
-  .zones.is-picking .zone.is-up:not(.is-picked) .zone__img,
+  .pads.is-picking .pad.is-up:not(.is-picked) .pad__img,
   .ship.is-in .ship__craft,
   .topbar__text.is-typing .tw__caret { animation: none !important; }
 

@@ -8,43 +8,46 @@
      → press: launch SFX, drone climbs out through the canopy
      → cross-fade to the drone feed
 
-   Screen 2 · drone feed
+   Screen 2 · the survey — one continuous shot over one sea
      black (ocean hidden) + "it is too dark"
      → "start the scanner"
-     → the scan clears the dark to the drone's SURVEY HEIGHT: open
-        water corner to corner, with nothing in it
      → green line sweeps left/right/left/right
-     → ocean fades up 0 → 1
-     → five landing zones breach the surface with splashes, small
-        and far off, and the lens brackets them
-     → and comes down onto them — see THE CAMERA in js/animation.js
+     → the scan clears the dark to the drone's SURVEY HEIGHT: open
+        water corner to corner, three frames of it, with nothing in it
+     → the archipelago breaks the surface: twenty-odd small islands
+        of every shape in the mission, and among them the two sites
+        the lens will come down on
+     → the lens brackets site A and descends — see THE CAMERA in
+        js/animation.js
      → "the scanner found several landing zones"
-
-   Screen 2 · shape hunt (continues on the same feed)
-     narration bar drops in, typed in step with the voice
      → "look at the shapes of the landing zones"
-     → the spaceship chip parks in the corner
      → "the spaceship is a triangle — select all the triangular
         landing zones"
-     → the five zones become selectable; three triangles to find
-       · right shape → tick stamped on, zone locks in
-       · wrong shape → shake, buzzer, "try again"
-     → all three found: the square and the trapezium sink back
-       under the water, one after the other, each with a splash
-     → "correct! these landing zones have the same shape as the
-        spaceship", and the feed cuts straight to screen 3
-
-   Screen 3 · the landing
-     the craft rises with its base and height called out
-     → "next, we need to find how much space the spaceship needs"
-     → three pads surface, each with its area printed on it
+     → site A's five islands become selectable; three triangles to
+       find, two other shapes to leave
+       · right shape → green coast, zone locks in
+       · wrong shape → red coast, buzzer, "try again"
+     → all three found: the lens climbs back to survey height while
+       the two wrong shapes sink and "correct! these landing zones
+       have the same shape as the spaceship" plays, crosses the
+       water with the whole archipelago under it, brackets site B
+       and comes down onto it
+     → the craft flies in over site B's row of three triangles (30,
+       12 and 20 square units) -- nothing else is on the water there
+     → "next, we need to find how much space the spaceship needs",
+        and its base and height are called out
+     → the three triangles get their areas printed on them
      → "calculate the area of spaceship, and select the land with
-        required area"
+        required area" · "choose the landing zone with the exact area"
      → the player picks; the craft flies down and the geometry
-       decides what happens (see SCREEN 3 below)
+       decides what happens (see THE LANDING below)
      → it fits: confetti falls over the whole frame, "landing
        successful", and a NEXT button arrives under the footer lines
-       to carry the mission on to the screen after this one
+       to carry the mission on to the first round
+
+   (There is no screen 3 any more. The landing used to have a
+   screen of its own; it is site B of the survey now, so the two
+   halves of the lesson are asked over one sea by one camera.)
 
    The "<" / ">" nav can cut in at any point, so each screen is
    described as a list of steps run under a generation id. Jumping
@@ -82,24 +85,13 @@
   var el = {};
   var launched = false;
 
-  /* shape hunt */
-  var TARGET_SHAPE = 'triangle';
-  var picked = 0;                 // triangles found so far
-  var needed = 0;                 // how many there are to find
-  var picking = false;            // clicks are being accepted
-  var releasePick = null;         // resolves the "wait for all of them" step
-  var scolding = false;           // a "try again" is already playing
+  /* the survey: its two sites and its islets, built by
+     GeoPages.buildSurvey() at boot. See SCREEN 2 below. */
+  var survey = null;
 
-  /* the five zones back to front, as GeoPages.strewZones() left
-     them; null until the feed has been reset at least once */
-  var surfaceOrder = null;
-
-  /* the survey feed's camera. `camField` is where this entry's
-     archipelago ended up, in per cent of the frame, and `airborne`
-     is whether the lens is flying at all — false under reduced
-     motion, and false if the field could not be read, in which case
-     the screen plays exactly as it did before the camera existed. */
-  var camField = null;
+  /* whether the lens FLIES between its states or cuts: false under
+     reduced motion, where every move is a cut and the altimeter and
+     the bracket stay away */
   var airborne = false;
 
   var runId = 0;            // bumped on every jump
@@ -141,13 +133,12 @@
       'stage', 'screenCockpit', 'screenDrone', 'starfield',
       'flyDrone', 'flyTrail', 'dash', 'waveCanvas', 'cockpitCaption',
       'launchSlot', 'launchBtn', 'oceanBg', 'blackout', 'scanner',
-      'droneHud',
-      'cam', 'zones',
+      'droneHud', 'cam',
       'altHud', 'altNum', 'altState',
       'topbar', 'topbarText',
-      'screenLanding', 'ship', 'shipCraft', 'shipDims', 'pads',
+      'ship', 'shipCraft', 'shipDims',
       'confetti', 'advanceBtn',
-      'landHud', 'landCaption', 'landTally', 'landTopbar', 'landTopbarText',
+      'landHud', 'landCaption', 'landTally',
       'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
       'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -315,13 +306,71 @@
   }
 
   /* ============================================================
-     SCREEN 2 — DRONE FEED
+     SCREEN 2 — THE SURVEY
+
+     One continuous shot over one sea, and both halves of the lesson
+     on it. The lens opens at survey height with the whole
+     archipelago breaking the surface under it, comes down on SITE A
+     for the shape question, climbs, crosses and comes down on SITE
+     B for the area question -- which is the landing that used to be
+     screen 3. Both sites are laid out and played exactly as a round
+     screen is (js/pages.js builds them shaped like one), so the two
+     tasks below go through the round helpers further down and this
+     block owns only what is new: the sea, the lens and the beats
+     between them.
+
+     ── coordinates ──
+
+     Everything in the camera plate is in WORLD coordinates -- per
+     cent of one frame. Site A's frame is (0..100, 0..100), site B's
+     a frame to the right and 45% down. SITES holds their centres,
+     and it MUST agree with .site--b in css/style.css: a site's
+     centre is its offset plus (50, 50). WORLD is the point between
+     them the lens holds at survey height.
+
+     ── the lens ──
+
+     Three states, and the flights between them (THE CAMERA in
+     js/animation.js): wide over WORLD, down on A, down on B. The
+     first descent is one leg; the crossing is one animation with a
+     climb, a slow drift at altitude and a descent in it, so the
+     lens never stops between site A and site B. The altimeter
+     follows the lens itself (altFollow), whatever it is doing.
      ============================================================ */
+
+  var SITES = { a: { x: 50, y: 50 }, b: { x: 150, y: 95 } };
+  var WORLD = { x: 100, y: 72.5 };
+
+  /* how long each move takes. Long -- the move is the beat, not an
+     animation played under one. The crossing is climb, drift and
+     descent in one: see the offsets in the flight itself. */
+  var DESCENT_MS = 3400;
+  var TRANSIT_MS = 6400;
+
+  function siteA() { return survey ? survey.sites.a : null; }
+  function siteB() { return survey ? survey.sites.b : null; }
+
+  /* the lens down on a site: scale 1, the site's centre under the
+     middle of the frame -- which is that site laid out exactly as a
+     screen of its own would lay it out */
+  function siteState(key) {
+    return { s: 1, x: SITES[key].x, y: SITES[key].y };
+  }
+
+  /* and at survey height, over the middle of the sea */
+  function wideState(dx, dy) {
+    return {
+      s: M.camWide(el.screenDrone),
+      x: WORLD.x + (dx || 0),
+      y: WORLD.y + (dy || 0)
+    };
+  }
+
   function resetDroneFeed() {
-    /* The lens first: back to the ground state before anything is
-       measured, so the field below is read off the layout itself
-       and not off a transformed copy of it. */
+    /* the lens first: back to the ground state before anything is
+       measured, so the layout below is read off the layout itself */
     M.camReset(el.screenDrone);
+    altFollow(false);
     altReset();
 
     el.oceanBg.classList.remove('is-lit');
@@ -334,43 +383,56 @@
       bar.getAnimations().forEach(function (a) { a.cancel(); });
     }
 
-    zoneList().forEach(function (z) {
-      z.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk');
-    });
-
-    /* Strewn again on every entry, on the same five stations every
-       screen after this one uses, and shuffled — see the scatter in
-       js/pages.js for why it has to be shuffled and not just laid
-       out. `order` is the archipelago back to front, which is the
-       order it should breach in; without it (a frame too cramped for
-       any draw of five) the zones keep the fallback positions in
-       css/style.css and breach in document order. */
-    surfaceOrder = null;
-    if (global.GeoPages) {
-      surfaceOrder = global.GeoPages.strewZones(el.screenDrone, zoneList());
-    }
-
-    /* And the shot this entry will fly, parked before the screen is
-       shown: reset runs under the veil (see goTo), so the feed fades
-       up already high over the water rather than snapping up to
-       height on its first frame. */
-    camField = zoneField(zoneList());
-    airborne = !M.reduced() && !!camField;
-    if (airborne) M.camWide(el.screenDrone, camField);
-
-    endPicking();
-    picked = 0;
-
     el.topbar.classList.remove('is-on');
     T.clear(el.topbarText);
+
+    /* js/pages.js did not load: the feed is dark water and the scan
+       finds nothing. runDroneFeed() stops at the same point. */
+    if (!survey) return;
+
+    var a = siteA();
+    var b = siteB();
+    var P = global.GeoPages;
+
+    /* both sites back to their opening state, then a fresh draw on
+       each: site A with a fresh pair of decoys, strewn across the
+       five stations as a round is; site B's three triangles dealt
+       across the row, so the fit is never twice in the same place */
+    clearRound(a);
+    clearRound(b);
+
+    P.arrangeSite(a, P.drawPair(survey.decoys), ['pad--far1', 'pad--far2']);
+    P.arrangeSite(b, [], []);
+    P.dealRow(a);
+    P.scatter(a);
+    P.dealRow(b);
+
+    /* the rest of the archipelago, strewn again */
+    survey.islets.forEach(function (isl) { isl.classList.remove('is-up'); });
+    P.strewIslets(el.cam, survey.islets);
+
+    /* And the lens: parked at survey height over the middle of the
+       sea and set loitering, before the screen is shown. Reset runs
+       under the veil (see goTo), so the feed fades up already high
+       rather than snapping up to height on its first frame. Under
+       reduced motion it is parked and left still. */
+    airborne = !M.reduced();
+    M.camSet(el.screenDrone, wideState());
+    if (airborne) M.camLoiter(el.screenDrone, wideState(), { dx: 2.2, dy: 1.2, ms: 17000 });
   }
 
   function runDroneFeed() {
     W.stop();
 
+    var a = siteA();
+    var b = siteB();
+
+    /* site A's task is the live one until the craft arrives */
+    R = a;
+
     return sequence([
       /* the bar drops in empty and then carries every line on this
-         screen — there is no caption over the water any more, so it
+         screen -- there is no caption over the water any more, so it
          has to be up before the first voice clip, not partway in */
       function () {
         el.topbar.classList.add('is-on');
@@ -393,255 +455,299 @@
       /* --- lights up: ocean 0 → 1, and the camera bezel steps aside ---
 
          And it lights up HIGH. What the scan clears the dark to is
-         the drone's survey height — open water corner to corner,
-         with nothing in it — which is the whole reason the camera
-         is parked before this step rather than after it: the first
-         thing the player sees of the sea has to already be the wide
-         shot, or the screen shows its islands and then backs away
-         from them, which says the opposite of what this beat is
-         for.
+         the drone's survey height -- three frames of open water with
+         nothing in it -- which is why the lens is parked before this
+         step rather than after it: the first thing the player sees
+         of the sea has to already be the wide shot, or the screen
+         shows its islands and then backs away from them.
 
-         The bezel goes at the same moment it always did. It is the
-         one thing on the feed that says "you are looking through a
-         camera" while the feed is dark, and from here the altimeter
-         says it instead. */
+         The bar goes with the bezel. The last thing it said was
+         "start the scanner", which has now been done, and an
+         instruction left standing over a camera move reads as a
+         game waiting for the player. It comes back for the payoff. */
       function () {
         el.oceanBg.classList.add('is-lit');
         el.blackout.classList.add('is-clear');
         el.droneHud.classList.add('is-retired');
-        /* And the bar goes with it. The last thing it said was
-           "start the scanner", which has now been done: an
-           instruction left standing over nine seconds of camera
-           move reads as a game waiting for the player to do
-           something. It has nothing to say for the length of the
-           flight, so it retires and comes back for the payoff —
-           which also clears the top of the frame for the widest
-           shot on the screen. */
-        if (airborne) {
-          altTo('SURVEY');
-          el.topbar.classList.remove('is-on');
-        }
+        altTo('SURVEY');
+        el.topbar.classList.remove('is-on');
         return M.wait(1500);
       },
 
       /* --- a beat of nothing but sea ---
-         Empty water, held long enough to read as empty. It is doing
-         real work: an island that is already there when the lights
-         come up has always been there, and one that breaks a
-         surface the player has had time to see is EMPTY has just
-         arrived. */
+         Held long enough to read as empty: an island that is already
+         there when the lights come up has always been there, and one
+         that breaks a surface the player has had time to see is
+         EMPTY has just arrived. */
       function () {
-        if (!airborne) return M.wait(0);
-        T.clear(el.topbarText);          /* off the top of the frame by now */
-        return M.wait(900);
+        T.clear(el.topbarText);
+        return M.wait(airborne ? 900 : 300);
       },
 
-      /* --- shapes breach the water ---
-         `far` while the lens is high: the splashes are quieter and
-         a touch higher, and they come faster, because five islands
-         a long way off do not arrive with the weight of five
-         islands underneath you. The fronts they throw size and
-         place themselves — see the .cam block in css/style.css. */
+      /* --- the archipelago breaks the surface --- */
       function () {
-        if (!airborne) return surface();
+        if (!survey) return;
         altTo('CONTACT');
-        return Promise.all([
-          surface({ far: true }),
-          M.camFix(el.screenDrone, fixBox())
-        ]);
+        return emerge();
       },
+      function () { return M.wait(survey ? 420 : 0); },
 
-      /* --- and the lens comes down on them ---
-         The one long move on this screen. Nothing is said over it:
-         the narration bar carries the line that asked for the scan
-         until the descent has landed, and the payoff line below is
-         the first thing spoken from the new altitude — which is
-         what makes it a payoff rather than a caption. */
-      function () {
-        if (!airborne) return M.wait(420);
+      /* --- and the lens comes down on site A ---
+         Nothing is said over it: the payoff line is the first thing
+         spoken from the new altitude, which is what makes it a
+         payoff rather than a caption. The bracket is released a
+         little under halfway down, well before the islands are big
+         enough for it to be a box drawn round the answer. */
+      function (id) {
+        if (!survey) return;
         altTo('DESCEND');
         A.duckAmbience(0.26, 1400);
-        altRun(DESCENT_MS);
-        return M.camPush(el.screenDrone, { ms: DESCENT_MS });
+        M.wait(DESCENT_MS * 0.42).then(function () {
+          if (live(id)) M.camUnfix(el.screenDrone, 620);
+        });
+        return fly([siteState('a')], DESCENT_MS);
       },
 
       /* --- the lens settles, the instrument bows out, and the bar
              comes back up for the line it has been holding --- */
       function () {
-        if (!airborne) return M.wait(0);
+        if (!survey) return;
         altTo('HOLD');
         el.topbar.classList.add('is-on');
         return Promise.all([altOut(), M.wait(780)]);
       },
 
       /* --- payoff line --- */
-      function () { return narrate(el.topbarText, 'foundZones'); },
-      function () { return M.wait(420); },
+      function () { return survey && narrate(el.topbarText, 'foundZones'); },
+      function () { return M.wait(300); },
 
-      /* ═══════════════ shape hunt ═══════════════ */
+      /* ═══════════════ the shape question, on site A ═══════════════ */
 
-      function () { return narrate(el.topbarText, 'lookShapes'); },
+      function () { return survey && narrate(el.topbarText, 'lookShapes'); },
 
       /* a beat to look at the water before the line names the shape */
       function () { return M.wait(560); },
 
-      function () { return narrate(el.topbarText, 'pickTriangles'); },
+      function () { return survey && narrate(el.topbarText, 'pickTriangles'); },
 
-      /* --- over to the player --- */
-      function (id) { return startPicking(id); },
+      /* --- over to the player, until all three are found --- */
+      function (id) { return survey ? startRoundPicking(a, id) : null; },
 
-      /* --- the odd shapes go back under --- */
-      function () { return M.wait(420); },
-      function () { return sinkOthers(); },
-      function () { return M.wait(360); },
+      /* --- up, across, and down onto site B ---
 
-      /* --- payoff --- */
-      function () { return narrate(el.topbarText, 'shapeMatch'); },
+         The two shapes that never matched go back under and the
+         payoff line plays, and the lens does not wait for either: it
+         is already climbing as the water closes over them, and the
+         line is spoken from the air. The crossing is one flight --
+         climb, a slow drift at survey height with the whole
+         archipelago under it, descent -- so the lens never comes to
+         rest between the two sites. Site B is bracketed at the top
+         and the bracket is released on the way down.
 
-      /* --- and straight on to the landing ---
-         The task is done and the line that closes it has finished, so
-         there is nothing left for the player to do on this screen.
-         The hand-off is the same one the LAUNCH button makes: a beat
-         to let the last word land, the feed-cut sting, then the swap.
+         `is-cleared` takes the green off site A's three as the lens
+         leaves them: they answered the shape question and that
+         question is closed.
 
-         Two steps rather than one, deliberately. sequence() checks the
-         generation between them, so a player who reaches for "<"
-         during that beat is not yanked forward by a jump that was
-         queued before they moved.
-
-         `silent` stops goTo cutting the sting it is transitioning
-         under, and firing without awaiting is safe: goTo bumps the
-         generation itself, stranding this sequence, and there are no
-         steps after this one left to unwind. */
-      function () { return M.wait(900); },
+         Under reduced motion there is no flight to speak over, so
+         the three beats run in order and the lens cuts. */
+      function () { return M.wait(survey ? 420 : 0); },
       function (id) {
-        if (!live(id)) return;
-        A.sfx('glitch', { volume: 0.34 });
-        return goTo(2, { silent: true });
+        if (!survey) return;
+
+        if (!airborne) {
+          return sinkRoundDecoys(a).then(function () {
+            if (!live(id)) return;
+            a.el.pads.classList.add('is-cleared');
+            return narrate(el.topbarText, 'shapeMatch');
+          }).then(function () {
+            if (!live(id)) return;
+            return fly([siteState('b')], 0);
+          });
+        }
+
+        var said = null;
+        sinkRoundDecoys(a);
+        M.wait(520).then(function () {
+          if (live(id)) a.el.pads.classList.add('is-cleared');
+        });
+        M.wait(700).then(function () {
+          if (live(id)) said = narrate(el.topbarText, 'shapeMatch');
+        });
+
+        altTo('CLIMB');
+        A.duckAmbience(0.22, 1400);
+
+        var top = wideState();
+        M.wait(TRANSIT_MS * 0.40).then(function () {
+          if (!live(id)) return;
+          altTo('TRANSIT');
+          M.camFix(el.screenDrone, siteBox(b, top), 560);
+        });
+        M.wait(TRANSIT_MS * 0.58).then(function () { if (live(id)) altTo('DESCEND'); });
+        M.wait(TRANSIT_MS * 0.80).then(function () {
+          if (live(id)) M.camUnfix(el.screenDrone, 560);
+        });
+
+        return fly([
+          { s: top.s, x: top.x - 6, y: top.y - 3, offset: 0.40, easing: 'linear' },
+          { s: top.s, x: top.x + 6, y: top.y + 3, offset: 0.56,
+            easing: 'cubic-bezier(.5, 0, .18, 1)' },
+          siteState('b')
+        ], TRANSIT_MS, { easing: 'cubic-bezier(.44, .02, .28, 1)' }).then(function () {
+          return said;
+        });
+      },
+
+      /* --- down on site B --- */
+      function () {
+        if (!survey) return;
+        altTo('HOLD');
+        return altOut();
+      },
+
+      /* ═══════════════ the area question, on site B ═══════════════ */
+
+      /* --- the craft arrives ---
+         It comes down the middle of the frame, which is water by
+         construction: the row is across the front and there is
+         nothing else on this site. Site B's task is the live one
+         from here. */
+      function () {
+        if (!survey) return;
+        R = b;
+        b.el.ship.classList.add('is-in');
+        el.landHud.classList.add('is-on');
+        /* the flight in takes 1.55s (shipArrive, css/rounds.css);
+           the line lands as it settles onto its station */
+        return M.wait(M.reduced() ? 200 : 1250);
+      },
+
+      /* --- how much space it needs ---
+         the callouts are drawn on as the line lands: they ARE "how
+         much space it needs" */
+      function () {
+        if (!survey) return;
+        M.wait(680).then(function () {
+          if (R === b) b.el.shipDims.classList.add('is-drawn');
+        });
+        return narrate(el.topbarText, 'spaceNeeded');
+      },
+
+      /* --- the three candidates get their areas printed on --- */
+      function () { return survey && priceRound(b); },
+
+      function () { return survey && narrate(el.topbarText, 'calcArea'); },
+      function () { return survey && narrate(el.topbarText, 'chooseExact'); },
+
+      /* --- over to the player, for as many attempts as it takes --- */
+      function (id) { return survey ? startRoundChoosing(b, id) : null; },
+
+      /* --- planted; plantRound() has already said its piece --- */
+      function (id) {
+        if (!survey) return;
+        el.landTally.textContent = b.copy.sum;
+        el.landTally.classList.add('is-shown');
+        return handFooterToAdvance(id, el.landCaption, el.landTally, function () {
+          showRoundAdvance(b);
+        });
       }
     ]);
   }
 
-  function surface(opts) {
+  /* One flight of the lens, with the altimeter following it. Under
+     reduced motion the lens CUTS to where the flight would have
+     ended, and nothing follows anything. */
+  function fly(keys, ms, opts) {
+    if (!airborne) {
+      M.camSet(el.screenDrone, keys[keys.length - 1]);
+      return M.wait(M.reduced() ? 200 : 0);
+    }
+
     opts = opts || {};
-    var list = surfaceOrder || zoneList();
+    opts.ms = ms;
 
-    /* Seen from survey height. Quieter and pitched up, because
-       distance does both, and closer together, because five
-       splashes a long way off are one event rather than five. */
-    var far = !!opts.far;
-
-    return M.surfaceZones(list, function (zone, i) {
-      /* a little pitch variation so five splashes do not sound
-         like the same sample five times */
-      A.sfx('rock', {
-        volume: far ? 0.24 : 0.55,
-        rate: [1, 0.92, 1.08, 0.96, 1.12][i % 5] * (far ? 1.16 : 1)
-      });
-
-      /* the sea's half of the same event: the water this island has
-         just pushed aside, thrown out as a front that reaches the
-         ones already standing in the order it would really reach
-         them */
-      SEA.breach(zone);
-    }, far ? { gap: 430, settle: 820 } : { gap: 620 });
+    altFollow(true);
+    return M.camFly(el.screenDrone, keys, opts).then(function () {
+      altFollow(false);
+      altSample();
+    });
   }
 
+  /* The archipelago breaks the surface: the islets and both sites'
+     ten islands, back to front across the whole sea as the lens sees
+     it, with a little jitter so the two ranks of a site do not
+     arrive as two rows. The bracket goes up on site A a little past
+     halfway, so the eye has been shown where to look before the lens
+     moves.
 
-  /* ============================================================
-     THE CAMERA — the survey feed's side of it
+     Seen from survey height the splashes are quiet and pitched up --
+     distance does both -- and only the sites' islands throw a front
+     into the water: the islets are scenery, and twenty-odd fronts at
+     once would be a storm. */
+  function emerge() {
+    var a = siteA();
+    var b = siteB();
+    var pads = a.el.padList.concat(b.el.padList);
+    var all = survey.islets.concat(pads);
 
-     js/animation.js flies the lens; what it needs from here is
-     WHERE, and this is the only place that knows. Two figures come
-     out of it: the point the shot converges on, and the patch of
-     water the acquisition bracket has to enclose.
-     ============================================================ */
+    var rows = all.map(function (isl) {
+      return { el: isl, y: isl.getBoundingClientRect().top + (Math.random() - 0.5) * 40 };
+    }).sort(function (p, q) { return p.y - q.y; }).map(function (o) { return o.el; });
 
-  /* How long the descent takes. Long — the move is the beat, not
-     an animation played under one — and it is the figure the
-     altimeter is clocked against too, so the number lands on the
-     water at the same moment the lens does. */
-  var DESCENT_MS = 3400;
+    var gap = M.reduced() ? 60 : 105;
 
-  /* Where this entry's archipelago is, in per cent of the frame:
-     its bounding box and the middle of that box.
+    if (airborne) {
+      M.wait(gap * Math.round(rows.length * 0.55)).then(function () {
+        if (survey && R === a) {
+          M.camFix(el.screenDrone, siteBox(a, M.camRead(el.screenDrone)), 620);
+        }
+      });
+    }
 
-     Read off the stations strewZones() has just written rather than
-     measured off the rendered islands, and through getComputedStyle
-     rather than el.style, which is what makes it work either way —
-     a successful draw leaves --x/--y inline, and a frame too
-     cramped for any draw of five leaves the zones on the fallback
-     stations in css/style.css. Both come back through the computed
-     value; only one of them is inline.
+    return M.surfaceZones(rows, function (isl, i) {
+      if (pads.indexOf(isl) >= 0) {
+        SEA.breach(isl);
+        A.sfx('rock', { volume: 0.22, rate: 1.1 + (i % 5) * 0.04 });
+      } else if (i % 3 === 0) {
+        A.sfx('rock', { volume: 0.13, rate: 1.18 + (i % 4) * 0.05 });
+      }
+    }, { gap: gap, settle: 900 });
+  }
 
-     The reach is the island's own half-width, so the box encloses
-     the LAND and not just five anchor points — and it is
-     offsetWidth on both axes because the zone's box is square by
-     construction (see .zone in css/style.css).                */
-  function zoneField(list) {
+  /* Where a site is being SHOWN, for the bracket: the box round its
+     five islands in world coordinates -- each island's centre of
+     area, read off the station it was dealt or strewn to, plus its
+     own half-box -- projected through the lens state `st` to the
+     frame the bracket is drawn on. Padded a touch, and asymmetrically:
+     per cent of the frame is a different length on each axis. */
+  function siteBox(site, st) {
     var W = el.screenDrone.clientWidth || 1;
     var H = el.screenDrone.clientHeight || 1;
-    var l = 100, r = 0, t = 100, b = 0, n = 0;
+    var l = 1e9, r = -1e9, t = 1e9, b = -1e9;
 
-    list.forEach(function (zone) {
-      var cs = global.getComputedStyle(zone);
-      var x = parseFloat(cs.getPropertyValue('--x'));
-      var y = parseFloat(cs.getPropertyValue('--y'));
+    site.el.padList.forEach(function (pad) {
+      var cs = global.getComputedStyle(pad);
+      var x = parseFloat(cs.getPropertyValue('--cx'));
+      var y = parseFloat(cs.getPropertyValue('--cy'));
       if (!isFinite(x) || !isFinite(y)) return;
 
-      var hw = zone.offsetWidth / 2 / W * 100;
-      var hh = zone.offsetWidth / 2 / H * 100;
+      var hw = pad.offsetWidth / 2 / W * 100;
+      var hh = pad.offsetWidth / 2 / H * 100;
 
-      l = Math.min(l, x - hw);
-      r = Math.max(r, x + hw);
-      t = Math.min(t, y - hh);
-      b = Math.max(b, y + hh);
-      n++;
+      l = Math.min(l, site.offset.x + x - hw);
+      r = Math.max(r, site.offset.x + x + hw);
+      t = Math.min(t, site.offset.y + y - hh);
+      b = Math.max(b, site.offset.y + y + hh);
     });
 
-    if (!n) return null;
+    if (l > r) return null;
 
-    /* The middle of the box, held off the edges of the frame. The
-       stations put it around (50, 53) on any draw, so the clamp
-       almost never bites; what it is there for is the frame it
-       would — a shot that converges on a point near an edge spends
-       the wide half of itself looking at the corner of the sea. */
-    return {
-      l: l, r: r, t: t, b: b,
-      x: Math.min(66, Math.max(34, (l + r) / 2)),
-      y: Math.min(64, Math.max(38, (t + b) / 2))
-    };
-  }
-
-  /* And the same field as the WIDE LENS is showing it.
-
-     The bracket is drawn at frame scale (see the bracket block in
-     css/style.css), so it cannot take the islands' own
-     coordinates: a point P is being shown at O + wide * (P - O),
-     where O is the focus the camera is scaling about, and it is
-     that projection the corners sit on. The padding is asymmetric
-     on purpose — per cent of the frame is a different length on
-     each axis, and a bracket padded by the same figure both ways
-     is visibly tighter top and bottom than at the sides. */
-  function fixBox() {
-    var f = camField;
-    if (!f) return null;
-
-    var W = el.screenDrone.clientWidth || 1;
-    var H = el.screenDrone.clientHeight || 1;
-    var wide = parseFloat(global.getComputedStyle(el.screenDrone)
-                 .getPropertyValue('--cam-wide')) || 0.32;
-
-    var padX = 2.6;
+    var p1 = M.camProject(el.screenDrone, st, l, t);
+    var p2 = M.camProject(el.screenDrone, st, r, b);
+    var padX = 2.4;
     var padY = padX * (W / H);
 
-    function px(v) { return f.x + wide * (v - f.x); }
-    function py(v) { return f.y + wide * (v - f.y); }
-
-    return {
-      l: px(f.l) - padX, r: px(f.r) + padX,
-      t: py(f.t) - padY, b: py(f.b) + padY
-    };
+    return { l: p1.x - padX, r: p2.x + padX, t: p1.y - padY, b: p2.y + padY };
   }
 
 
@@ -653,13 +759,20 @@
      down onto five shapes, and a falling number is what tells the
      player which of the two they are watching.
 
-     Counted on its own requestAnimationFrame rather than off the
-     camera's easing, and deliberately: an altimeter reads out a
-     RATE, and a needle that eased with the shot would be telling
-     the player about a cubic-bezier instead of about a descent.  */
-  var ALT_TOP = 4200;            // metres at survey height
-  var ALT_LOW = 90;              // and over the water at the bottom
-  var altTick = null;
+     It follows the LENS rather than a clock of its own: while a
+     flight is running, every frame reads the camera's live zoom
+     (M.camRead) and turns it into a height, so the readout climbs,
+     holds and descends with the shot -- and shows the truth about
+     an interrupted one. The digits are throttled to about 12Hz: an
+     instrument that rewrites four figures sixty times a second is
+     a blur rather than a reading, and it is the one thing in a
+     flight that costs layout. The marker rides every frame; it is
+     a needle. */
+  var ALT_TOP = 4200;            /* metres at survey height */
+  var ALT_LOW = 90;              /* and over the water on the ground */
+  var ALT_TICK_MS = 80;
+  var altRaf = null;
+  var altWrote = -1e9;
 
   function altClock() {
     return global.performance && global.performance.now
@@ -669,18 +782,13 @@
 
   /* Plain digits, not zero-filled: "0683" reads as an error code
      rather than an altitude. The width is held by the cell instead
-     — 4ch and right-aligned, see .alt__num in css/style.css — so
-     the readout still does not shift as the lens comes down through
-     a thousand. */
+     -- see .alt__num in css/style.css. */
   function altFace(m) {
     return String(Math.max(0, Math.round(m)));
   }
 
   function altReset() {
-    if (altTick) {
-      global.cancelAnimationFrame(altTick);
-      altTick = null;
-    }
+    altFollow(false);
     if (!el.altHud) return;
 
     el.altHud.classList.remove('is-on', 'is-out');
@@ -690,407 +798,62 @@
   }
 
   function altTo(state) {
-    if (!el.altHud) return;
+    if (!el.altHud || !airborne) return;
     el.altHud.classList.add('is-on');
     if (el.altState) el.altState.textContent = state;
   }
 
-  /* The marker rides every frame, because it is a needle. The
-     DIGITS do not: an instrument that rewrites four figures sixty
-     times a second is a blur rather than a reading, and it is the
-     one thing in the descent that costs layout. 12Hz is about what
-     a real readout ticks at, and it is the last frame that is
-     forced through, so the number always finishes on the floor
-     rather than wherever the throttle happened to leave it. */
-  var ALT_TICK_MS = 80;
-
-  function altRun(ms) {
+  /* one reading off the lens, marker and (if it is time) digits */
+  function altSample(force) {
     if (!el.altHud) return;
-    if (altTick) global.cancelAnimationFrame(altTick);
+    var st = M.camRead(el.screenDrone);
+    var t = M.camZoom(el.screenDrone, st.s);
+    var now = altClock();
 
-    var t0 = altClock();
-    var wrote = -1e9;
+    el.altHud.style.setProperty('--alt-p', t.toFixed(4));
+    if (el.altNum && (force || now - altWrote >= ALT_TICK_MS)) {
+      altWrote = now;
+      el.altNum.textContent = altFace(ALT_TOP + (ALT_LOW - ALT_TOP) * t);
+    }
+  }
 
+  function altFollow(on) {
+    if (altRaf) {
+      global.cancelAnimationFrame(altRaf);
+      altRaf = null;
+    }
+    if (!on || !el.altHud) return;
+
+    altWrote = -1e9;
     (function step() {
-      var now = altClock();
-      var p = Math.min(1, (now - t0) / ms);
-
-      el.altHud.style.setProperty('--alt-p', p.toFixed(4));
-
-      if (el.altNum && (p === 1 || now - wrote >= ALT_TICK_MS)) {
-        wrote = now;
-        el.altNum.textContent = altFace(ALT_TOP + (ALT_LOW - ALT_TOP) * p);
-      }
-
-      altTick = p < 1 ? global.requestAnimationFrame(step) : null;
+      altSample(false);
+      altRaf = global.requestAnimationFrame(step);
     })();
   }
 
-  /* Off again before the shape task starts: the instrument said
-     what it was there to say, and an instrument left on the water
-     is one more thing over the five shapes the player has to read. */
+  /* Off again before a task starts: the instrument said what it was
+     there to say, and an instrument left on the water is one more
+     thing over the shapes the player has to read. */
   function altOut() {
-    if (!el.altHud) return M.wait(0);
+    if (!el.altHud || !airborne) return M.wait(0);
 
+    altSample(true);
     el.altHud.classList.add('is-out');
     return M.wait(760).then(function () {
       if (el.altHud) el.altHud.classList.remove('is-on', 'is-out');
     });
   }
 
-  /* ============================================================
-     SHAPE HUNT
-     ============================================================ */
-
-  function zoneList() {
-    return Array.prototype.slice.call(el.zones.querySelectorAll('.zone'));
-  }
-
-  /* Hands the feed over to the player and resolves once every
-     triangle has been found.
-
-     The abort story: this step parks a promise that only the
-     player can settle, so `sequence` cannot check the generation
-     id while it is waiting. endPicking() is therefore called from
-     resetDroneFeed() — which every jump runs — and it settles the
-     promise by hand. The step after this one then sees a stale id
-     and unwinds, exactly like every other step. */
-  function startPicking(id) {
-    var zones = zoneList();
-
-    needed = zones.filter(function (z) {
-      return z.dataset.shape === TARGET_SHAPE;
-    }).length;
-    picked = 0;
-
-    picking = true;
-    el.zones.classList.add('is-picking');
-    zones.forEach(function (z) {
-      var hit = z.querySelector('.zone__hit');
-      if (hit) hit.tabIndex = 0;
-    });
-
-    return new Promise(function (resolve) {
-      releasePick = resolve;
-      if (!live(id)) endPicking();      // jumped while we were arming
-    });
-  }
-
-  function endPicking() {
-    picking = false;
-    scolding = false;
-
-    if (el.zones) {
-      el.zones.classList.remove('is-picking');
-      zoneList().forEach(function (z) {
-        var hit = z.querySelector('.zone__hit');
-        if (hit) hit.tabIndex = -1;
-      });
-    }
-
-    var done = releasePick;
-    releasePick = null;
-    if (done) done();
-  }
-
-  function onZonePick(zone) {
-    if (!picking || zone.classList.contains('is-picked')) return;
-
-    /* --- the wrong shape --- */
-    if (zone.dataset.shape !== TARGET_SHAPE) {
-      A.sfx('wrong', { volume: 0.5 });
-
-      zone.classList.remove('is-wrong');
-      /* force a reflow so a second wrong tap on the same shape
-         replays the shock instead of doing nothing */
-      void zone.offsetWidth;
-      zone.classList.add('is-wrong');
-      /* and the water hears it: a short red front off that island,
-         which is the half the shake was missing */
-      SEA.reject(zone);
-      M.wait(620).then(function () { zone.classList.remove('is-wrong'); });
-
-      /* one nudge at a time — tapping four wrong shapes in a row
-         must not stack four voice lines on top of each other */
-      if (!scolding) {
-        scolding = true;
-        A.say('tryAgain').then(function () { scolding = false; });
-      }
-      return;
-    }
-
-    /* --- a match --- */
-    zone.classList.add('is-picked');
-    picked++;
-    A.sfx('correct', { volume: 0.55 });
-    /* The island itself goes green off `.is-picked` (css/water.css);
-       this is the water's half of the answer — a cyan front leaving
-       its shore. Together they are what replaced the tick badge. */
-    SEA.approve(zone);
-
-    if (picked >= needed) {
-      /* let the last tick land before the flow moves on */
-      M.wait(760).then(endPicking);
-    }
-  }
-
-  /* The square and the trapezium go back where they came from. */
-  function sinkOthers() {
-    var others = zoneList().filter(function (z) {
-      return z.dataset.shape !== TARGET_SHAPE;
-    });
-
-    /* nearest (largest) first, so the surface closes front to back */
-    others.sort(function (a, b) {
-      return b.getBoundingClientRect().width - a.getBoundingClientRect().width;
-    });
-
-    return M.sinkZones(others, function (zone, i) {
-      /* pitched down a little from the surfacing splashes — the
-         same sample, but going the other way */
-      A.sfx('rock', {
-        volume: 0.6,
-        rate: [0.88, 0.95][i % 2]
-      });
-
-      /* and the surface closing over it */
-      SEA.close(zone);
-    }, { gap: 620 });
-  }
-
 
   /* ============================================================
-     SCREEN 3 — THE LANDING
+     THE LANDING — what the survey's site B and every round share
 
-     The ship is a triangle with a base of 8 units and a height of
-     5 units, so it needs 1/2 x 8 x 5 = 20 square units of land.
-     Three pads are offered: 30, 12 and 20.
-
-     The answer is never checked with a message. It is checked by
-     flying the craft down and letting the geometry speak:
-
-       12  the craft is wider than the land, hangs over both edges,
-           judders, slides off it and goes into the water
-       30  the craft is on far more land than it needs with nothing
-           holding it, rocks until it overbalances, and goes over
-           ON the island — there is no edge within reach to fall
-           off, so it wrecks on the rock instead of sinking
-       20  it comes down, squares up and plants itself
-
-     The craft is drawn at its TRUE size on every attempt (see
-     plan() in js/failure.js), so all three outcomes are the honest
-     consequence of the numbers, not three canned cutscenes.
+     The craft is flown down onto the island the player picked and
+     the geometry decides what happens (js/failure.js). The two
+     pieces below are the halves of that which are the same on all
+     six screens: the footer's hand-over to the NEXT button, and the
+     fall.
      ============================================================ */
-
-  var SHIP_AREA = 20;            /* 1/2 x 8 x 5 */
-  var choosing = false;
-  var landing = false;           /* an attempt is playing out */
-  var releaseLand = null;        /* resolves the "wait for the fit" step */
-  var solved = false;
-
-  function padList() {
-    return Array.prototype.slice.call(el.pads.querySelectorAll('.pad'));
-  }
-
-  /* The landing's three stations. Dealt out on every entry so the
-     20-unit island — the answer — is never twice in the same place;
-     the positions themselves are in css/style.css and do not move.
-     See deal() in js/pages.js for why this is a class and not an
-     inline property. */
-  var LAND_SLOTS = ['pad--s1', 'pad--s2', 'pad--s3'];
-
-  function correctPad() {
-    return el.pads.querySelector('.pad[data-area="' + SHIP_AREA + '"]');
-  }
-
-  function resetLanding() {
-    choosing = false;
-    landing = false;
-    solved = false;
-
-    if (global.GeoPages) global.GeoPages.deal(padList(), LAND_SLOTS);
-
-    /* GeoFail.resetSpaceship takes every phase class off the craft
-       and empties both effect layers, so the wreck, the scorch and
-       any spray still in the air go with it */
-    F.resetSpaceship(el.ship);
-    el.ship.classList.remove('is-in');
-    el.shipDims.classList.remove('is-drawn');
-
-    el.pads.classList.remove('is-choosing');
-    padList().forEach(function (pad) {
-      pad.classList.remove('is-up', 'is-fit', 'is-loose', 'is-tight');
-      var hit = pad.querySelector('.pad__hit');
-      if (hit) hit.tabIndex = -1;
-    });
-
-    M.confettiClear(el.confetti);
-    hideAdvance();
-
-    el.landHud.classList.remove('is-on');
-    el.landCaption.classList.remove('is-shown');
-    el.landCaption.textContent = '';
-    el.landTally.classList.remove('is-shown');
-    el.landTally.textContent = '';
-
-    el.landTopbar.classList.remove('is-on');
-    T.clear(el.landTopbarText);
-
-    var done = releaseLand;
-    releaseLand = null;
-    if (done) done();
-  }
-
-  function runLanding() {
-    W.stop();
-
-    return sequence([
-      function () {
-        el.landHud.classList.add('is-on');
-        A.duckAmbience(0.16, 900);
-        return M.wait(520);
-      },
-
-      function () {
-        el.landTopbar.classList.add('is-on');
-        return M.wait(680);
-      },
-
-      /* the craft comes up while the line plays, and its
-         measurements are drawn on as the line lands — the callouts
-         ARE "how much space it needs" */
-      function () {
-        el.ship.classList.add('is-in');
-        M.wait(900).then(function () { el.shipDims.classList.add('is-drawn'); });
-        return narrate(el.landTopbarText, 'spaceNeeded');
-      },
-
-      /* the three candidates surface with their areas printed on */
-      function () { return offerPads(); },
-
-      function () { return narrate(el.landTopbarText, 'calcArea'); },
-      function () { return narrate(el.landTopbarText, 'chooseExact'); },
-
-      /* --- over to the player, for as many attempts as it takes --- */
-      function (id) { return startChoosing(id); },
-
-      /* --- planted; plant() has already said its piece --- */
-      function (id) {
-        el.landTally.textContent = 'AREA = ½ × 8 × 5 = 20';
-        el.landTally.classList.add('is-shown');
-        return handFooterToAdvance(id, el.landCaption, el.landTally, showAdvance);
-      }
-    ]);
-  }
-
-  function offerPads() {
-    /* left to right on the WATER, not in document order: the three
-       have just been dealt to random stations, and an archipelago
-       that surfaces middle-left-right reads as three separate events
-       rather than one sweep */
-    var pads = padList().sort(function (a, b) {
-      return a.offsetLeft - b.offsetLeft;
-    });
-
-    pads.forEach(function (pad, i) {
-      M.wait(i * 320).then(function () {
-        pad.classList.add('is-up');
-        A.sfx('rock', { volume: 0.42, rate: [1.04, 0.96, 1.1][i % 3] });
-        SEA.breach(pad);
-      });
-    });
-    return M.wait((pads.length - 1) * 320 + 1250);
-  }
-
-  /* Same abort contract as the shape hunt: the step parks a promise
-     only the player can settle, and resetLanding() — which every
-     jump runs — settles it by hand so the next step unwinds on a
-     stale generation id. */
-  function startChoosing(id) {
-    armChoice();
-    standingHint();
-
-    return new Promise(function (resolve) {
-      releaseLand = resolve;
-      if (!live(id)) resetLanding();
-    });
-  }
-
-  /* The HUD line under the pads is deliberately NOT a repeat of the
-     spoken line in the bar above — it carries the arithmetic the
-     player is being asked to do, and stays put while the narration
-     comes and goes. */
-  function standingHint() {
-    el.landCaption.textContent = 'AREA = ½ × BASE × HEIGHT';
-    el.landCaption.classList.add('is-shown');
-    el.landTally.textContent = 'BASE 8 · HEIGHT 5';
-    el.landTally.classList.add('is-shown');
-  }
-
-  function armChoice() {
-    choosing = true;
-    el.pads.classList.add('is-choosing');
-    padList().forEach(function (pad) {
-      var hit = pad.querySelector('.pad__hit');
-      if (hit) hit.tabIndex = 0;
-    });
-  }
-
-  function disarmChoice() {
-    choosing = false;
-    el.pads.classList.remove('is-choosing');
-    padList().forEach(function (pad) {
-      var hit = pad.querySelector('.pad__hit');
-      if (hit) hit.tabIndex = -1;
-    });
-  }
-
-  /* The whole question, answered in one branch.
-
-       exact       it comes down and plants
-       too large   it lands, finds nothing holding it, tips and
-                   wrecks ON the island
-       too small   it cannot fit, slides off the edge and sinks
-
-     `landing` and GeoFail's own busy flag both guard the click, so
-     a second island cannot be picked while an attempt is playing
-     out — the first one is the game's state, the second is the
-     animation's, and neither is allowed to be the only one. */
-  function onPadPick(pad) {
-    if (!choosing || landing || F.isAnimating(el.ship)) return;
-
-    var area = +pad.dataset.area;
-    var ref = correctPad();
-    if (!ref) return;
-
-    /* An attempt runs on its own promise chain, outside the screen's
-       sequence, so it has to carry the generation itself — otherwise
-       a jump mid-crash would come back and re-arm a screen the
-       player has already left. */
-    var id = runId;
-
-    landing = true;
-    disarmChoice();
-
-    /* the callouts come off: the craft is flying now, and a
-       measurement drawing riding along through a crash would read
-       as part of the wreck */
-    el.ship.classList.add('is-committed');
-
-    if (area === SHIP_AREA) return plant(pad, ref, id);
-    return fail(pad, ref, area < SHIP_AREA, id);
-  }
-
-  /* ---------------------------------------------------------- the reward
-     The shower is fired and NOT awaited: it runs for a few seconds
-     on the compositor while the narration carries on underneath,
-     and clears itself up afterwards. The popper sound goes with it
-     rather than with the later line, so the bang lands on the frame
-     the first pieces appear. */
-  function celebrate() {
-    A.sfx('cheer', { volume: 0.5 });
-    M.confetti(el.confetti);
-  }
 
   /* The footer is one strip, and the formula, the tally and the NEXT
      button are all centred on it. So the two lines are taken away
@@ -1104,8 +867,8 @@
      lines STAY, because clearing the footer for a button that never
      arrives would just empty it.
 
-     Shared by screen 3 and the five round screens: the footer is
-     built the same way on all six. */
+     Shared by the survey's landing and the five round screens: the
+     footer is built the same way on all six. */
   function handFooterToAdvance(id, caption, tally, reveal) {
     if (!canAdvance()) return;
 
@@ -1118,136 +881,6 @@
     }).then(function () {
       if (live(id)) reveal();
     });
-  }
-
-  /* The NEXT button is the one control on this screen that is not
-     part of the question, so it is only ever shown once the craft is
-     planted and the footer has been cleared for it — and it is taken
-     away again by resetLanding(), which every jump runs. */
-  function showAdvance() {
-    if (!el.advanceBtn || !canAdvance()) return;
-    el.advanceBtn.hidden = false;
-    /* reflow, so there is an un-hidden starting frame to animate
-       away from instead of snapping straight to the end */
-    void el.advanceBtn.offsetWidth;
-    el.advanceBtn.classList.add('is-in');
-  }
-
-  function hideAdvance() {
-    if (!el.advanceBtn) return;
-    el.advanceBtn.classList.remove('is-in');
-    el.advanceBtn.hidden = true;
-  }
-
-  /* ---------------------------------------------------------- it fits
-     Approach, touchdown, and then nothing else happens — which is
-     the point. The verdict outline, the chime and the confetti are
-     all hung off the touchdown, so they land on the frame the craft
-     actually settles rather than a beat after it. */
-  function plant(pad, ref, id) {
-    solved = true;
-
-    return F.successfulLanding(el.ship, pad, {
-      refPad: ref,
-      alive: function () { return live(id); },
-
-      onTouchdown: function () {
-        pad.classList.add('is-fit');
-        /* the craft's weight coming onto the island, read off its
-           shore. settle(), not approve(): the green is the SHAPE
-           task's answer, and this island already wears the fit
-           outline. */
-        SEA.settle(pad);
-
-        el.landCaption.textContent = 'PERFECT FIT · 20 SQ UNITS';
-        el.landCaption.classList.add('is-shown');
-        el.landTally.textContent = 'AREA = ½ × 8 × 5 = 20';
-
-        A.sfx('correct', { volume: 0.6 });
-
-        /* a beat after the chime, so the two sounds read as one cue */
-        M.wait(220).then(function () { if (live(id)) celebrate(); });
-      }
-    }).then(function () {
-      if (!live(id)) return;
-      return sayPlanted(id);
-    });
-  }
-
-  function sayPlanted(id) {
-    return narrate(el.landTopbarText, 'perfectFit')
-      .then(function () {
-        if (!live(id)) return;
-        return narrate(el.landTopbarText, 'landed');
-      })
-      .then(function () {
-        landing = false;
-        var done = releaseLand;
-        releaseLand = null;
-        if (done) done();
-      });
-  }
-
-  /* ---------------------------------------------------------- it does not
-     `tight` true  → the island was too small, the craft overhangs it
-     `tight` false → the island was too big, nothing holds the craft
-
-     The two failures end in different places, because the geometry
-     ends them in different places:
-
-       TOO SMALL   the craft is wider than the land it came down on,
-                   so the edge is right under it. It judders, slides
-                   off, and the next thing under it is water.
-
-       TOO BIG     the land runs a long way past the craft on every
-                   side. Nothing is holding it, so it still goes
-                   over — but there is no edge within reach to go
-                   over, so it comes down on the rock and stays
-                   there as a wreck. It never reaches the sea.
-
-     Which way it falls follows from that: away from the middle of
-     the row when it is going into the water (`plan.dir`, so it
-     never drops across a neighbour), towards the middle of the
-     island when it is going onto the land (`plan.into`, so the
-     wreck ends up on the rock and not hanging off the shore).
-
-     The verdict is SPOKEN over the struggle rather than after it:
-     the line starts as the craft begins to lose its footing and is
-     still going while it goes over. The chain waits for the line at
-     the end, so a slow connection delays the retry prompt instead
-     of talking over it — which is what `said` is holding.
-
-     The MOTION is all js/failure.js; what is left here is the
-     lesson: which island wears which verdict, what the HUD says,
-     and what is spoken over the top of it. */
-  function fail(pad, ref, tight, id) {
-    pad.classList.add(tight ? 'is-tight' : 'is-loose');
-
-    el.landCaption.textContent =
-      pad.dataset.area + ' SQ UNITS — THE CRAFT NEEDS 20';
-    el.landCaption.classList.add('is-shown');
-
-    var said = null;
-
-    return failFlight(el.ship, pad, ref, tight, null, id, function () {
-      said = narrate(el.landTopbarText, tight ? 'tooSmall' : 'tooLarge');
-    })
-      .then(function () { return said; })
-      .then(function () {
-        if (!live(id)) return;
-        /* put it back on the rail, callouts and all */
-        pad.classList.remove('is-tight', 'is-loose');
-        F.resetSpaceship(el.ship);
-        el.shipDims.classList.add('is-drawn');
-        return M.wait(760);
-      })
-      .then(function () {
-        if (!live(id)) return;
-        landing = false;
-        if (!solved) armChoice();
-        standingHint();
-        return narrate(el.landTopbarText, 'chooseExact');
-      });
   }
 
   /* ---------------------------------------------------------- the fall
@@ -1326,11 +959,11 @@
   /* ============================================================
      SCREENS 4 TO 8 — A ROUND PER SHAPE
 
-     One driver for all five. Screens 2 and 3 teach the two halves of
-     the mission separately — the survey feed asks which zones are
-     the same SHAPE as the craft, the landing asks which one is the
-     same AREA — and from here on each screen asks both, about a new
-     shape and a new area formula:
+     One driver for all five. The survey (screen 2) teaches the two
+     halves of the mission on its two sites — site A asks which
+     zones are the same SHAPE as the craft, site B asks which one is
+     the same AREA — and from here on each screen asks both, about a
+     new shape and a new area formula:
 
        identify the shape      the craft comes up WITHOUT its
                                callouts, and the line names its shape
@@ -1355,6 +988,12 @@
      module, because resetRound() has to be able to put a screen the
      player has already left back to its opening state while another
      one is playing.
+
+     The survey's two sites are shaped like rounds (js/pages.js) and
+     go through everything below from startRoundPicking on down.
+     What they do NOT go through is resetRound(): a site is laid out
+     by resetDroneFeed(), so the clearing half of it is its own
+     function, clearRound().
      ============================================================ */
 
   var R = null;                 /* the round on screen, while it plays */
@@ -1373,7 +1012,13 @@
     return round.el.pads.querySelector('.pad[data-area="' + round.area + '"]');
   }
 
-  function resetRound(round) {
+  /* Everything about a round -- or a survey site -- back to its
+     opening state, EXCEPT where its islands stand: that is the
+     layout half, and it is different for a round (resetRound) and
+     for a site (resetDroneFeed). `e.all` is every island a site
+     carries, hidden ones included; a round has no hidden islands
+     and no `all`. */
+  function clearRound(round) {
     if (R === round) R = null;
 
     var e = round.el;
@@ -1385,14 +1030,17 @@
     round.solved = false;
 
     /* takes every phase class off the craft and empties both effect
-       layers, so a wreck and its scorch go with the reset */
-    F.resetSpaceship(e.ship);
-    e.ship.classList.remove('is-in');
-    e.ship.style.removeProperty('--lean');
-    e.shipDims.classList.remove('is-drawn');
+       layers, so a wreck and its scorch go with the reset. A site
+       without a craft (the survey's site A) skips it. */
+    if (e.ship) {
+      F.resetSpaceship(e.ship);
+      e.ship.classList.remove('is-in');
+      e.ship.style.removeProperty('--lean');
+    }
+    if (e.shipDims) e.shipDims.classList.remove('is-drawn');
 
     e.pads.classList.remove('is-picking', 'is-cleared', 'is-choosing', 'is-priced');
-    roundPads(round).forEach(function (pad) {
+    (e.all || roundPads(round)).forEach(function (pad) {
       pad.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk',
                            'is-priced', 'is-fit', 'is-loose', 'is-tight',
                            'is-scattered');
@@ -1400,19 +1048,38 @@
       if (hit) hit.tabIndex = -1;
     });
 
-    M.confettiClear(e.confetti);
+    if (e.confetti) M.confettiClear(e.confetti);
 
-    e.advance.classList.remove('is-in');
-    e.advance.hidden = true;
+    if (e.advance) {
+      e.advance.classList.remove('is-in');
+      e.advance.hidden = true;
+    }
 
-    e.hud.classList.remove('is-on');
-    e.caption.classList.remove('is-shown');
-    e.caption.textContent = '';
-    e.tally.classList.remove('is-shown');
-    e.tally.textContent = '';
+    if (e.hud) e.hud.classList.remove('is-on');
+    if (e.caption) {
+      e.caption.classList.remove('is-shown');
+      e.caption.textContent = '';
+    }
+    if (e.tally) {
+      e.tally.classList.remove('is-shown');
+      e.tally.textContent = '';
+    }
 
-    e.topbar.classList.remove('is-on');
-    T.clear(e.topbarText);
+    if (e.topbar) {
+      e.topbar.classList.remove('is-on');
+      T.clear(e.topbarText);
+    }
+
+    /* both player-driven steps park a promise only a click can
+       settle, so every jump settles it by hand — the step after it
+       then sees a stale generation and unwinds like any other */
+    var done = round.release;
+    round.release = null;
+    if (done) done();
+  }
+
+  function resetRound(round) {
+    clearRound(round);
 
     /* A fresh shuffle of the five stations every time the screen is
        entered, so the shape task cannot be won on position. Drawn
@@ -1426,13 +1093,6 @@
       global.GeoPages.dealRow(round);
       global.GeoPages.scatter(round);
     }
-
-    /* both player-driven steps park a promise only a click can
-       settle, so every jump settles it by hand — the step after it
-       then sees a stale generation and unwinds like any other */
-    var done = round.release;
-    round.release = null;
-    if (done) done();
   }
 
   function runRound(round) {
@@ -1587,7 +1247,7 @@
 
     return new Promise(function (resolve) {
       round.release = resolve;
-      if (!live(id)) resetRound(round);      /* jumped while we armed */
+      if (!live(id)) clearRound(round);      /* jumped while we armed */
     });
   }
 
@@ -1606,29 +1266,32 @@
     if (done) done();
   }
 
+  /* The wrong shape: a red coast, a buzzer, and one "try again" at
+     a time. */
+  function refuseShape(round, pad) {
+    A.sfx('wrong', { volume: 0.5 });
+
+    pad.classList.remove('is-wrong');
+    /* force a reflow so a second wrong tap on the same island
+       replays the shock instead of doing nothing */
+    void pad.offsetWidth;
+    pad.classList.add('is-wrong');
+    SEA.reject(pad);
+    M.wait(620).then(function () { pad.classList.remove('is-wrong'); });
+
+    /* one nudge at a time — tapping both decoys must not stack two
+       voice lines on top of each other */
+    if (!round.scolding) {
+      round.scolding = true;
+      A.say('tryAgain').then(function () { round.scolding = false; });
+    }
+  }
+
   function onRoundShapePick(round, pad) {
     if (pad.classList.contains('is-picked')) return;
 
     /* --- the wrong shape --- */
-    if (pad.dataset.shape !== round.shape) {
-      A.sfx('wrong', { volume: 0.5 });
-
-      pad.classList.remove('is-wrong');
-      /* force a reflow so a second wrong tap on the same island
-         replays the shock instead of doing nothing */
-      void pad.offsetWidth;
-      pad.classList.add('is-wrong');
-      SEA.reject(pad);
-      M.wait(620).then(function () { pad.classList.remove('is-wrong'); });
-
-      /* one nudge at a time — tapping both decoys must not stack two
-         voice lines on top of each other */
-      if (!round.scolding) {
-        round.scolding = true;
-        A.say('tryAgain').then(function () { round.scolding = false; });
-      }
-      return;
-    }
+    if (pad.dataset.shape !== round.shape) return refuseShape(round, pad);
 
     /* --- a match --- */
     pad.classList.add('is-picked');
@@ -1700,7 +1363,7 @@
 
     return new Promise(function (resolve) {
       round.release = resolve;
-      if (!live(id)) resetRound(round);
+      if (!live(id)) clearRound(round);
     });
   }
 
@@ -1884,14 +1547,13 @@
      ============================================================ */
   var SCREENS = [
     { node: function () { return el.screenCockpit; }, reset: resetCockpit,   run: runCockpit },
-    { node: function () { return el.screenDrone; },   reset: resetDroneFeed, run: runDroneFeed },
-    { node: function () { return el.screenLanding; }, reset: resetLanding,   run: runLanding }
+    { node: function () { return el.screenDrone; },   reset: resetDroneFeed, run: runDroneFeed }
   ];
 
   /* Screens 4 to 8 are built from js/pages.js at boot and appended
      here, so the nav, the veil, the NEXT button and goTo() pick them
      up with no special case: as far as everything below is
-     concerned they are three more entries in this list.
+     concerned they are five more entries in this list.
 
      Built rather than written out in index.html because the five are
      one screen five times over — the same markup with a different
@@ -1904,8 +1566,8 @@
        NEXT button rather than a missing file. */
     if (!global.GeoPages) {
       if (global.console) {
-        console.warn('GeoDrone: js/pages.js did not load — screens 4 to 8 ' +
-                     'are missing and the mission ends on the landing.');
+        console.warn('GeoDrone: js/pages.js did not load — the survey has ' +
+                     'no islands and screens 4 to 8 are missing.');
       }
       return;
     }
@@ -2199,6 +1861,48 @@
     A.sfx('click', { volume: 0.4, keep: true });
   }
 
+  /* The survey's two sites and its islets, built into screen 2 and
+     wired to the round helpers. Before SEA.init(), so every island
+     gets its shoreline with the rest, and before runGate(), so its
+     artwork is counted by the loading bar. */
+  function wireSurvey() {
+    if (!global.GeoPages || !global.GeoPages.buildSurvey) return;
+
+    survey = global.GeoPages.buildSurvey(el.screenDrone);
+    if (!survey) return;
+
+    var a = survey.sites.a;
+    var b = survey.sites.b;
+
+    /* the frame-level chrome the sites share -- the round helpers
+       reach it through the site, as they reach a round's own */
+    [a, b].forEach(function (site) {
+      site.el.confetti = el.confetti;
+      site.el.hud = el.landHud;
+      site.el.caption = el.landCaption;
+      site.el.tally = el.landTally;
+      site.el.topbar = el.topbar;
+      site.el.topbarText = el.topbarText;
+      site.el.advance = el.advanceBtn;
+    });
+
+    /* one listener per site rather than five per site; which
+       question a tap answers is decided by which site is live */
+    a.el.pads.addEventListener('click', function (e) {
+      var hit = e.target.closest('.pad__hit');
+      if (!hit || R !== a || a.phase !== 'shape') return;
+      var pad = hit.closest('.pad');
+      if (pad) onRoundShapePick(a, pad);
+    });
+
+    b.el.pads.addEventListener('click', function (e) {
+      var hit = e.target.closest('.pad__hit');
+      if (!hit || R !== b || b.phase !== 'area') return;
+      var pad = hit.closest('.pad');
+      if (pad) onRoundAreaPick(b, pad);
+    });
+  }
+
   function boot() {
     grab();
 
@@ -2214,10 +1918,14 @@
        already in document.images when the loading bar works out how
        many assets there are to wait for */
     addRoundScreens();
+    wireSurvey();
 
-    /* and after it, because every island on those screens needs a
+    /* and after both, because every island on every screen needs a
        shoreline built from its own silhouette */
     SEA.init(el.stage);
+
+    /* the survey's opening state from the off, like the rounds' */
+    if (survey) resetDroneFeed();
 
     runGate();
 
@@ -2228,28 +1936,13 @@
     el.gateBtn.addEventListener('click', begin, { once: true });
     el.launchBtn.addEventListener('click', onLaunch);
 
-    /* one listener on the container rather than five on the shapes,
-       so the zones stay plain markup */
-    el.zones.addEventListener('click', function (e) {
-      var hit = e.target.closest('.zone__hit');
-      if (!hit) return;
-      var zone = hit.closest('.zone');
-      if (zone) onZonePick(zone);
-    });
-
-    el.pads.addEventListener('click', function (e) {
-      var hit = e.target.closest('.pad__hit');
-      if (!hit) return;
-      var pad = hit.closest('.pad');
-      if (pad) onPadPick(pad);
-    });
-
     el.navPrev.addEventListener('click', function () { goTo(current - 1); });
     el.navNext.addEventListener('click', function () { goTo(current + 1); });
 
     /* The reward button takes the same road as the ">" arrow, which
-       is what makes it carry straight on into screen 4. Screens 4-8
-       wire the same handler, in addRoundScreens(). */
+       is what makes it carry straight on from the survey's landing
+       into the first round. Screens 4-8 wire the same handler, in
+       addRoundScreens(). */
     el.advanceBtn.addEventListener('click', onAdvance);
     syncNav();
 

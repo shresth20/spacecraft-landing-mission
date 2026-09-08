@@ -10,26 +10,25 @@
 /* ---------------------------------------------------------- wide desktop */
 /* ---------------------------------------------------------- tablet */
 @media (max-width: 900px) {
-  .launch__body { --btn-w: clamp(129px, 19.4vw, 206px); }
+  .launch__body { --btn-w: clamp(107px, 16.4vw, 175px); }
 
   .subtitle { width: min(74%, 620px); }
 }
 
 /* ---------------------------------------------------------- phone */
 @media (max-width: 620px) {
-  .launch__body { --btn-w: clamp(133px, 34.4vw, 189px); }
+  .launch__body { --btn-w: clamp(113px, 29.1vw, 160px); }
 
   .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
   .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
 
   /* The survey height comes down on a small frame. --cam-wide is a
      share of the ISLANDS, not of the screen, and the islands are
-     already small here: the 9vw decoy is about 35px across on a
-     390px frame, so .32 of that is a speck rather than a distant
-     island. .50 keeps the shot wide -- the archipelago is still
-     under a third of the frame -- and keeps the land readable AS
-     land, which is what the beat is for. */
-  .screen--drone { --cam-wide: .50; }
+     already small here -- the decoys are 30-odd px across on a
+     390px frame, so .32 of that is a speck. .44 shows both sites
+     and a good part of the archipelago between and around them,
+     and still leaves a shape readable AS a shape. */
+  .screen--drone { --cam-wide: .44; }
 
   /* and the instrument comes in off the corner with everything
      else, at a size that still reads at arm's length */
@@ -62,7 +61,7 @@
   /* the feed's two ranks close up on each other, exactly as
      css/rounds.css does it for a round screen — and the shot opens
      less wide, for the same reason the phone block does it */
-  .screen--drone { --far-y: 40%; --land-y: 68%; --cam-wide: .46; }
+  .screen--drone { --far-y: 40%; --land-y: 68%; --cam-wide: .42; }
 
   /* barely any height: the scale loses its travel and the readout
      sits on one line with it */
@@ -82,7 +81,7 @@
      height the craft's exhaust ends up within a few pixels of the
      30-unit island's apex, so the island row drops to open the
      gap back up rather than the craft rising into the bar. */
-  .screen--landing { --ship-y: 30%; --land-y: 71%; }
+  .screen--drone { --ship-y: 30%; }
   /* Barely any height: the sky between the title and the moon's limb
      is only a few dozen pixels tall, so the cap comes down to what
      will sit inside it and the two blocks close up on each other.
@@ -113,7 +112,7 @@
    Portrait stretches the cockpit vertically. The button and the
    readout follow the artwork, so only sizes need easing. */
 @media (max-aspect-ratio: 3/4) {
-  .launch__body { --btn-w: clamp(142px, 38.7vw, 215px); }
+  .launch__body { --btn-w: clamp(120px, 32.8vw, 182px); }
   .flyout__drone { width: 34%; }
 
   /* Portrait has height to spare and no width at all, so the gate
@@ -139,25 +138,13 @@
 
   /* In portrait the LANDING tableau is bound by width, not height:
      three triangles in a row plus the ship's callouts have to fit
-     across 390px. So --pu is pushed as far as the row allows, the
-     outer islands are spread to 20/80 to buy that extra width back,
-     and the two rows close up on each other — at the desktop
-     spacing the craft and the islands sat at opposite ends of an
-     empty column. */
-  .screen--landing {
+     across 390px. So --pu is pushed as far as the row allows and
+     the craft comes up the frame to open the gap. The row stays at
+     21/50/79, as on the round screens. */
+  .screen--drone {
     --pu: min(1.62vw, 1.74vh);
-    --ship-y: 40%;
-    --land-y: 66%;
+    --ship-y: 27%;
   }
-  /* both the fallback and the dealt stations, or a portrait frame
-     would spread only the islands the deal happened to miss */
-  .pad--l { --cx: 20%; }
-  .pad--m { --cx: 50%; }
-  .pad--r { --cx: 80%; }
-
-  .pads .pad--s1 { --cx: 20%; }
-  .pads .pad--s2 { --cx: 50%; }
-  .pads .pad--s3 { --cx: 80%; }
 
   /* no room for tracking on a 50px-wide triangle */
   .pad__area i { letter-spacing: .02em; }
@@ -167,7 +154,7 @@
      phone block's: portrait has the height for it, and the
      archipelago is spread down the frame rather than across it, so
      the same figure covers less of the width. */
-  .screen--drone { --far-y: 46%; --land-y: 70%; --cam-wide: .50; }
+  .screen--drone { --far-y: 46%; --land-y: 70%; --cam-wide: .44; }
 
   /* portrait stretches the feed tall: the bar can afford to wrap to
      two lines */
@@ -189,12 +176,15 @@
 
 /* ---------------------------------------------------------- pointer: coarse */
 @media (hover: none) {
+  /* no hover on a touch panel: the cap should not sit lifted,
+     or lit, just because a finger passed over it */
+  .launch-slot.is-armed .launch:hover .launch__body {
+    transform: none;
+  }
   .launch-slot.is-armed .launch:hover .launch__plate {
-    filter: drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6));
+    filter: drop-shadow(0 clamp(2px, 0.5vh, 7px) clamp(4px, 0.9vh, 11px) rgba(0, 0, 0, .5));
   }
 
-  /* a fat finger needs more than the image box on a small feed */
-  .zone__hit { inset: -10%; }
 
   /* keep the nav a comfortable tap target on touch */
   .nav__btn { width: clamp(38px, 9vw, 52px); }
