@@ -49,6 +49,20 @@
   font-display: swap;
 }
 
+/* Poppins Bold, self-hosted, and the second exception: the LAUNCH
+   cap's label. The cap is a lit console control, not narration —
+   engraved panel type is a geometric sans everywhere it is drawn,
+   and a serif on a backlit key reads as a caption sitting on the
+   glass rather than as part of the panel. Single static weight
+   (700), asked for at 700 and nowhere else. */
+@font-face {
+  font-family: "Poppins";
+  src: url("../assets/fonts/poppins/poppins-bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 
 /* ---------------------------------------------------------- reset */
 *,
@@ -166,6 +180,17 @@ button { font: inherit; color: inherit; }
 .s1-cockpit { background-image: url("../assets/images/s1-cockpit-2.png"); }
 .s2-bg      { background-image: url("../assets/images/s2-bg (2).png"); }
 .drone-hud  { background-image: url("../assets/images/drone-screen.png"); }
+
+/* The drone bezel is only there to say "you are looking through a
+   camera" while the feed is dark and sweeping. Once the scan lands
+   and the lagoon lights up, the border is just a frame around the
+   shapes the player has to read, so it is faded off and taken out of
+   the layer stack for the rest of the screen. */
+.drone-hud {
+  opacity: 1;
+  transition: opacity .9s cubic-bezier(.4, 0, .2, 1);
+}
+.drone-hud.is-retired { opacity: 0; }
 
 .layer--bg      { z-index: 1; }
 .layer--cockpit { z-index: 4; }
@@ -336,7 +361,18 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   LAUNCH BUTTON — the painted plate from assets/images
+   LAUNCH BUTTON — a lit key in the console, drawn in CSS
+
+   Three nested pieces, all sized off .launch__body's font-size,
+   which is set to the button's own width: the dark recess it is
+   sunk into (.launch__plate), the backlit capsule inside it
+   (.launch__face) and the engraved label. One width to change and
+   every part follows.
+
+   It burns in the cockpit's own cyan — --cyan / rgba(120,220,255),
+   the same light as the canopy strips, the dash frame and the
+   scanner — so the key reads as one more instrument on the panel
+   rather than a sticker on top of it.
    ============================================================ */
 .launch-slot {
   position: absolute;
@@ -348,16 +384,14 @@ button { font: inherit; color: inherit; }
 }
 
 /* the <button> is only a shell: it carries the reveal animation and
-   shrink-wraps the plate */
+   shrink-wraps the key */
 .launch {
-  /* Where the dome is, and how much of the box it fills. Declared
-     here rather than on .launch__body because .launch__ring is the
-     body's SIBLING and has to read them too — a custom property is
-     inherited, so it has to be set on their common parent or the
-     ring resolves them to nothing and falls back to `auto`. */
-  --dome-cx: 50%;
-  --dome-cy: 50%;
-  --dome-d: 85%;
+  /* The key's outline: horizontal radius half its height, so the
+     ends are round and the top and bottom stay flat. Written in
+     percent — an em here would resolve against the page font on
+     .launch__ring, which is .launch__body's SIBLING, not its
+     child. */
+  --btn-radius: 22% 20.4% 22% 20.4% / 50%;
 
   position: relative;
   display: inline-block;
@@ -373,64 +407,150 @@ button { font: inherit; color: inherit; }
 .launch-slot.is-armed { pointer-events: auto; }
 .launch-slot.is-armed .launch { pointer-events: auto; }
 
-/* The box the artwork sits in. launch-btn.svg is the dome on its
-   own — no bezel, no tray — in a square viewBox centred on it, so
-   the box is square too and the button IS the circle. The painted
-   dome is 85% of that box; the rest is the room its own drop shadow
-   needs. */
+/* The box the key sits in. font-size IS the width, so every part
+   inside can be written in em and the whole key scales as one. */
 .launch__body {
-  --btn-w: clamp(58px, 5.9vw, 106px);
-  --btn-glow: 255, 84, 62;      /* press bloom, as rgb channels */
+  --btn-w: clamp(125px, 12.7vw, 228px);
+  --btn-glow: 120, 220, 255;    /* press bloom, as rgb channels */
 
   position: relative;
   z-index: 2;
   display: block;
   width: var(--btn-w);
+  font-size: var(--btn-w);
   transform-origin: 50% 100%;
   transition: transform .09s ease;
 }
 
+/* the recess: a dark slot milled into the console, lit along its
+   top lip and shadowed under the bottom one */
 .launch__plate {
+  position: relative;
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  /* the contact shadow the cap drops on the console */
+  aspect-ratio: 2.15;
+  padding: .045em .034em;
+  border-radius: var(--btn-radius);
+  background:
+    linear-gradient(180deg,
+      #0c1524 0%,
+      #070d1a 44%,
+      #03070e 72%,
+      #131d30 100%);
+  box-shadow:
+    /* the lip the slot is cut through: lit along the top, dark
+       under the bottom, with the cut itself falling away inside */
+    inset 0 .008em .013em rgba(196, 230, 255, .34),
+    inset 0 -.009em .015em rgba(0, 0, 0, .88),
+    inset 0 0 .03em .006em rgba(0, 0, 0, .8),
+    0 0 0 clamp(1px, .004em, 3px) rgba(150, 190, 230, .22);
+  /* the contact shadow the key drops on the console */
   filter: drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6));
   transition: filter .14s ease, transform .09s ease;
   -webkit-user-drag: none;
   user-select: none;
 }
 
-/* the bloom that bursts out of the dome on the click */
+/* The capsule. The neon edge is a real border rather than a ring of
+   box-shadow, so it holds its width at every button size; the
+   shadows either side of it are only the bloom it throws — inward
+   onto the glass, outward onto the recess and the console beyond.
+   background-clip keeps the fill from showing through the border's
+   own translucency and greying it. */
+.launch__face {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: clamp(2px, .0115em, 7px) solid #e8fdff;
+  border-radius: 21% 19.5% 21% 19.5% / 50%;
+  background:
+    radial-gradient(120% 145% at 50% 2%,
+      rgba(150, 232, 255, .34) 0%,
+      rgba(70, 180, 255, .16) 40%,
+      rgba(0, 0, 0, 0) 68%),
+    linear-gradient(180deg,
+      #45baff 0%,
+      #1a97ff 26%,
+      #0a7dff 52%,
+      #0a6bf5 78%,
+      #0b5ce8 100%);
+  background-clip: padding-box;
+  box-shadow:
+    /* the tube burning inward across the glass */
+    inset 0 0 .02em .004em rgba(240, 253, 255, 1),
+    inset 0 0 .06em .008em rgba(110, 232, 255, .9),
+    inset 0 .02em .035em rgba(180, 240, 255, .26),
+    inset 0 -.03em .055em rgba(6, 58, 150, .38),
+    /* and the spill it throws out onto the panel */
+    0 0 .022em .004em rgba(236, 252, 255, 1),
+    0 0 .065em .01em rgba(96, 220, 255, .95),
+    0 0 .18em .022em rgba(48, 176, 255, .68),
+    0 0 .38em .045em rgba(24, 138, 255, .4);
+}
+
+/* the sheen across the top of the glass */
+.launch__gloss {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 4%;
+  height: 44%;
+  border-radius: 50% 50% 46% 46% / 66% 66% 34% 34%;
+  background: linear-gradient(180deg,
+    rgba(238, 252, 255, .26) 0%,
+    rgba(200, 240, 255, .08) 56%,
+    rgba(200, 240, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.launch__label {
+  position: relative;
+  z-index: 2;
+  font-family: "Poppins", "Lilita One", "Libre Baskerville", Georgia, serif;
+  font-weight: 700;
+  font-size: .158em;
+  line-height: 1;
+  letter-spacing: .04em;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 .022em rgba(255, 255, 255, .5),
+    0 0 .09em rgba(160, 232, 255, .6),
+    0 .022em .045em rgba(3, 40, 96, .55);
+  pointer-events: none;
+}
+
+/* the bloom that bursts out of the key on the click */
 .launch__flash {
   position: absolute;
-  left: var(--dome-cx);
-  top: var(--dome-cy);
-  width: var(--dome-d);
-  height: var(--dome-d);
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
   transform: translate(-50%, -50%) scale(.55);
-  border-radius: 50%;
-  background: radial-gradient(circle closest-side,
-    rgba(255, 240, 236, .9) 0%,
-    rgba(255, 96, 66, .5) 38%,
-    rgba(255, 70, 48, 0) 72%);
+  border-radius: var(--btn-radius);
+  background: radial-gradient(ellipse closest-side,
+    rgba(240, 252, 255, .95) 0%,
+    rgba(var(--btn-glow), .5) 40%,
+    rgba(var(--btn-glow), 0) 74%);
   opacity: 0;
   z-index: 3;
   pointer-events: none;
 }
 
-/* pulsing alert outline — a ring on the dome's own edge, since the
-   dome is the whole button now */
+/* pulsing alert outline, riding the key's own edge */
 .launch__ring {
   position: absolute;
-  left: var(--dome-cx);
-  top: var(--dome-cy);
-  width: var(--dome-d);
-  height: var(--dome-d);
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
   transform: translate(-50%, -50%);
   border: 0 solid transparent;
-  border-radius: 50%;
-  box-shadow: 0 0 0 0 rgba(255, 68, 48, .55);
+  border-radius: var(--btn-radius);
+  box-shadow: 0 0 0 0 rgba(120, 220, 255, .55);
   z-index: 1;
   pointer-events: none;
 }
@@ -440,17 +560,17 @@ button { font: inherit; color: inherit; }
 /* appear */
 .launch.is-shown { animation: launchPop .5s cubic-bezier(.2, 1.3, .4, 1) forwards; }
 
-/* hover — light the plate up and push its glow further out */
+/* hover — drive the tube harder and push its spill further out */
 .launch-slot.is-armed .launch:hover .launch__plate {
   filter:
     drop-shadow(0 clamp(3px, 0.7vh, 9px) clamp(4px, 0.9vh, 12px) rgba(0, 0, 0, .6))
-    drop-shadow(0 0 clamp(7px, 1.4vh, 18px) rgba(255, 74, 52, .65))
-    brightness(1.1);
+    drop-shadow(0 0 clamp(8px, 1.6vh, 22px) rgba(120, 220, 255, .6))
+    brightness(1.12);
 }
 
 /* ---- the click ----------------------------------------------------
-   Three things fire together: the plate is driven down into the
-   console, it flares white-hot and settles, and a bloom plus a
+   Three things fire together: the key is driven down into the
+   console, the tube flares and settles, and a bloom plus a
    shockwave ring throw outward. onLaunch() keeps .is-pressed on the
    button, so the one-shot animations play to their end. */
 .launch-slot.is-armed .launch:active .launch__body,
@@ -460,9 +580,9 @@ button { font: inherit; color: inherit; }
 .launch-slot.is-armed .launch:active .launch__plate {
   filter:
     drop-shadow(0 clamp(1px, 0.25vh, 3px) clamp(3px, 0.6vh, 7px) rgba(0, 0, 0, .55))
-    brightness(1.28);
+    brightness(1.3);
 }
-/* no fill mode: the flare hands the plate back its resting filter
+/* no fill mode: the flare hands the key back its resting filter
    (the contact shadow) the moment it is done */
 .launch.is-pressed .launch__plate { animation: launchFlare .5s ease-out; }
 .launch.is-pressed .launch__flash { animation: launchBurst .55s ease-out forwards; }
@@ -476,9 +596,11 @@ button { font: inherit; color: inherit; }
   opacity: 0;
 }
 
+/* the key is cyan itself now, so the focus ring goes white — a cyan
+   halo on a cyan tube is not a ring, it is just more glow */
 .launch:focus-visible { outline: none; }
 .launch:focus-visible .launch__ring {
-  box-shadow: 0 0 0 3px rgba(120, 220, 255, .95);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .95);
 }
 
 
@@ -578,6 +700,294 @@ button { font: inherit; color: inherit; }
 .screen--drone {
   --land-y: 71%;
   --far-y: 36%;
+
+  /* -- the shot --
+     --cam-wide   the world's scale at survey height. The islands
+                  are laid out at 1 and the descent ends at 1, so
+                  this is the only figure that says how far away
+                  "far away" is: at .32 the whole archipelago is
+                  about a fifth of the frame across, which reads as
+                  a group of small islands in a big sea rather than
+                  as five shapes that have been shrunk.
+
+     --cam-water  and the water's scale at the BOTTOM of the
+                  descent. Nothing like the world's travel, and
+                  deliberately: the sea is one photograph stretched
+                  to the frame, so its plate can only ever be
+                  scaled UP -- anything under 1 shows the frame
+                  behind it. The figure is here for the parallax,
+                  not for the distance; the distance is carried by
+                  the islands.
+
+     Read by js/animation.js (camPlates) as well as used here, so a
+     media query can retune the shot for a frame with less room in
+     it and the script follows without being told.             */
+  --cam-wide: .32;
+  --cam-water: 1.13;
+}
+
+
+/* ---------------------------------------------------------- the camera
+
+   The survey feed is one continuous shot: the lens opens on open
+   water at the drone's survey height and comes down onto the
+   islands once they have broken the surface. `.cam` is the plate
+   that carries it, and it holds THE WORLD and nothing else -- the
+   five islands and the fronts they throw into the water. The
+   bezel, the scanner, the haze, the altimeter and the narration
+   bar all sit outside it, because they are on the LENS rather than
+   under it, and a camera move does not move its own HUD.
+
+   Its ground state is no transform at all, and that is the state
+   the shape task is played in: the descent lands on scale(1), and
+   scale(1) is the geometry every screen after this one is measured
+   against, so the shot finishes ON the layout instead of near it.
+   js/animation.js drives it (camWide, camPush) and clears the
+   transform again the moment the lens has settled.
+
+   z-index 4 is `.zones`'s own old band, which keeps two things
+   true: the islands still pass under the sea's glare (z 5) and
+   under the scanner line, and the wave fronts js/water.js mounts
+   INSIDE here keep their z 5 over the land.
+
+   And the fronts have to be mounted in here. `.wave` is placed
+   from an island's LAYOUT position -- centreOf() in js/water.js
+   reads offsetLeft, which cannot see a transform -- and sized off
+   its offsetWidth, so both figures are in the world's coordinates
+   and not the frame's. A front fired while the lens is wide is
+   therefore only in the right place, and only the right size, if
+   it is a sibling of the island that threw it. Nothing else in
+   js/water.js needed changing for the camera: putting the waves on
+   this side of the transform is the whole of it.
+
+   `pointer-events: none`, because this plate covers the frame and
+   the only thing inside it that is ever meant to be clickable is
+   `.zone__hit`, which turns them back on for itself.          */
+.cam {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}
+
+
+/* ---------------------------------------------------------- aerial haze
+
+   The air between a camera at four thousand metres and the water
+   under it. Full while the lens is high and gone by the time it is
+   down, and it is the cue that carries the descent alongside the
+   scale: a shot that only got bigger would read as five islands
+   growing, while a shot that also CLEARS reads as a camera coming
+   down through the air to them.
+
+   Plain alpha and no blend mode, for the same reason .sea__glare is
+   written that way in css/water.css -- this is a film that has to
+   show over rock as well as over sea. z-index 5 with the glare and
+   after it in the document, so the haze is the outer of the two:
+   the glare is light on the water, this is the air in front of
+   both. Under the scanner (z 5, later again) and under the bezel. */
+.aerial {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(128% 106% at 50% 46%,
+      rgba(150, 200, 232, 0) 18%,
+      rgba(130, 182, 218, .30) 58%,
+      rgba(96, 142, 188, .58) 100%),
+    linear-gradient(to bottom,
+      rgba(202, 232, 248, .26),
+      rgba(160, 202, 230, .10) 44%,
+      rgba(118, 164, 203, .24));
+}
+
+
+/* ---------------------------------------------------------- the bracket
+
+   The lens finding its target. It goes up on the frame the islands
+   break the surface on and is released halfway down the descent --
+   a marker still standing when the target fills the frame is a box
+   drawn around the answer, which is the one thing this screen must
+   not do.
+
+   Drawn at FRAME scale rather than inside `.cam`, and that is
+   deliberate on two counts: a HUD element does not zoom with the
+   world it is looking at, and a hairline that did would be a third
+   of a pixel wide at .32. The price is that its corners cannot
+   simply take the islands' own coordinates -- they have to go
+   where the wide lens is SHOWING those islands, which is what
+   fixBox() in js/script.js works out. The loiter drift is the one
+   exception: it translates this plate with the world, because a
+   bracket nailed to the frame while the water drifted under it
+   would read as a mark on the glass.                          */
+.fix {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+
+/* `is-on` is on the bracket for exactly as long as it is meant to
+   be seen — camFix adds it, and camPush's tail and camReset both
+   take it away — so this says the same thing the class already
+   does, declaratively, and closes the one hole the class alone
+   leaves.
+
+   The hole: the fade is a Web Animations effect with `fill:
+   forwards`, so what the bracket shows is whatever survived the
+   last cancel. Cancelling is done at reset, and reset runs on the
+   far side of a 1300ms screen swap — which is one ordering out of
+   several, all of them right, and none of them worth having to be
+   right. An `!important` in the author origin outranks every
+   animation, so the moment the class is off there is nothing left
+   to reason about.
+
+   It cannot fight a legitimate fade, either: every frame the
+   bracket should be visible on is a frame `is-on` is present
+   for. */
+.fix:not(.is-on) { opacity: 0 !important; }
+
+/* left/top/width/height arrive inline, in per cent of the frame */
+.fix__box {
+  position: absolute;
+  left: 40%;
+  top: 42%;
+  width: 20%;
+  height: 16%;
+}
+
+.fix__c {
+  position: absolute;
+  width: clamp(9px, 1.6vmin, 22px);
+  aspect-ratio: 1;
+  border: max(1.4px, .19vmin) solid rgba(132, 240, 255, .85);
+  filter: drop-shadow(0 0 5px rgba(80, 220, 255, .5));
+}
+
+.fix__c--tl { left: 0;  top: 0;    border-right: 0; border-bottom: 0; }
+.fix__c--tr { right: 0; top: 0;    border-left: 0;  border-bottom: 0; }
+.fix__c--bl { left: 0;  bottom: 0; border-right: 0; border-top: 0;    }
+.fix__c--br { right: 0; bottom: 0; border-left: 0;  border-top: 0;    }
+
+/* the sweep inside the brackets, so the marker reads as a live
+   lock rather than a decal. Its own element and its own animation,
+   because `.fix`'s transform belongs to the camera. */
+.fix__ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 118%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: max(1px, .12vmin) solid rgba(130, 236, 255, .45);
+  opacity: 0;
+}
+
+.fix.is-on .fix__ring { animation: fixPulse 2.4s ease-out infinite; }
+
+
+/* ---------------------------------------------------------- altimeter
+
+   The one instrument on the feed, and it is not decoration: five
+   shapes getting bigger on their own is a different event from a
+   lens coming down onto five shapes, and a falling number is what
+   tells the player which of the two they are watching.
+
+   Bottom left, which is open water on every draw -- the islands
+   are strewn inside BAND (js/pages.js), the narration bar has the
+   top of the frame, and the bezel has already retired by the time
+   this comes up. Gone again before the shape task starts.     */
+.alt {
+  position: absolute;
+  left: 4%;
+  bottom: 7%;
+  z-index: 6;
+  display: flex;
+  align-items: stretch;
+  gap: clamp(7px, 1vw, 12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .55s cubic-bezier(.4, 0, .2, 1);
+  --alt-p: 0;
+}
+
+.alt.is-on  { opacity: 1; }
+.alt.is-out { opacity: 0; transition-duration: .7s; }
+
+/* the scale, and the lens's place on it. --alt-p is 0 at survey
+   height and 1 over the water; altRun() in js/script.js writes it
+   on its own requestAnimationFrame -- one custom property a frame,
+   and the marker rides it on the compositor. */
+.alt__track {
+  position: relative;
+  width: max(1px, .12vmin);
+  min-height: clamp(46px, 9vh, 82px);
+  background: linear-gradient(to bottom,
+    rgba(126, 232, 255, .08),
+    rgba(126, 232, 255, .42) 12%,
+    rgba(126, 232, 255, .42) 88%,
+    rgba(126, 232, 255, .08));
+}
+
+.alt__mark {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--alt-p) * 100%);
+  width: clamp(7px, 1vmin, 11px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: rgba(150, 245, 255, .92);
+  box-shadow: 0 0 8px rgba(90, 225, 255, .7);
+}
+
+.alt__read {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  color: rgba(198, 246, 255, .92);
+  text-shadow: 0 0 10px rgba(60, 200, 255, .45);
+}
+
+.alt__row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.alt__num {
+  font-size: clamp(15px, 2.5vmin, 26px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  /* the cell holds the width the digits do not: four figures at
+     survey height and two over the water, and the "m" beside them
+     must not walk left as they go */
+  min-width: 4ch;
+  text-align: right;
+  /* the digits are rewritten every frame of the descent, and
+     proportional figures would make the whole readout jitter */
+  font-variant-numeric: tabular-nums;
+}
+
+.alt__unit {
+  font-size: clamp(9px, 1.3vmin, 13px);
+  font-style: normal;
+  opacity: .7;
+}
+
+.alt__state {
+  font-size: clamp(7px, 1.05vmin, 11px);
+  font-style: normal;
+  letter-spacing: .22em;
+  color: rgba(150, 235, 255, .72);
 }
 
 .zones {
@@ -797,14 +1207,52 @@ button { font: inherit; color: inherit; }
    --w sizes the CANVAS, not the land, and the three silhouettes
    fill their canvases by quite different amounts (triangle 97.5%
    of the box across, trapezium 98.5%, square only 79.7%). So the
-   figures below are the ones that put the PAINTED land in a clean
-   descending order — 15%, 12%, 10%, 9.5%, 8.8% of the stage — not
-   figures that match each other. */
-.zone--a { --x: 21%; --y: var(--land-y); --w: 15.4vw; }  /* triangle - large  */
-.zone--b { --x: 50%; --y: var(--land-y); --w: 12vw;   }  /* square            */
-.zone--c { --x: 37%; --y: var(--far-y);  --w: 12.3vw; }  /* triangle - medium */
-.zone--d { --x: 63%; --y: var(--far-y);  --w: 10.2vw; }  /* trapezium         */
-.zone--e { --x: 79%; --y: var(--land-y); --w: 9vw;    }  /* triangle - small  */
+   figures below are not figures that match each other — they are
+   the ones that put the PAINTED land where it is wanted, as a
+   share of the stage.
+
+   ── and where that is ──
+
+   The two DECOYS are matched, and matched near the TOP of the
+   range: both of them are drawn wider than two of the three
+   triangles. That is the whole point of the figures. The question
+   on this screen is SHAPE, and it stops being a question the
+   moment size can answer it.
+
+   Drawn small — which is how this started, at 9.3% and 9.7% of the
+   stage against the triangles' 14.4, 11.5 and 8.4 — the two to
+   reject were the two easiest to overlook, and "pick the three
+   biggest" came within one island of winning the task outright. A
+   child who found that would never look at a shape again. Matched
+   up instead, the painted widths run
+
+     triangle 14.4   square 12.3   trapezium 12.2   triangle 11.5
+     triangle 8.4
+
+   so neither the biggest three nor the smallest three are the
+   answer, the two shapes to reject are now the ones hardest to
+   overlook, and the only thing left to sort the five by is the
+   thing the lesson is about. Same reasoning as the shuffle over
+   the scatter in js/pages.js, one axis along: position gives
+   nothing away because it is dealt at random, and size gives
+   nothing away because it is deliberately out of step with the
+   answer.
+
+   (Those are the PAINTED widths, measured off each shape's own
+   clip polygon — 93.2% of the box for the triangle, 95.4% for the
+   trapezium, 77.5% for the square — which is why no two of the
+   --w figures below look like the ratio they produce.)
+
+   The square carries the most PAINTED AREA of the five at these
+   figures, which is fine here and would not be on screens 4-8: the
+   area question is asked there, off `data-area`, and the islands
+   that ask it are sized in css/rounds.css off --pu. Nothing on
+   this screen reads an area. */
+.zone--a { --x: 21%; --y: var(--land-y); --w: 15.4vw; }  /* triangle  - large  */
+.zone--b { --x: 50%; --y: var(--land-y); --w: 15.8vw; }  /* square    - decoy  */
+.zone--c { --x: 37%; --y: var(--far-y);  --w: 12.3vw; }  /* triangle  - medium */
+.zone--d { --x: 63%; --y: var(--far-y);  --w: 12.8vw; }  /* trapezium - decoy  */
+.zone--e { --x: 79%; --y: var(--land-y); --w: 9vw;    }  /* triangle  - small  */
 
 /* ---------------------------------------------------------- HUD chrome */
 .hud {
@@ -2143,10 +2591,10 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------- play cap
 
-   A disc with a white bezel, in the same two reds as
-   assets/images/launch-btn.svg — the cap the player presses to fly
-   every landing later in the mission. The first thing they press
-   and the thing they go on pressing should be the same object.
+   A disc with a white bezel, in two reds. It used to answer the
+   painted launch dome; that dome is now the lit cyan key in the
+   cockpit console, so the pair no longer rhymes — if the gate
+   should follow the console, this is the block that moves.
 
    font-size is set to the disc's own diameter. Nothing inside the
    cap is type (its label is for screen readers and is clipped to a

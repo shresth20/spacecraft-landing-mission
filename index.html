@@ -90,13 +90,20 @@
     <!-- narration subtitle, read against the canopy -->
     <p class="subtitle" id="cockpitCaption" role="status" aria-live="polite"></p>
 
-    <!-- ░░ LAUNCH button (the green box) ░░ -->
+    <!-- ░░ LAUNCH button (the yellow cap) ░░ -->
     <div class="launch-slot" id="launchSlot">
       <button class="launch" id="launchBtn" type="button" aria-label="Launch the survey drone">
         <span class="launch__ring" aria-hidden="true"></span>
         <span class="launch__body">
-          <!-- decorative: the button's name is on the <button> itself -->
-          <img class="launch__plate" src="assets/images/launch-btn.svg" alt="" draggable="false">
+          <!-- the cap is drawn in CSS: a pale rim around a glossy
+               yellow face. Decorative — the button's name is on the
+               <button> itself, so the label repeats it silently. -->
+          <span class="launch__plate" aria-hidden="true">
+            <span class="launch__face">
+              <span class="launch__gloss"></span>
+              <span class="launch__label">LAUNCH</span>
+            </span>
+          </span>
           <span class="launch__flash" aria-hidden="true"></span>
         </span>
       </button>
@@ -114,43 +121,99 @@
     <!-- the dark: sits over the ocean until the scan lands -->
     <div class="blackout" id="blackout" aria-hidden="true"></div>
 
-    <!-- five landing zones surfacing out of the water -->
-    <div class="zones" id="zones">
-      <div class="zone zone--a" data-shape="triangle">
-        <span class="zone__wake"></span>
-        <span class="zone__splash"></span>
-        <img class="zone__img" src="assets/images/Triangle.png" alt="Large triangular landing zone" />
-        <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Large triangular landing zone"></button>
+    <!-- ░░ THE CAMERA ░░
+
+         The lens, and everything it actually flies over: the five
+         islands and the fronts they throw into the water. The bezel,
+         the scanner, the haze, the altimeter and the narration bar
+         are all OUTSIDE it — they are on the lens, not under it, so
+         they hold still while the water comes up to meet them.
+
+         Its ground state is no transform at all, which is the state
+         the shape task is played in; js/animation.js parks it at
+         survey height (camWide), flies it down (camPush) and hands
+         the layout back untransformed at the bottom. js/water.js
+         mounts the wave fronts in here too — see the .cam block in
+         css/style.css for why they cannot stay outside. -->
+    <div class="cam" id="cam">
+
+      <!-- five landing zones surfacing out of the water -->
+      <div class="zones" id="zones">
+        <div class="zone zone--a" data-shape="triangle">
+          <span class="zone__wake"></span>
+          <span class="zone__splash"></span>
+          <img class="zone__img" src="assets/images/Triangle.png" alt="Large triangular landing zone" />
+          <button class="zone__hit" type="button" tabindex="-1"
+                  aria-label="Large triangular landing zone"></button>
+        </div>
+        <div class="zone zone--b" data-shape="square">
+          <span class="zone__wake"></span>
+          <span class="zone__splash"></span>
+          <img class="zone__img" src="assets/images/Square.png" alt="Square landing zone" />
+          <button class="zone__hit" type="button" tabindex="-1"
+                  aria-label="Square landing zone"></button>
+        </div>
+        <div class="zone zone--c" data-shape="triangle">
+          <span class="zone__wake"></span>
+          <span class="zone__splash"></span>
+          <img class="zone__img" src="assets/images/Triangle.png" alt="Medium triangular landing zone" />
+          <button class="zone__hit" type="button" tabindex="-1"
+                  aria-label="Medium triangular landing zone"></button>
+        </div>
+        <div class="zone zone--d" data-shape="trapezium">
+          <span class="zone__wake"></span>
+          <span class="zone__splash"></span>
+          <img class="zone__img" src="assets/images/Trapezium.png" alt="Trapezium landing zone" />
+          <button class="zone__hit" type="button" tabindex="-1"
+                  aria-label="Trapezium landing zone"></button>
+        </div>
+        <div class="zone zone--e" data-shape="triangle">
+          <span class="zone__wake"></span>
+          <span class="zone__splash"></span>
+          <img class="zone__img" src="assets/images/Triangle.png" alt="Small triangular landing zone" />
+          <button class="zone__hit" type="button" tabindex="-1"
+                  aria-label="Small triangular landing zone"></button>
+        </div>
       </div>
-      <div class="zone zone--b" data-shape="square">
-        <span class="zone__wake"></span>
-        <span class="zone__splash"></span>
-        <img class="zone__img" src="assets/images/Square.png" alt="Square landing zone" />
-        <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Square landing zone"></button>
+
+    </div>
+
+    <!-- the air between a camera at survey height and the water
+         under it: full while the lens is high, gone by the time it
+         is down. Plain alpha rather than a blend mode, for the same
+         reason .sea__glare is — it has to read over rock as well as
+         over sea. -->
+    <div class="aerial" aria-hidden="true"></div>
+
+    <!-- the acquisition bracket. Drawn at FRAME scale rather than
+         inside the camera, so its corners are placed on where the
+         wide lens is showing the islands (see fixBox() in
+         js/script.js) and its line weight does not shrink with
+         them. Released halfway down the descent. -->
+    <div class="fix" aria-hidden="true">
+      <div class="fix__box">
+        <span class="fix__ring"></span>
+        <i class="fix__c fix__c--tl"></i>
+        <i class="fix__c fix__c--tr"></i>
+        <i class="fix__c fix__c--bl"></i>
+        <i class="fix__c fix__c--br"></i>
       </div>
-      <div class="zone zone--c" data-shape="triangle">
-        <span class="zone__wake"></span>
-        <span class="zone__splash"></span>
-        <img class="zone__img" src="assets/images/Triangle.png" alt="Medium triangular landing zone" />
-        <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Medium triangular landing zone"></button>
-      </div>
-      <div class="zone zone--d" data-shape="trapezium">
-        <span class="zone__wake"></span>
-        <span class="zone__splash"></span>
-        <img class="zone__img" src="assets/images/Trapezium.png" alt="Trapezium landing zone" />
-        <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Trapezium landing zone"></button>
-      </div>
-      <div class="zone zone--e" data-shape="triangle">
-        <span class="zone__wake"></span>
-        <span class="zone__splash"></span>
-        <img class="zone__img" src="assets/images/Triangle.png" alt="Small triangular landing zone" />
-        <button class="zone__hit" type="button" tabindex="-1"
-                aria-label="Small triangular landing zone"></button>
-      </div>
+    </div>
+
+    <!-- ░░ altimeter ░░ the one instrument on the feed, and it is
+         here to say that what is changing is the CAMERA and not the
+         islands: five shapes growing on their own is a different
+         event from a lens coming down onto them. Counts on its own
+         clock, not the shot's easing — see altRun() in
+         js/script.js. -->
+    <div class="alt" id="altHud" aria-hidden="true">
+      <span class="alt__track"><i class="alt__mark"></i></span>
+      <span class="alt__read">
+        <span class="alt__row">
+          <b class="alt__num" id="altNum">4200</b><i class="alt__unit">m</i>
+        </span>
+        <em class="alt__state" id="altState">STANDBY</em>
+      </span>
     </div>
 
     <!-- green neon scanner sweep -->
@@ -162,8 +225,8 @@
       </div>
     </div>
 
-    <!-- HUD frame, stretched to fill -->
-    <div class="layer layer--hud drone-hud" aria-hidden="true"></div>
+    <!-- HUD frame, stretched to fill — retired once the scan lands -->
+    <div class="layer layer--hud drone-hud" id="droneHud" aria-hidden="true"></div>
 
     <!-- ░░ narration bar — typed in step with the voice-over ░░ -->
     <header class="topbar" id="topbar">

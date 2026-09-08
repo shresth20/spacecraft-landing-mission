@@ -568,14 +568,29 @@
       front('blast blast--b');
   }
 
-  /* Six sheets, and no wrapper around them. See the THE SEA block
-     in css/water.css: half of these blend, and a wrapper with a
+  /* Nine sheets, and no wrapper around them. See the THE SEA block
+     in css/water.css: most of these blend, and a wrapper with a
      z-index on it would become the stacking context they blend
      inside, which is a context containing nothing but themselves.
      As direct children of the screen they blend with the screen,
-     and the screen is the sea. */
+     and the screen is the sea.
+
+     The order is the order the water is built up in, and the three
+     `sea__roll` sheets — the wave train, see THE SWELL in css/
+     water.css — go in UNDER the caustics and the glint on purpose.
+     A swell is the shape of the surface; the caustic net and the
+     sun's sheet are light falling on that shape, and light that
+     went under the waves it is lighting would read as two separate
+     seas laid over each other.
+
+     All nine are full-frame and none is tied to an island, so the
+     wave train runs edge to edge on every screen the artwork is on
+     — the survey feed, the landing, and every round. */
   function seaHTML() {
     return '<span class="sea sea__deep" aria-hidden="true"></span>' +
+           '<span class="sea sea__roll sea__roll--a" aria-hidden="true"></span>' +
+           '<span class="sea sea__roll sea__roll--b" aria-hidden="true"></span>' +
+           '<span class="sea sea__roll sea__roll--c" aria-hidden="true"></span>' +
            '<span class="sea sea__caustic sea__caustic--a" aria-hidden="true"></span>' +
            '<span class="sea sea__caustic sea__caustic--b" aria-hidden="true"></span>' +
            '<span class="sea sea__glint" aria-hidden="true"></span>' +
@@ -674,7 +689,25 @@
     if (!bg) return;
 
     bg.insertAdjacentHTML('afterend', seaHTML());
-    screen.insertAdjacentHTML('beforeend', waveHTML());
+
+    /* The fronts go inside the screen's CAMERA plate where it has
+       one (the survey feed does; nothing else on the mission
+       does), and this is the one concession the water makes to it.
+
+       Everything in EVENTS below works in layout coordinates:
+       centreOf() adds up offsetLeft, which cannot see a transform,
+       and waveSize() comes off offsetWidth, which cannot either.
+       Both figures are therefore in the WORLD's frame and not the
+       lens's — so a front fired while the feed's camera is high is
+       only in the right place, and only the right size, if it is a
+       sibling of the island that threw it. Mounted here, the
+       camera scales the front along with the island and neither
+       side has to know the other exists.
+
+       See the .cam block in css/style.css, and THE CAMERA in
+       js/animation.js. */
+    var lens = screen.querySelector('.cam') || screen;
+    lens.insertAdjacentHTML('beforeend', waveHTML());
 
     /* Before .ship__craft rather than inside it: both are
        positioned and neither takes a z-index, so document order is

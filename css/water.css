@@ -16,9 +16,13 @@
 
    ── the stack, bottom to top ──────────────────────────────────
 
-     .sea          the water itself: depth, caustics, sun glint,
-                   swell. Six sheets per water screen, under
-                   everything on it.
+     .sea          the water itself: depth, the wave train, caustics,
+                   sun glint, swell. Nine sheets per water screen,
+                   under everything on it. Three of the nine —
+                   `.sea__roll` — are the swell proper: parallel
+                   crests crossing at three angles and travelling
+                   the full frame, on every screen the artwork is
+                   on and at every size. See THE SWELL.
 
      .shore        below the land. The island's submerged bulk, the
                    pale shallows that ring it, the shadow it throws
@@ -72,7 +76,7 @@
                    wherever the water is actually hit.
 
      .sea__glare   one faint sheet of the sea's own light over
-                   land and water alike — the last of the six, and
+                   land and water alike — the last of the nine, and
                    the one that stops the two reading as two
                    exposures.
 
@@ -145,13 +149,13 @@
 /* ============================================================
    THE SEA
 
-   Six sheets, injected by js/water.js straight after the artwork
+   Nine sheets, injected by js/water.js straight after the artwork
    layer of every screen that is painted on water. z-index 1 is
    that layer's own band and these come after it in the document,
    so they land on the water and under every island.
 
    Direct children of the .screen, and NOT gathered into a
-   wrapper, which matters more than it looks: half of them blend,
+   wrapper, which matters more than it looks: most of them blend,
    and a blending element only reaches as far as its parent
    stacking context. A wrapper with a z-index would BE that
    context, and the caustics would end up blending with nothing
@@ -306,8 +310,20 @@
    with the swell, so the water becomes a body of water and
    everything standing in it belongs to the same one.
 
-   Kept under 2% because the layer is stretched to exactly 100% x
-   100% — any more and the edge of the artwork walks into frame. */
+   Three stops rather than two, and a tenth of a degree of roll on
+   it: a two-stop breath is a ping-pong, and a ping-pong at 23s is
+   the one motion in the file the eye can predict. With THE SWELL
+   below travelling over the top of it, the artwork's own painted
+   crests now lift and settle with the train instead of holding
+   still underneath it.
+
+   The scale is what buys the room for the rest. The layer is
+   stretched to exactly 100% x 100%, so scale(1.016) is the only
+   reason a .30% drift and a .09deg roll do not walk the edge of
+   the artwork into frame — at 16:9 those two together move a
+   corner by under .4% against a .8% margin. Raise either, or drop
+   the floor back towards 1.0, and the first thing you will see is
+   a hairline of empty stage along the top edge. */
 .s2-bg,
 .s3-bg {
   transform-origin: 50% 50%;
@@ -315,8 +331,177 @@
 }
 
 @keyframes seaBreathe {
-  0%, 100% { transform: scale(1.008) translate3d(0, 0, 0); }
-  50%      { transform: scale(1.020) translate3d(-.32%, .24%, 0); }
+  0%, 100% { transform: scale(1.016) rotate(-.08deg) translate3d(.18%, -.14%, 0); }
+  34%      { transform: scale(1.026) rotate(.05deg)  translate3d(-.30%, .22%, 0); }
+  67%      { transform: scale(1.020) rotate(.09deg)  translate3d(.10%, .30%, 0); }
+}
+
+
+/* ============================================================
+   THE SWELL — a wave train across the whole sea
+
+   Everything above this makes the water LIVE: the caustic net
+   churns, the glint sweeps, the body of it breathes. None of it
+   travels. Light moving over a surface that is itself standing
+   still is a lit still, and on a frame this wide that is the one
+   thing left saying the sea is a photograph — s2-bg (2).png has
+   its own crests painted into it, and painted crests that never
+   move are the giveaway.
+
+   So: three sheets of parallel swell, running the full frame and
+   crossing each other, on every screen the artwork is on and at
+   every size. A wave train, not a texture.
+
+   ── why it loops seamlessly ───────────────────────────────────
+
+   Each sheet is one `repeating-linear-gradient` whose stops are
+   ABSOLUTE lengths off `--p`, its wavelength — so the pattern
+   repeats every `--p` along the gradient axis no matter how big
+   the element is or what shape the frame is. Percentage stops
+   would repeat every `--p` per cent of the GRADIENT LINE, whose
+   length is a function of the element's box and the angle, and
+   the travel below would then have to be recomputed per viewport.
+
+   Travel is one whole wavelength along that axis and back to
+   zero, which lands the pattern exactly on top of where it
+   started — a jump you cannot see because there is nothing to
+   see. The axis vector is `(sin a, -cos a)` for a CSS angle `a`,
+   hardcoded per sheet: sin() and cos() in CSS would do it, but
+   these three numbers never change and this file still runs on
+   the school laptops that trip `leanDevice()`.
+
+   ── why it is transform-only ──────────────────────────────────
+
+   The same rule the shore is split for: a filter or a
+   `background-position` on a moving element re-rasterises the
+   element every frame, and these are full-frame. A transform on
+   a static gradient is handed to the compositor once. Which is
+   also why the crests are not warped into ragged lines by a
+   turbulence filter the way the waterline is — at this size that
+   filter would cost more than every other layer in this file put
+   together. Three periods that share no common multiple, beating
+   against each other at three angles, break up the straightness
+   for free.
+
+   ── the shape of one wave ─────────────────────────────────────
+
+   Overhead, in a low sun, a swell is not a bright line. It is a
+   dark trough, a face climbing into the light, a hot rim where
+   the crest catches it, and the back of the wave falling away
+   into shadow again. That asymmetry — the bright stop nearer the
+   leading edge than the middle — is what makes a sheet read as
+   water with a direction to it rather than as corduroy.
+
+   ── the one knob ──────────────────────────────────────────────
+
+   The alphas, and nothing else. Every sheet blends, so what you
+   are setting is how hard the swell bites into the artwork
+   underneath, and the useful range is narrow in both directions:
+   halve these and the train is a rumour you have to go looking
+   for, double them and the sea turns to corrugated iron and the
+   islands start to look like they are sitting on a roof. The
+   crest stop is the one to move first — it is the part of a wave
+   the eye actually finds — and `--p` should be left alone unless
+   the whole scene's scale changes, because it is also the travel
+   distance in `rollTravel` and the two have to stay equal for the
+   loop to be invisible.
+
+   Oversized by 60% on every side, like the caustics: the sheets
+   travel, and a sheet exactly the size of the frame would walk
+   its own edge into shot. Nothing here needs `overflow` — .stage
+   is `overflow: clip` at exactly one screen.
+   ============================================================ */
+.sea__roll {
+  inset: -60%;
+  will-change: transform;
+}
+
+/* ---------------------------------------------------------- the long swell
+   The ocean swell proper: the one that came from a storm a
+   thousand miles away, longest and slowest of the three, and the
+   only one with foam bright enough to read on its crest. Its
+   angle is the glint's own 104deg, so the sun's sheet and the
+   water it is lying on agree about which way the sea runs. */
+.sea__roll--a {
+  --p: 23vmin;
+  --dx: .9703;
+  --dy: .2419;
+  background-image: repeating-linear-gradient(104deg,
+    rgba(var(--sea-deep),    .17) 0,
+    rgba(var(--sea-deep),    .09) calc(var(--p) * .20),
+    rgba(var(--sea-shallow), .11) calc(var(--p) * .36),
+    rgba(var(--sea-lit),     .21) calc(var(--p) * .45),
+    rgba(var(--sea-foam),    .30) calc(var(--p) * .50),
+    rgba(var(--sea-lit),     .15) calc(var(--p) * .56),
+    rgba(var(--sea-deep),    .07) calc(var(--p) * .72),
+    rgba(var(--sea-deep),    .17) var(--p));
+  mix-blend-mode: soft-light;
+  animation: rollTravel 11s linear infinite,
+             rollBeat   19s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------- the second train
+   A shorter swell eight degrees off the first, running the same
+   way. Two trains at eight degrees is the whole trick: their
+   crests cross at a shallow angle, so where they meet the water
+   humps and where they part it flattens, and the pattern that
+   comes out of the pair has a repeat far longer than either of
+   them with no visible line anywhere in it. */
+.sea__roll--b {
+  --p: 13.5vmin;
+  --dx: .9945;
+  --dy: .1045;
+  background-image: repeating-linear-gradient(96deg,
+    rgba(var(--sea-deep),    .14) 0,
+    rgba(var(--sea-deep),    .06) calc(var(--p) * .24),
+    rgba(var(--sea-lit),     .15) calc(var(--p) * .44),
+    rgba(var(--sea-foam),    .20) calc(var(--p) * .51),
+    rgba(var(--sea-shallow), .10) calc(var(--p) * .60),
+    rgba(var(--sea-deep),    .14) var(--p));
+  mix-blend-mode: overlay;
+  animation: rollTravel 7.5s linear infinite,
+             rollBeat   13s ease-in-out infinite reverse;
+}
+
+/* ---------------------------------------------------------- the chop
+   The local wind ripple, and the only one of the three travelling
+   the OTHER way — chop sits on top of a swell and pays no
+   attention to it. Short, fast and very faint: at this wavelength
+   anything with weight to it stops being water and starts being a
+   screen-door moiré, which is what it looked like at half again
+   these alphas. */
+.sea__roll--c {
+  --p: 5.2vmin;
+  --dx: -.8829;
+  --dy: -.4695;
+  background-image: repeating-linear-gradient(118deg,
+    rgba(var(--sea-deep), .08) 0,
+    rgba(var(--sea-lit),  .09) calc(var(--p) * .46),
+    rgba(var(--sea-foam), .10) calc(var(--p) * .52),
+    rgba(var(--sea-deep), .08) var(--p));
+  mix-blend-mode: soft-light;
+  opacity: .7;
+  animation: rollTravel 4.2s linear infinite;
+}
+
+/* One whole wavelength along the sheet's own axis. `translate3d`
+   rather than `translate` so all three stay on the compositor
+   with the caustics and the glint. */
+@keyframes rollTravel {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(calc(var(--p) * var(--dx)),
+                                calc(var(--p) * var(--dy)), 0); }
+}
+
+/* Sets build and pass. Without it a train is a conveyor belt at
+   one strength forever, and the eye finds the loop in about
+   fifteen seconds however seamless the geometry is. The two that
+   carry it run 19s and 13s against travels of 11s and 7.5s, so
+   the strength of the sea and the position of its crests never
+   come back into phase inside a round. */
+@keyframes rollBeat {
+  0%, 100% { opacity: .5; }
+  50%      { opacity: 1; }
 }
 
 
@@ -1512,6 +1697,15 @@
    reason.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
+  /* The wave train is the one layer here with no held-still
+     version, for the reason `.lap` has none either: three sheets
+     of parallel gradient that have stopped travelling are not a
+     swell, they are corduroy stretched over the artwork, and the
+     crossing that hid their straightness only hides it while all
+     three are moving. The sea keeps its own painted crests and
+     `.sea__deep` keeps the depth under them. */
+  .sea__roll { display: none; }
+
   .sea__caustic,
   .sea__glint,
   .sea__swell,
@@ -1572,6 +1766,8 @@
   .pad.is-up .spray i { opacity: .55; }
 }
 
+.is-reduced .sea__roll { display: none; }
+
 .is-reduced .sea__caustic,
 .is-reduced .sea__glint,
 .is-reduced .sea__swell,
@@ -1631,6 +1827,16 @@
 .is-lean .spray { display: none; }
 .is-lean .sea__caustic--b,
 .is-lean .sea__glare { display: none; }
+
+/* The wave train STAYS on a lean device, and it is the only
+   full-frame layer that does. It is three composited transforms
+   on three static gradients — no filter, no per-frame style, no
+   repaint — so it costs about what the glint costs, and it is the
+   difference between a sea and a photograph of one. What goes is
+   the chop: 5vmin crests are the one wavelength a phone at 2x
+   cannot resolve without shimmering, and it is the faintest of
+   the three anyway. */
+.is-lean .sea__roll--c { display: none; }
 .is-lean .wave__warp {
   width: 100%;
   -webkit-backdrop-filter: none;

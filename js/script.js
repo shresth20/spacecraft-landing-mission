@@ -11,9 +11,13 @@
    Screen 2 · drone feed
      black (ocean hidden) + "it is too dark"
      → "start the scanner"
+     → the scan clears the dark to the drone's SURVEY HEIGHT: open
+        water corner to corner, with nothing in it
      → green line sweeps left/right/left/right
      → ocean fades up 0 → 1
-     → five landing zones breach the surface with splashes
+     → five landing zones breach the surface with splashes, small
+        and far off, and the lens brackets them
+     → and comes down onto them — see THE CAMERA in js/animation.js
      → "the scanner found several landing zones"
 
    Screen 2 · shape hunt (continues on the same feed)
@@ -90,6 +94,14 @@
      them; null until the feed has been reset at least once */
   var surfaceOrder = null;
 
+  /* the survey feed's camera. `camField` is where this entry's
+     archipelago ended up, in per cent of the frame, and `airborne`
+     is whether the lens is flying at all — false under reduced
+     motion, and false if the field could not be read, in which case
+     the screen plays exactly as it did before the camera existed. */
+  var camField = null;
+  var airborne = false;
+
   var runId = 0;            // bumped on every jump
   var current = 0;          // index into SCREENS
   var busy = false;         // a swap is in flight
@@ -129,7 +141,9 @@
       'stage', 'screenCockpit', 'screenDrone', 'starfield',
       'flyDrone', 'flyTrail', 'dash', 'waveCanvas', 'cockpitCaption',
       'launchSlot', 'launchBtn', 'oceanBg', 'blackout', 'scanner',
-      'zones',
+      'droneHud',
+      'cam', 'zones',
+      'altHud', 'altNum', 'altState',
       'topbar', 'topbarText',
       'screenLanding', 'ship', 'shipCraft', 'shipDims', 'pads',
       'confetti', 'advanceBtn',
@@ -304,7 +318,14 @@
      SCREEN 2 — DRONE FEED
      ============================================================ */
   function resetDroneFeed() {
+    /* The lens first: back to the ground state before anything is
+       measured, so the field below is read off the layout itself
+       and not off a transformed copy of it. */
+    M.camReset(el.screenDrone);
+    altReset();
+
     el.oceanBg.classList.remove('is-lit');
+    el.droneHud.classList.remove('is-retired');
     el.blackout.classList.remove('is-clear');
     el.scanner.classList.remove('is-on');
 
@@ -328,6 +349,14 @@
     if (global.GeoPages) {
       surfaceOrder = global.GeoPages.strewZones(el.screenDrone, zoneList());
     }
+
+    /* And the shot this entry will fly, parked before the screen is
+       shown: reset runs under the veil (see goTo), so the feed fades
+       up already high over the water rather than snapping up to
+       height on its first frame. */
+    camField = zoneField(zoneList());
+    airborne = !M.reduced() && !!camField;
+    if (airborne) M.camWide(el.screenDrone, camField);
 
     endPicking();
     picked = 0;
@@ -361,16 +390,89 @@
         return M.sweep(el.scanner, { legs: 2, legMs: 1150 });
       },
 
-      /* --- lights up: ocean 0 → 1 --- */
+      /* --- lights up: ocean 0 → 1, and the camera bezel steps aside ---
+
+         And it lights up HIGH. What the scan clears the dark to is
+         the drone's survey height — open water corner to corner,
+         with nothing in it — which is the whole reason the camera
+         is parked before this step rather than after it: the first
+         thing the player sees of the sea has to already be the wide
+         shot, or the screen shows its islands and then backs away
+         from them, which says the opposite of what this beat is
+         for.
+
+         The bezel goes at the same moment it always did. It is the
+         one thing on the feed that says "you are looking through a
+         camera" while the feed is dark, and from here the altimeter
+         says it instead. */
       function () {
         el.oceanBg.classList.add('is-lit');
         el.blackout.classList.add('is-clear');
-        return M.wait(1700);
+        el.droneHud.classList.add('is-retired');
+        /* And the bar goes with it. The last thing it said was
+           "start the scanner", which has now been done: an
+           instruction left standing over nine seconds of camera
+           move reads as a game waiting for the player to do
+           something. It has nothing to say for the length of the
+           flight, so it retires and comes back for the payoff —
+           which also clears the top of the frame for the widest
+           shot on the screen. */
+        if (airborne) {
+          altTo('SURVEY');
+          el.topbar.classList.remove('is-on');
+        }
+        return M.wait(1500);
       },
 
-      /* --- shapes breach the water --- */
-      function () { return surface(); },
-      function () { return M.wait(420); },
+      /* --- a beat of nothing but sea ---
+         Empty water, held long enough to read as empty. It is doing
+         real work: an island that is already there when the lights
+         come up has always been there, and one that breaks a
+         surface the player has had time to see is EMPTY has just
+         arrived. */
+      function () {
+        if (!airborne) return M.wait(0);
+        T.clear(el.topbarText);          /* off the top of the frame by now */
+        return M.wait(900);
+      },
+
+      /* --- shapes breach the water ---
+         `far` while the lens is high: the splashes are quieter and
+         a touch higher, and they come faster, because five islands
+         a long way off do not arrive with the weight of five
+         islands underneath you. The fronts they throw size and
+         place themselves — see the .cam block in css/style.css. */
+      function () {
+        if (!airborne) return surface();
+        altTo('CONTACT');
+        return Promise.all([
+          surface({ far: true }),
+          M.camFix(el.screenDrone, fixBox())
+        ]);
+      },
+
+      /* --- and the lens comes down on them ---
+         The one long move on this screen. Nothing is said over it:
+         the narration bar carries the line that asked for the scan
+         until the descent has landed, and the payoff line below is
+         the first thing spoken from the new altitude — which is
+         what makes it a payoff rather than a caption. */
+      function () {
+        if (!airborne) return M.wait(420);
+        altTo('DESCEND');
+        A.duckAmbience(0.26, 1400);
+        altRun(DESCENT_MS);
+        return M.camPush(el.screenDrone, { ms: DESCENT_MS });
+      },
+
+      /* --- the lens settles, the instrument bows out, and the bar
+             comes back up for the line it has been holding --- */
+      function () {
+        if (!airborne) return M.wait(0);
+        altTo('HOLD');
+        el.topbar.classList.add('is-on');
+        return Promise.all([altOut(), M.wait(780)]);
+      },
 
       /* --- payoff line --- */
       function () { return narrate(el.topbarText, 'foundZones'); },
@@ -420,15 +522,21 @@
     ]);
   }
 
-  function surface() {
+  function surface(opts) {
+    opts = opts || {};
     var list = surfaceOrder || zoneList();
+
+    /* Seen from survey height. Quieter and pitched up, because
+       distance does both, and closer together, because five
+       splashes a long way off are one event rather than five. */
+    var far = !!opts.far;
 
     return M.surfaceZones(list, function (zone, i) {
       /* a little pitch variation so five splashes do not sound
          like the same sample five times */
       A.sfx('rock', {
-        volume: 0.55,
-        rate: [1, 0.92, 1.08, 0.96, 1.12][i % 5]
+        volume: far ? 0.24 : 0.55,
+        rate: [1, 0.92, 1.08, 0.96, 1.12][i % 5] * (far ? 1.16 : 1)
       });
 
       /* the sea's half of the same event: the water this island has
@@ -436,7 +544,198 @@
          ones already standing in the order it would really reach
          them */
       SEA.breach(zone);
-    }, { gap: 620 });
+    }, far ? { gap: 430, settle: 820 } : { gap: 620 });
+  }
+
+
+  /* ============================================================
+     THE CAMERA — the survey feed's side of it
+
+     js/animation.js flies the lens; what it needs from here is
+     WHERE, and this is the only place that knows. Two figures come
+     out of it: the point the shot converges on, and the patch of
+     water the acquisition bracket has to enclose.
+     ============================================================ */
+
+  /* How long the descent takes. Long — the move is the beat, not
+     an animation played under one — and it is the figure the
+     altimeter is clocked against too, so the number lands on the
+     water at the same moment the lens does. */
+  var DESCENT_MS = 3400;
+
+  /* Where this entry's archipelago is, in per cent of the frame:
+     its bounding box and the middle of that box.
+
+     Read off the stations strewZones() has just written rather than
+     measured off the rendered islands, and through getComputedStyle
+     rather than el.style, which is what makes it work either way —
+     a successful draw leaves --x/--y inline, and a frame too
+     cramped for any draw of five leaves the zones on the fallback
+     stations in css/style.css. Both come back through the computed
+     value; only one of them is inline.
+
+     The reach is the island's own half-width, so the box encloses
+     the LAND and not just five anchor points — and it is
+     offsetWidth on both axes because the zone's box is square by
+     construction (see .zone in css/style.css).                */
+  function zoneField(list) {
+    var W = el.screenDrone.clientWidth || 1;
+    var H = el.screenDrone.clientHeight || 1;
+    var l = 100, r = 0, t = 100, b = 0, n = 0;
+
+    list.forEach(function (zone) {
+      var cs = global.getComputedStyle(zone);
+      var x = parseFloat(cs.getPropertyValue('--x'));
+      var y = parseFloat(cs.getPropertyValue('--y'));
+      if (!isFinite(x) || !isFinite(y)) return;
+
+      var hw = zone.offsetWidth / 2 / W * 100;
+      var hh = zone.offsetWidth / 2 / H * 100;
+
+      l = Math.min(l, x - hw);
+      r = Math.max(r, x + hw);
+      t = Math.min(t, y - hh);
+      b = Math.max(b, y + hh);
+      n++;
+    });
+
+    if (!n) return null;
+
+    /* The middle of the box, held off the edges of the frame. The
+       stations put it around (50, 53) on any draw, so the clamp
+       almost never bites; what it is there for is the frame it
+       would — a shot that converges on a point near an edge spends
+       the wide half of itself looking at the corner of the sea. */
+    return {
+      l: l, r: r, t: t, b: b,
+      x: Math.min(66, Math.max(34, (l + r) / 2)),
+      y: Math.min(64, Math.max(38, (t + b) / 2))
+    };
+  }
+
+  /* And the same field as the WIDE LENS is showing it.
+
+     The bracket is drawn at frame scale (see the bracket block in
+     css/style.css), so it cannot take the islands' own
+     coordinates: a point P is being shown at O + wide * (P - O),
+     where O is the focus the camera is scaling about, and it is
+     that projection the corners sit on. The padding is asymmetric
+     on purpose — per cent of the frame is a different length on
+     each axis, and a bracket padded by the same figure both ways
+     is visibly tighter top and bottom than at the sides. */
+  function fixBox() {
+    var f = camField;
+    if (!f) return null;
+
+    var W = el.screenDrone.clientWidth || 1;
+    var H = el.screenDrone.clientHeight || 1;
+    var wide = parseFloat(global.getComputedStyle(el.screenDrone)
+                 .getPropertyValue('--cam-wide')) || 0.32;
+
+    var padX = 2.6;
+    var padY = padX * (W / H);
+
+    function px(v) { return f.x + wide * (v - f.x); }
+    function py(v) { return f.y + wide * (v - f.y); }
+
+    return {
+      l: px(f.l) - padX, r: px(f.r) + padX,
+      t: py(f.t) - padY, b: py(f.b) + padY
+    };
+  }
+
+
+  /* ---------------------------------------------------------- the altimeter
+
+     Four digits and a marker on a scale, and they are the one thing
+     on the feed that names what is happening: five shapes getting
+     bigger on their own is a different event from a lens coming
+     down onto five shapes, and a falling number is what tells the
+     player which of the two they are watching.
+
+     Counted on its own requestAnimationFrame rather than off the
+     camera's easing, and deliberately: an altimeter reads out a
+     RATE, and a needle that eased with the shot would be telling
+     the player about a cubic-bezier instead of about a descent.  */
+  var ALT_TOP = 4200;            // metres at survey height
+  var ALT_LOW = 90;              // and over the water at the bottom
+  var altTick = null;
+
+  function altClock() {
+    return global.performance && global.performance.now
+      ? global.performance.now()
+      : Date.now();
+  }
+
+  /* Plain digits, not zero-filled: "0683" reads as an error code
+     rather than an altitude. The width is held by the cell instead
+     — 4ch and right-aligned, see .alt__num in css/style.css — so
+     the readout still does not shift as the lens comes down through
+     a thousand. */
+  function altFace(m) {
+    return String(Math.max(0, Math.round(m)));
+  }
+
+  function altReset() {
+    if (altTick) {
+      global.cancelAnimationFrame(altTick);
+      altTick = null;
+    }
+    if (!el.altHud) return;
+
+    el.altHud.classList.remove('is-on', 'is-out');
+    el.altHud.style.setProperty('--alt-p', '0');
+    if (el.altNum) el.altNum.textContent = altFace(ALT_TOP);
+    if (el.altState) el.altState.textContent = 'STANDBY';
+  }
+
+  function altTo(state) {
+    if (!el.altHud) return;
+    el.altHud.classList.add('is-on');
+    if (el.altState) el.altState.textContent = state;
+  }
+
+  /* The marker rides every frame, because it is a needle. The
+     DIGITS do not: an instrument that rewrites four figures sixty
+     times a second is a blur rather than a reading, and it is the
+     one thing in the descent that costs layout. 12Hz is about what
+     a real readout ticks at, and it is the last frame that is
+     forced through, so the number always finishes on the floor
+     rather than wherever the throttle happened to leave it. */
+  var ALT_TICK_MS = 80;
+
+  function altRun(ms) {
+    if (!el.altHud) return;
+    if (altTick) global.cancelAnimationFrame(altTick);
+
+    var t0 = altClock();
+    var wrote = -1e9;
+
+    (function step() {
+      var now = altClock();
+      var p = Math.min(1, (now - t0) / ms);
+
+      el.altHud.style.setProperty('--alt-p', p.toFixed(4));
+
+      if (el.altNum && (p === 1 || now - wrote >= ALT_TICK_MS)) {
+        wrote = now;
+        el.altNum.textContent = altFace(ALT_TOP + (ALT_LOW - ALT_TOP) * p);
+      }
+
+      altTick = p < 1 ? global.requestAnimationFrame(step) : null;
+    })();
+  }
+
+  /* Off again before the shape task starts: the instrument said
+     what it was there to say, and an instrument left on the water
+     is one more thing over the five shapes the player has to read. */
+  function altOut() {
+    if (!el.altHud) return M.wait(0);
+
+    el.altHud.classList.add('is-out');
+    return M.wait(760).then(function () {
+      if (el.altHud) el.altHud.classList.remove('is-on', 'is-out');
+    });
   }
 
   /* ============================================================

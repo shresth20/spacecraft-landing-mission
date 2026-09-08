@@ -10,17 +10,31 @@
 /* ---------------------------------------------------------- wide desktop */
 /* ---------------------------------------------------------- tablet */
 @media (max-width: 900px) {
-  .launch__body { --btn-w: clamp(60px, 9vw, 96px); }
+  .launch__body { --btn-w: clamp(129px, 19.4vw, 206px); }
 
   .subtitle { width: min(74%, 620px); }
 }
 
 /* ---------------------------------------------------------- phone */
 @media (max-width: 620px) {
-  .launch__body { --btn-w: clamp(62px, 16vw, 88px); }
+  .launch__body { --btn-w: clamp(133px, 34.4vw, 189px); }
 
   .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
   .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
+
+  /* The survey height comes down on a small frame. --cam-wide is a
+     share of the ISLANDS, not of the screen, and the islands are
+     already small here: the 9vw decoy is about 35px across on a
+     390px frame, so .32 of that is a speck rather than a distant
+     island. .50 keeps the shot wide -- the archipelago is still
+     under a third of the frame -- and keeps the land readable AS
+     land, which is what the beat is for. */
+  .screen--drone { --cam-wide: .50; }
+
+  /* and the instrument comes in off the corner with everything
+     else, at a size that still reads at arm's length */
+  .alt { left: 5%; bottom: 5.5%; gap: 7px; }
+  .alt__track { min-height: clamp(38px, 7.5vh, 60px); }
 
   /* the bar is the instruction, so it gets the width it needs; the
      roundel and the slashes are decoration and go first */
@@ -46,8 +60,14 @@
   .hud__tally   { bottom: 5%; font-size: clamp(8px, 1.8vh, 12px); }
 
   /* the feed's two ranks close up on each other, exactly as
-     css/rounds.css does it for a round screen */
-  .screen--drone { --far-y: 40%; --land-y: 68%; }
+     css/rounds.css does it for a round screen — and the shot opens
+     less wide, for the same reason the phone block does it */
+  .screen--drone { --far-y: 40%; --land-y: 68%; --cam-wide: .46; }
+
+  /* barely any height: the scale loses its travel and the readout
+     sits on one line with it */
+  .alt { bottom: 5%; }
+  .alt__track { min-height: clamp(30px, 13vh, 52px); }
 
   /* almost no vertical room: the bar shrinks to a single tight line
      and the ship chip drops under it rather than beside it */
@@ -93,7 +113,7 @@
    Portrait stretches the cockpit vertically. The button and the
    readout follow the artwork, so only sizes need easing. */
 @media (max-aspect-ratio: 3/4) {
-  .launch__body { --btn-w: clamp(66px, 18vw, 100px); }
+  .launch__body { --btn-w: clamp(142px, 38.7vw, 215px); }
   .flyout__drone { width: 34%; }
 
   /* Portrait has height to spare and no width at all, so the gate
@@ -143,8 +163,11 @@
   .pad__area i { letter-spacing: .02em; }
 
   /* portrait has the height to spread the two ranks, and the same
-     figures a round screen uses here */
-  .screen--drone { --far-y: 46%; --land-y: 70%; }
+     figures a round screen uses here. The shot stays wider than the
+     phone block's: portrait has the height for it, and the
+     archipelago is spread down the frame rather than across it, so
+     the same figure covers less of the width. */
+  .screen--drone { --far-y: 46%; --land-y: 70%; --cam-wide: .50; }
 
   /* portrait stretches the feed tall: the bar can afford to wrap to
      two lines */
