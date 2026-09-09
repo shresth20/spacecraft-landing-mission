@@ -15,6 +15,11 @@
      voice
    · everything playing is paused when the tab is hidden and
      picked up again on return (see js/lifecycle.js)
+   · every clip is Ogg Opus (Chrome, Edge, Firefox, and Safari 17+).
+     The start gate fetches them all up front (js/preload.js) and
+     hands each one in as a blob: URL through adopt(), so the first
+     play() of any line reads from memory; a clip whose blob fails
+     falls back to its file URL once and carries on
    ============================================================ */
 
 (function (global) {
@@ -30,24 +35,24 @@
     global.location.protocol === 'https:';
 
   var VOICE = {
-    welcome:  'Welcome, Space Commander! We have a new landing mission.mp3',
-    safePlace:'We need to find a safe place for it to land.mp3',
-    sendDrone:'Let’s send the survey drone to check the area.mp3',
-    clickLaunch:'Click the launch button to launch the drone.mp3',
-    tooDark:  'It is too dark to see the landing zones.mp3',
-    startScan:'Start the scanner to search the area.mp3',
-    foundZones:'Great! The scanner found several landing zones..mp3',
-    lookShapes:'Look at the shapes of the landing zones.mp3',
-    pickTriangles:'The spaceship is a triangle. Select all the triangular landing zones.mp3',
-    shapeMatch:'Correct! These landing zones have the same shape as the spaceship.mp3',
-    tryAgain: 'Try again.mp3',
-    spaceNeeded:'Next, we need to find how much space the spaceship needs.mp3',
-    calcArea: 'Calculate the area of spaceship, And select the land with required area.mp3',
-    chooseExact:'Choose the landing zone with the exact area.mp3',
-    tooSmall: 'This landing zone is too small. The spaceship cannot fit safely.mp3',
-    tooLarge: 'This landing zone is too large. Try to find the exact match.mp3',
-    perfectFit:'Perfect match! The spaceship fits exactly.mp3',
-    landed:   'Landing successful! Great work, Space Commander.mp3',
+    welcome:  'Welcome, Space Commander! We have a new landing mission.ogg',
+    safePlace:'We need to find a safe place for it to land.ogg',
+    sendDrone:'Let’s send the survey drone to check the area.ogg',
+    clickLaunch:'Click the launch button to launch the drone.ogg',
+    tooDark:  'It is too dark to see the landing zones.ogg',
+    startScan:'Start the scanner to search the area.ogg',
+    foundZones:'Great! The scanner found several landing zones..ogg',
+    lookShapes:'Look at the shapes of the landing zones.ogg',
+    pickTriangles:'The spaceship is a triangle. Select all the triangular landing zones.ogg',
+    shapeMatch:'Correct! These landing zones have the same shape as the spaceship.ogg',
+    tryAgain: 'Try again.ogg',
+    spaceNeeded:'Next, we need to find how much space the spaceship needs.ogg',
+    calcArea: 'Calculate the area of spaceship, And select the land with required area.ogg',
+    chooseExact:'Choose the landing zone with the exact area.ogg',
+    tooSmall: 'This landing zone is too small. The spaceship cannot fit safely.ogg',
+    tooLarge: 'This landing zone is too large. Try to find the exact match.ogg',
+    perfectFit:'Perfect match! The spaceship fits exactly.ogg',
+    landed:   'Landing successful! Great work, Space Commander.ogg',
 
     /* screens 4-8 (js/pages.js) run the survey feed's shape task and
        the landing's area task back to back on one screen, so they
@@ -62,13 +67,13 @@
        reading rate instead. Record them, add them here under the
        keys pages.js asks for, and they start speaking with no other
        change — see narrate() in js/script.js. */
-    onlyMatching:'Now we only need to check these matching landing zones.mp3',
-    findArea: 'Find the area of spaceship, And select the suitable land.mp3'
+    onlyMatching:'Now we only need to check these matching landing zones.ogg',
+    findArea: 'Find the area of spaceship, And select the suitable land.ogg'
   };
 
   var SFX = {
-    launch:  'drone-launch.mp3',
-    rock:    'rock in water.mp3',
+    launch:  'drone-launch.ogg',
+    rock:    'rock in water.ogg',
 
     /* The two failed landings, one clip each. Both run about two
        seconds, which is what decides where they are fired from:
@@ -85,16 +90,16 @@
 
        Both are primed rather than built at the moment they are
        needed — see prime() below. */
-    crash:   'crash-sound.mp3',
-    sink:    'sinking-sound.mp3',
-    glitch:  'screen-glitch.mp3',
+    crash:   'crash-sound.ogg',
+    sink:    'sinking-sound.ogg',
+    glitch:  'screen-glitch.ogg',
     correct: 'correct-answer.ogg',
     wrong:   'incorrect-answer.ogg',
     click:   'button-click.ogg',
     cheer:   'confetti-sound.ogg'
   };
 
-  var AMBIENCE = 'theme-music.mp3';
+  var AMBIENCE = 'theme-music.ogg';
 
   /* ---------------------------------------------------------- state */
   var ctx = null;
@@ -114,7 +119,48 @@
   var held = [];                // what we paused when the tab went away
 
   /* ---------------------------------------------------------- helpers */
-  function url(file) { return encodeURI(DIR + file); }
+  var local = {};               // file -> blob: URL, from the start gate
+
+  function remote(file) { return encodeURI(DIR + file); }
+  function url(file) { return local[file] || remote(file); }
+
+  /* One-time fallback for an element playing from a blob: URL. If
+     the blob fails — revoked, refused, out of memory — the element
+     goes back to its file URL, once, and picks up where it was. The
+     flag tells say()/fireShot() to sit through that one error rather
+     than declare the line finished while it is still going to play.
+
+     Registered at construction so it runs BEFORE their own error
+     listeners (listeners fire in the order they were added). */
+  function guard(el, file) {
+    el.addEventListener('error', function onErr() {
+      el.removeEventListener('error', onErr);
+      if (!local[file] || el.src !== local[file]) return;   /* not the blob's fault */
+
+      var playing = !el.paused && !el.ended;
+      var at = el.currentTime;
+      delete local[file];                 /* nobody else adopts a dead blob */
+
+      el._geoRecover = true;              /* for the error listeners after this one */
+      el._geoFellBack = true;             /* for the play() promise that is about to reject */
+      el.src = remote(file);
+      el.load();
+      if (playing) {
+        try { el.currentTime = at; } catch (e) { /* not seekable yet */ }
+        var p = el.play();
+        /* the file would not start either: say so the ordinary way,
+           so whoever is waiting on this element is released */
+        if (p && p.catch) p.catch(function () { el.dispatchEvent(new Event('error')); });
+      }
+    });
+  }
+
+  /* did guard() just take this error? Answered once, then cleared. */
+  function recovering(el) {
+    if (!el._geoRecover) return false;
+    el._geoRecover = false;
+    return true;
+  }
 
   /* HTMLMediaElement.volume throws outside [0,1], and a ramp can
      land a hair past either end on the last frame */
@@ -148,8 +194,12 @@
 
   function makeVoice(file) {
     var el = new Audio();
+    /* none: the start gate has already fetched the file and, on
+       http(s), handed it in as a blob — a second, speculative
+       download here would only race the loading bar */
+    el.preload = 'none';
+    guard(el, file);
     el.src = url(file);
-    el.preload = 'auto';
     el.volume = 1;
     return el;
   }
@@ -227,13 +277,31 @@
         if (done) return;
         done = true;
         el.removeEventListener('ended', finish);
-        el.removeEventListener('error', finish);
+        el.removeEventListener('error', onError);
+        el.removeEventListener('loadedmetadata', tighten);
         if (active === el) active = null;
         resolve();
       }
 
+      /* a blob that failed and was swapped for the file is not the
+         end of the line — see guard() */
+      function onError() { if (!recovering(el)) finish(); }
+
+      /* Watchdog: the clip's own length plus a few seconds' grace,
+         re-armed for every line, so a clip that never fires `ended`
+         (a stalled decoder, a muted tab that swallowed the event)
+         holds the flow for seconds rather than for the hard net
+         below. Armed once the duration is known. */
+      function tighten() {
+        if (isFinite(el.duration) && el.duration > 0) {
+          later(el.duration * 1000 + 4000).then(finish);
+        }
+      }
+
       el.addEventListener('ended', finish);
-      el.addEventListener('error', finish);
+      el.addEventListener('error', onError);
+      if (el.readyState >= 1) tighten();
+      else el.addEventListener('loadedmetadata', tighten);
 
       /* Hand the element over before playback starts, so a caption
          can clock itself off currentTime instead of guessing at a
@@ -243,9 +311,14 @@
         try { opts.onPlay(el); } catch (e) { /* caption only — never stall the line */ }
       }
 
+      el._geoFellBack = false;
       var p = el.play();
       if (p && p.catch) {
         p.catch(function () {
+          /* the blob was refused and guard() has already restarted
+             the line from its file: `ended` (or the watchdog) will
+             see it out, so this is not the end of the line */
+          if (el._geoFellBack) { el._geoFellBack = false; return; }
           /* blocked or missing — do not stall the flow, give the
              readout a beat of life then move on */
           later(900).then(finish);
@@ -332,9 +405,15 @@
         resolve();
       }
       el.addEventListener('ended', finish);
-      el.addEventListener('error', finish);
+      el.addEventListener('error', function () { if (!recovering(el)) finish(); });
+      el._geoFellBack = false;
       var p = el.play();
-      if (p && p.catch) p.catch(finish);
+      if (p && p.catch) {
+        p.catch(function () {
+          if (el._geoFellBack) { el._geoFellBack = false; return; }   /* see say() */
+          finish();
+        });
+      }
       later(15000).then(finish);
     });
   }
@@ -344,7 +423,10 @@
     if (!file) return Promise.resolve();
 
     unlock();
-    return fireShot(new Audio(url(file)), opts);
+    var el = new Audio();
+    guard(el, file);
+    el.src = url(file);
+    return fireShot(el, opts);
   }
 
   /* ---------------------------------------------------------- primed shots
@@ -372,7 +454,9 @@
 
     unlock();
 
-    var el = new Audio(url(file));
+    var el = new Audio();
+    guard(el, file);
+    el.src = url(file);
     el.preload = 'auto';
 
     var spent = false;
@@ -414,7 +498,9 @@
   /* ---------------------------------------------------------- ambience */
   function startAmbience(volume) {
     if (ambience) return;
-    ambience = new Audio(url(AMBIENCE));
+    ambience = new Audio();
+    guard(ambience, AMBIENCE);
+    ambience.src = url(AMBIENCE);
     ambience.loop = true;
     ambience.volume = 0;
     var target = volume == null ? 0.24 : volume;
@@ -549,72 +635,34 @@
     });
   }
 
-  /* ---------------------------------------------------------- preload
+  /* ---------------------------------------------------------- the gate's hand-in
 
-     Every clip is fetched up front and reports back exactly once,
-     so the start gate can show real progress instead of running a
-     guessed timer next to a spinner.
-
-     A clip that errors counts as settled too: one missing file must
-     not hold the mission behind a bar stuck at 94%. Same for a clip
-     that simply never fires `canplaythrough` — some browsers will
-     sit on a preloading element until it is actually played — which
-     is what the deadline below is for. */
-  function settle(el, done) {
-    var fired = false;
-
-    function fire() {
-      if (fired) return;
-      fired = true;
-      el.removeEventListener('canplaythrough', fire);
-      el.removeEventListener('error', fire);
-      done();
+     The start gate (js/script.js) fetches every clip through
+     js/preload.js and hands each one in here as a blob: URL. From
+     then on url() serves the blob, so every Audio built above —
+     voices, one-shots, the primed shots, the ambience — starts from
+     memory. A voice element that already exists is re-pointed too,
+     unless it is mid-line. */
+  function files() {
+    var seen = {};
+    var out = [];
+    function add(file) {
+      if (seen[file]) return;
+      seen[file] = true;
+      out.push({ file: file, url: remote(file) });
     }
-
-    /* HAVE_ENOUGH_DATA: already there, nothing to wait for */
-    if (el.readyState >= 4) fire();
-    else {
-      el.addEventListener('canplaythrough', fire);
-      el.addEventListener('error', fire);
-      el.load();
-    }
-
-    return fire;
+    Object.keys(VOICE).forEach(function (k) { add(VOICE[k]); });
+    Object.keys(SFX).forEach(function (k) { add(SFX[k]); });
+    add(AMBIENCE);
+    return out;
   }
 
-  function assetCount() {
-    return Object.keys(VOICE).length + Object.keys(SFX).length + 1;
-  }
-
-  /* Resolves once every clip has settled. `onEach` fires once per
-     clip, which is all the gate needs to drive its bar. */
-  function preload(onEach) {
-    var els = [];
-
-    Object.keys(VOICE).forEach(function (k) {
-      if (!voices[k]) voices[k] = makeVoice(VOICE[k]);
-      els.push(voices[k]);
-    });
-
-    /* sfx() builds a fresh element per hit, so these exist only to
-       put the file in the HTTP cache before the first hit needs it */
-    Object.keys(SFX).forEach(function (k) { els.push(makeVoice(SFX[k])); });
-    els.push(makeVoice(AMBIENCE));
-
-    return new Promise(function (resolve) {
-      var left = els.length;
-      var forces = [];
-
-      function tick() {
-        if (onEach) onEach();
-        if (--left === 0) resolve();
-      }
-
-      els.forEach(function (el) { forces.push(settle(el, tick)); });
-
-      later(12000).then(function () {
-        forces.forEach(function (f) { f(); });
-      });
+  function adopt(file, blobUrl) {
+    if (!file || !blobUrl) return;
+    local[file] = blobUrl;
+    Object.keys(voices).forEach(function (k) {
+      var el = voices[k];
+      if (VOICE[k] === file && el.paused && active !== el) el.src = blobUrl;
     });
   }
 
@@ -624,10 +672,8 @@
   }
 
   global.GeoAudio = {
-    preload: preload,
-    assetCount: assetCount,
-    suspendAll: suspendAll,
-    resumeAll: resumeAll,
+    files: files,
+    adopt: adopt,
     unlock: unlock,
     say: say,
     hasVoice: hasVoice,

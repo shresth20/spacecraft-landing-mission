@@ -53,9 +53,9 @@
 
    ── the two pieces of artwork that are swapped ─────────────────
 
-   Parallelogram spaceship.png is a TRAPEZIUM: its rows widen from
+   Parallelogram spaceship.webp is a TRAPEZIUM: its rows widen from
    45.9% of the canvas at the top to 95.7% at the bottom.
-   Trapezium spaceship.png is a PARALLELOGRAM: every row is 58.0%
+   Trapezium spaceship.webp is a PARALLELOGRAM: every row is 58.0%
    wide and they shear steadily sideways.
 
    The two land tiles are both correct, so the round for each shape
@@ -121,7 +121,7 @@
      at 100% x (h/w) of that box and top-aligns, so its painting ends
      up somewhere its own percentages do not describe: the coast, the
      foam and the wake all draw in the right place for the box and
-     the wrong place for the land. Rectangle.png shipped 1448 x 1086
+     the wrong place for the land. Rectangle.webp shipped 1448 x 1086
      and did exactly that — its shore sat a tenth of a box below its
      shoreline. It is now padded out to 1448 x 1448, transparently,
      with the painting untouched.
@@ -143,7 +143,7 @@
      ones, and none of it is written down twice. */
   var LAND = {
     triangle: {
-      img: 'Triangle.png', fill: 36.623, cx: 0.4994, cy: 0.6345,
+      img: 'Triangle.webp', fill: 36.623, cx: 0.4994, cy: 0.6345,
       outline: 'M50 10.9L96.5 89.8L3.3 89.6z',
       clip: 'polygon(50% 10.9%, 96.5% 89.8%, 3.3% 89.6%)',
       label: [49.9, 63.4],
@@ -151,7 +151,7 @@
     },
 
     square: {
-      img: 'Square.png', fill: 59.110, cx: 0.5004, cy: 0.5008,
+      img: 'Square.webp', fill: 59.110, cx: 0.5004, cy: 0.5008,
       outline: 'M11.4 11.7L88.8 11.7L88.8 88.5L11.3 88.5z',
       clip: 'polygon(11.4% 11.7%, 88.8% 11.7%, 88.8% 88.5%, 11.3% 88.5%)',
       label: [50.0, 50.1],
@@ -159,7 +159,7 @@
     },
 
     rectangle: {
-      img: 'Rectangle.png', fill: 28.000, cx: 0.4997, cy: 0.4993,
+      img: 'Rectangle.webp', fill: 28.000, cx: 0.4997, cy: 0.4993,
       outline: 'M85 30L85 70L15 70L15 30z',
       clip: 'polygon(85% 30%, 85% 70%, 15% 70%, 15% 30%)',
       label: [50.0, 49.9],
@@ -167,7 +167,7 @@
     },
 
     parallelogram: {
-      img: 'Parallelogram.png', fill: 36.281, cx: 0.5015, cy: 0.4998,
+      img: 'Parallelogram.webp', fill: 36.281, cx: 0.5015, cy: 0.4998,
       outline: 'M34.5 21.5L98.5 21.5L65.7 78.5L1.6 78.4z',
       clip: 'polygon(34.5% 21.5%, 98.5% 21.5%, 65.7% 78.5%, 1.6% 78.4%)',
       label: [50.1, 50.0],
@@ -175,7 +175,7 @@
     },
 
     trapezium: {
-      img: 'Trapezium.png', fill: 38.396, cx: 0.4996, cy: 0.5636,
+      img: 'Trapezium.webp', fill: 38.396, cx: 0.4996, cy: 0.5636,
       outline: 'M29.5 24.3L70.5 24.3L97.6 80.9L2.2 80.8z',
       clip: 'polygon(29.5% 24.3%, 70.5% 24.3%, 97.6% 80.9%, 2.2% 80.8%)',
       label: [50.0, 56.4],
@@ -183,7 +183,7 @@
     },
 
     rhombus: {
-      img: 'Rhombus.png', fill: 31.797, cx: 0.5000, cy: 0.4982,
+      img: 'Rhombus.webp', fill: 31.797, cx: 0.5000, cy: 0.4982,
       outline: 'M50 3.5L84.6 50L49.8 96.1L15.4 49.9z',
       clip: 'polygon(50% 3.5%, 84.6% 50%, 49.8% 96.1%, 15.4% 49.9%)',
       label: [50.0, 49.8],
@@ -280,7 +280,7 @@
      row while the craft is hovering over it.                       */
   var CRAFT = {
     square: {
-      img: 'Square spaceship.png', fill: 37.389, cx: 0.4984, cy: 0.3783,
+      img: 'Square spaceship.webp', fill: 37.389, cx: 0.4984, cy: 0.3783,
       flame: 0.9091,
       alt: 'Square spaceship, each side 6 units',
       /* hull x 18.2..81.5, y 8.3..67.3 — 63.3 across by 59.0 down,
@@ -293,7 +293,7 @@
     },
 
     rectangle: {
-      img: 'Rectangle spaceship.png', fill: 26.957, cx: 0.4981, cy: 0.4316,
+      img: 'Rectangle spaceship.webp', fill: 26.957, cx: 0.4981, cy: 0.4316,
       flame: 0.8780,
       alt: 'Rectangular spaceship, 10 units long and 5 units wide',
       /* hull x 14.75..84.85, y 23.92..62.36 */
@@ -304,7 +304,7 @@
 
     /* the parallelogram-hulled craft — the file called Trapezium */
     parallelogram: {
-      img: 'Trapezium spaceship.png', fill: 29.117, cx: 0.5026, cy: 0.3885,
+      img: 'Trapezium spaceship.webp', fill: 29.117, cx: 0.5026, cy: 0.3885,
       flame: 0.8804,
       alt: 'Parallelogram spaceship, base 7 units, height 6 units',
       /* top edge y 14.0 from x 35.7 to 92.7, bottom edge y 63.9 from
@@ -320,7 +320,7 @@
 
     /* the trapezium-hulled craft — the file called Parallelogram */
     trapezium: {
-      img: 'Parallelogram spaceship.png', fill: 39.193, cx: 0.4992, cy: 0.4509,
+      img: 'Parallelogram spaceship.webp', fill: 39.193, cx: 0.4992, cy: 0.4509,
       flame: 0.9577,
       alt: 'Trapezium spaceship, parallel sides 5 and 10 units, height 6 units',
       /* top edge y 14.2 from x 27.2 to 72.8 (45.6 across), bottom
@@ -335,7 +335,7 @@
     },
 
     rhombus: {
-      img: 'Rhombus spaceship.png', fill: 21.258, cx: 0.4989, cy: 0.4149,
+      img: 'Rhombus spaceship.webp', fill: 21.258, cx: 0.4989, cy: 0.4149,
       flame: 0.9410,
       alt: 'Rhombus spaceship, diagonals 6 units and 7 units',
       /* vertices (49.9, 5.5) (79.7, 41.4) (49.9, 76.6) (20.2, 41.4).

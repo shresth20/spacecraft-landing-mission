@@ -1303,6 +1303,7 @@
     var e = round.el;
 
     round.solved = true;
+    armAdvanceWatchdog(round, id);
 
     return F.successfulLanding(e.ship, pad, {
       refPad: ref,
@@ -1398,6 +1399,29 @@
         standingRoundHint(round);
         return narrate(e.topbarText, 'chooseExact');
       });
+  }
+
+  /* The NEXT button's third road. It normally arrives at the end of
+     the planted sequence -- touchdown, two spoken lines, the footer
+     handed over (handFooterToAdvance) -- and every step of that is
+     a promise on a clip or a clock. Should any of them fail to
+     settle (a clip whose `ended` never comes, an animation that is
+     cancelled under it), the player would be left on a finished
+     screen with no way on. So a landing arms this as well: the
+     whole sequence's length plus grace, re-armed on every planting,
+     and if the button is still hidden when it fires the footer is
+     cleared and the button shown by hand. Under the same generation
+     check as everything else, so a jump away disarms it. */
+  var ADVANCE_WATCHDOG_MS = 20000;
+
+  function armAdvanceWatchdog(round, id) {
+    M.wait(ADVANCE_WATCHDOG_MS).then(function () {
+      var btn = round.el.advance;
+      if (!live(id) || !round.solved || !btn || !btn.hidden || !canAdvance()) return;
+      if (round.el.caption) round.el.caption.classList.remove('is-shown');
+      if (round.el.tally) round.el.tally.classList.remove('is-shown');
+      showRoundAdvance(round);
+    });
   }
 
   /* The reward for the right answer, and the way on. Withheld when
@@ -1565,53 +1589,114 @@
      rather than a spinner that says nothing.
      ============================================================ */
 
-  /* Read off the document rather than kept in a second list here:
-     the <link rel=preload> tags already name the backgrounds and
-     the zone/ship artwork is in the markup as <img>, so this cannot
-     drift out of step with the page. */
-  function imageUrls() {
-    var seen = {};
-    var out = [];
+  /* ---------------------------------------------------------- what to load
 
-    function add(u) {
-      if (!u || seen[u]) return;
-      seen[u] = true;
-      out.push(u);
-    }
+     Read off the document rather than kept in a second list here:
+     every <img> is in document.images (screens 4-8 included — they
+     are built before this runs) and every painted backdrop is the
+     computed background-image of a .layer or the gate, so this
+     cannot drift out of step with the page. The audio comes from
+     GeoAudio's own tables, the fonts from their <link rel=preload>.
 
-    Array.prototype.forEach.call(
-      document.querySelectorAll('link[rel="preload"][as="image"]'),
-      function (l) { add(l.href); }
-    );
-    Array.prototype.forEach.call(
-      document.images,
-      function (i) { add(i.currentSrc || i.src); }
-    );
-
-    return out;
+     Each file's weight is its size on disk (js/manifest.js), looked
+     up by its path relative to this document, decoded. */
+  function relPath(u) {
+    var a = new URL(u, document.baseURI);
+    var base = new URL('.', document.baseURI).pathname;
+    var path = a.pathname.indexOf(base) === 0
+      ? a.pathname.slice(base.length)
+      : a.pathname.replace(/^\//, '');
+    try { return decodeURIComponent(path); } catch (e) { return path; }
   }
 
-  /* A texture that 404s still counts: the bar must reach the end
-     even on a broken deploy, and a missing rock is survivable. */
-  function loadImages(list, onEach) {
-    return Promise.all(list.map(function (src) {
-      return new Promise(function (resolve) {
-        var img = new Image();
-        var fired = false;
+  function sizeOf(u) {
+    var m = global.GeoManifest || {};
+    return m[relPath(u)] || 0;
+  }
 
-        function fire() {
-          if (fired) return;
-          fired = true;
-          onEach();
-          resolve();
-        }
-
-        img.onload = fire;
-        img.onerror = fire;
-        img.src = src;
-        if (img.complete) fire();
+  /* Point an <img> at the blob the gate fetched. Decoded off-screen
+     first, so the swap on an image that is already showing (the
+     gate's own craft) is between two decoded copies of the same
+     pixels and never blinks. If the blob is ever refused the element
+     goes back to its file URL, once. */
+  function swapImg(img, original, blobUrl) {
+    var probe = new Image();
+    probe.src = blobUrl;
+    var decoded = probe.decode ? probe.decode().catch(function () {}) : Promise.resolve();
+    decoded.then(function () {
+      img.addEventListener('error', function onErr() {
+        img.removeEventListener('error', onErr);
+        if (img.src === blobUrl) img.src = original;
       });
-    }));
+      img.src = blobUrl;
+    });
+  }
+
+  function swapBg(node, blobUrl) {
+    var probe = new Image();
+    probe.src = blobUrl;
+    var decoded = probe.decode ? probe.decode().catch(function () {}) : Promise.resolve();
+    decoded.then(function () {
+      node.style.backgroundImage = 'url("' + blobUrl + '")';
+    });
+  }
+
+  function imageJobs() {
+    var byUrl = {};
+    var order = [];
+
+    function add(u, apply) {
+      if (!u) return;
+      var abs;
+      try { abs = new URL(u, document.baseURI).href; } catch (e) { return; }
+      if (/^(blob|data):/i.test(abs)) return;
+      if (!byUrl[abs]) { byUrl[abs] = []; order.push(abs); }
+      byUrl[abs].push(apply);
+    }
+
+    Array.prototype.forEach.call(document.images, function (img) {
+      var src = img.currentSrc || img.src;
+      add(src, function (blobUrl) { swapImg(img, src, blobUrl); });
+    });
+
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.layer, .gate'),
+      function (node) {
+        var bg = getComputedStyle(node).backgroundImage || '';
+        var m = /url\((["']?)(.*?)\1\)/.exec(bg);
+        if (!m || !m[2]) return;
+        add(m[2], function (blobUrl) { swapBg(node, blobUrl); });
+      }
+    );
+
+    return order.map(function (u) {
+      var fns = byUrl[u];
+      return {
+        url: u,
+        size: sizeOf(u),
+        apply: function (blobUrl) { fns.forEach(function (f) { f(blobUrl); }); }
+      };
+    });
+  }
+
+  function audioJobs() {
+    return A.files().map(function (f) {
+      return {
+        url: f.url,
+        size: sizeOf(f.url),
+        apply: function (blobUrl) { A.adopt(f.file, blobUrl); }
+      };
+    });
+  }
+
+  /* the two faces: fetched so they are in before the first caption,
+     and counted, but left to the CSS to use — a font is applied by
+     name, not by URL */
+  function fontJobs() {
+    return Array.prototype.map.call(
+      document.querySelectorAll('link[rel="preload"][as="font"]'),
+      function (l) { return { url: l.href, size: sizeOf(l.href), apply: null }; }
+    );
   }
 
   /* what the readout says, by how far along the load is */
@@ -1631,18 +1716,26 @@
     return label;
   }
 
-  /* Two things are being waited on and they are not the same size,
-     so progress is counted in assets rather than in halves. */
   var GATE_MIN_MS = 1150;       // a warm cache must still read as a load
 
+  /* has every asset settled? begin() will not run until it has, so
+     a keyboard or scripted start waits on the same bar the click
+     does — the button being `hidden` until then is the visible half
+     of the same rule */
+  var ready = false;
+
+  /* js/preload.js, or a stand-in that resolves at once: without the
+     fetcher the mission still starts, it just cannot promise its
+     files are in */
+  var LOAD = global.GeoLoad || { run: function () { return Promise.resolve(); } };
+
   function runGate() {
-    var imgs  = imageUrls();
-    var total = imgs.length + A.assetCount();
-    var done  = 0;
-    var shown = 0;              // where the bar actually is
-    var raf   = 0;
-    var t0    = performance.now();
-    var slow  = !M.reduced();
+    var jobs   = imageJobs().concat(audioJobs(), fontJobs());
+    var target = 0;             // where the bytes say the bar should be
+    var shown  = 0;             // where the bar actually is
+    var raf    = 0;
+    var t0     = performance.now();
+    var slow   = !M.reduced();
 
     function draw(p) {
       var pct = Math.round(p * 100);
@@ -1653,27 +1746,32 @@
       if (el.gateStatus.textContent !== label) el.gateStatus.textContent = label;
     }
 
-    /* Eased rather than stepped: on a warm cache thirty files settle
+    /* Eased rather than stepped: on a warm cache six megabytes land
        in the same frame, and a bar that teleports to 100% reads as a
        glitch. The easing also keeps the readout moving while a slow
-       file is still in flight. */
+       file is still in flight. `target` only ever rises (GeoLoad
+       promises as much), so the bar never runs backwards. */
     function tick() {
-      var target = done / total;
       shown += (target - shown) * 0.10;
       if (target - shown < 0.0015) shown = target;
       draw(shown);
       raf = requestAnimationFrame(tick);
     }
 
-    function count() { done++; if (!slow) draw(done / total); }
+    function onProgress(p) {
+      if (p > target) target = p;
+      if (!slow) draw(target);
+    }
 
     if (slow) raf = requestAnimationFrame(tick);
     draw(0);
 
-    return Promise.all([
-      loadImages(imgs, count),
-      A.preload(count)
-    ]).then(function () {
+    return LOAD.run(jobs, onProgress).then(function (tally) {
+      target = 1;
+      if (tally && tally.failed && global.console) {
+        console.warn('GeoDrone: ' + tally.failed + ' asset(s) could not be ' +
+                     'prefetched; the elements keep their file URLs.');
+      }
       /* let the easing run the last stretch out before handing over */
       var rest = slow ? Math.max(0, GATE_MIN_MS - (performance.now() - t0)) + 520
                       : Math.max(0, 300 - (performance.now() - t0));
@@ -1686,6 +1784,7 @@
   }
 
   function revealStart() {
+    ready = true;
     el.gateLoad.classList.add('is-done');
 
     return M.wait(M.reduced() ? 0 : 360).then(function () {
@@ -1707,8 +1806,17 @@
      BOOT
      ============================================================ */
   function begin() {
+    if (!ready) return;                   /* the bar has not reached the end */
+
     el.gate.classList.add('is-gone');
     el.nav.classList.add('is-on');
+
+    /* Once its fade is over (.7s, css/style.css) the gate is taken
+       out of the layout altogether. It never comes back, and left
+       in place its craft, plumes and sheen would go on animating on
+       their own compositor layers under every screen for the whole
+       session. */
+    M.wait(900).then(function () { el.gate.hidden = true; });
 
     A.unlock();
     A.startAmbience(0.24);
@@ -1779,8 +1887,8 @@
     W.init(el.waveCanvas);
 
     /* before runGate(), so the islands and craft on screens 4-8 are
-       already in document.images when the loading bar works out how
-       many assets there are to wait for */
+       already in document.images when the loading bar works out what
+       it has to fetch */
     addRoundScreens();
     wireSurvey();
 

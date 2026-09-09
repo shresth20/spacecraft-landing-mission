@@ -93,7 +93,7 @@
 
    ── colour ────────────────────────────────────────────────────
 
-   Read off s2-bg (2).png rather than invented: the deep blue in
+   Read off s2-bg (2).webp rather than invented: the deep blue in
    its corners, the mid turquoise of its open water, the pale band
    in its shallows, its foam, and the orange of the island tiles.
    Held as bare channel triples so every layer below can take the
@@ -108,7 +108,7 @@
   --sea-foam:     238, 253, 255;
   --shore-warm:   255, 172, 108;
 
-  /* The sun. s2-bg (2).png has its specular glitter in the TOP
+  /* The sun. s2-bg (2).webp has its specular glitter in the TOP
      LEFT corner, so every shadow in this file falls down and to
      the right, and all of them by the same amount.
 
@@ -354,7 +354,7 @@
    churns, the glint sweeps, the body of it breathes. None of it
    travels. Light moving over a surface that is itself standing
    still is a lit still, and on a frame this wide that is the one
-   thing left saying the sea is a photograph — s2-bg (2).png has
+   thing left saying the sea is a photograph — s2-bg (2).webp has
    its own crests painted into it, and painted crests that never
    move are the giveaway.
 

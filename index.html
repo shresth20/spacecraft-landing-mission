@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#03050c" />
+  <!-- inline, so the browser's automatic /favicon.ico request never
+       404s: nothing on the server has to exist for it -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%2306101f'/%3E%3Cpath d='M32 10 54 50H10Z' fill='%234fd8ff'/%3E%3C/svg%3E" />
   <title>Spacecraft Landing Mission/</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/animation.css" />
@@ -31,31 +34,10 @@
   <link rel="preload" as="font" type="font/ttf" crossorigin
         href="assets/fonts/lilita_one/lilitaone-regular.ttf" />
 
-  <link rel="preload" as="image" href="assets/images/welcome-screen.png" />
-  <link rel="preload" as="image" href="assets/images/welcome-screen-ship.png" />
-  <link rel="preload" as="image" href="assets/images/s1-bg.png" />
-  <link rel="preload" as="image" href="assets/images/s1-cockpit-2.png" />
-  <link rel="preload" as="image" href="assets/images/s2-bg%20(2).png" />
-  <link rel="preload" as="image" href="assets/images/drone-screen.png" />
-  <link rel="preload" as="image" href="assets/images/drone.png" />
-  <link rel="preload" as="image" href="assets/images/Triangle.png" />
-  <link rel="preload" as="image" href="assets/images/Triangle%20spaceship.png" />
-  <link rel="preload" as="image" href="assets/images/Square.png" />
-  <link rel="preload" as="image" href="assets/images/Trapezium.png" />
-
-  <!-- screens 4-8. The markup for those screens is built at load
-       (js/pages.js), so the start gate would find these in
-       document.images either way; preloading them here only means
-       the browser starts fetching while the document is still being
-       parsed instead of waiting for the scripts at the end of it. -->
-  <link rel="preload" as="image" href="assets/images/Rectangle.png" />
-  <link rel="preload" as="image" href="assets/images/Parallelogram.png" />
-  <link rel="preload" as="image" href="assets/images/Rhombus.png" />
-  <link rel="preload" as="image" href="assets/images/Square%20spaceship.png" />
-  <link rel="preload" as="image" href="assets/images/Rectangle%20spaceship.png" />
-  <link rel="preload" as="image" href="assets/images/Parallelogram%20spaceship.png" />
-  <link rel="preload" as="image" href="assets/images/Trapezium%20spaceship.png" />
-  <link rel="preload" as="image" href="assets/images/Rhombus%20spaceship.png" />
+  <!-- No <link rel=preload> for the artwork or the audio: the start
+       gate fetches every asset itself (js/preload.js) so the loading
+       bar can count real bytes, and a preload here would only fetch
+       each file a second time under a different request mode. -->
 </head>
 <body>
 
@@ -74,7 +56,7 @@
     <div class="flyout" id="flyout" aria-hidden="true">
       <div class="flyout__drone" id="flyDrone">
         <span class="flyout__wash"></span>
-        <img src="assets/images/drone.png" alt="" />
+        <img src="assets/images/drone.webp" alt="" />
       </div>
       <div class="flyout__trail" id="flyTrail"></div>
     </div>
@@ -99,7 +81,7 @@
         <span class="launch__body">
           <!-- decorative: the cap carries no type of its own, and
                the button's name is on the <button> itself -->
-          <img class="launch__plate" src="assets/images/Launch%20button.png"
+          <img class="launch__plate" src="assets/images/Launch%20button.webp"
                alt="" draggable="false">
           <span class="launch__flash" aria-hidden="true"></span>
         </span>
@@ -147,12 +129,12 @@
        Both pieces of artwork are 1254x1254 squares with a shape
        painted on them. Measured off the alpha channel:
 
-         Triangle.png            a clean triangle — apex (50.0%, 10.9%),
+         Triangle.webp            a clean triangle — apex (50.0%, 10.9%),
                                  base y 89.7% from x 3.3% to 96.5%.
                                  Fills 36.623% of the canvas; its centre
                                  of area is (49.94%, 63.45%).
 
-         Triangle spaceship.png  hull apex (50.0%, 2.8%), base y 70.0%
+         Triangle spaceship.webp  hull apex (50.0%, 2.8%), base y 70.0%
                                  from x 4.94% to 94.82%. Fills 31.407%;
                                  centre of area (49.92%, 47.72%).
 
@@ -220,7 +202,7 @@
           <span class="ship__dust" aria-hidden="true"></span>
 
           <div class="ship__craft" id="shipCraft">
-            <img class="ship__img" src="assets/images/Triangle spaceship.png"
+            <img class="ship__img" src="assets/images/Triangle spaceship.webp"
                  alt="Triangular spaceship, base 8 units, height 5 units" />
 
             <!-- The exhaust is painted into the artwork, so this is off
@@ -421,7 +403,7 @@
           <i class="gate__cone gate__cone--core"></i>
         </span>
 
-        <img class="gate__ship-img" src="assets/images/welcome-screen-ship.png" alt="" />
+        <img class="gate__ship-img" src="assets/images/welcome-screen-ship.webp" alt="" />
       </div>
     </div>
 
@@ -466,6 +448,15 @@
 </div>
 
 <script src="js/lifecycle.js"></script>
+<!-- generated from the files on disk by tools/build_manifest.py:
+     the byte size of every asset, so the loading bar can weight each
+     file by what it really costs before a single Content-Length has
+     come back. Regenerate it whenever an asset changes. -->
+<script src="js/manifest.js"></script>
+<!-- the loading bar's fetcher: streams every asset with a byte
+     count, smallest first, five at a time, and hands each one back
+     as a blob: URL. Before audio.js, which adopts those URLs. -->
+<script src="js/preload.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/waveform.js"></script>
 <script src="js/typewriter.js"></script>

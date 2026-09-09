@@ -22,10 +22,6 @@
       : new Promise(function (r) { setTimeout(r, ms); });
   }
 
-  function nextFrame() {
-    return new Promise(function (r) { requestAnimationFrame(function () { r(); }); });
-  }
-
   function reduced() {
     return global.matchMedia &&
            global.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -776,7 +772,6 @@
 
   global.GeoMotion = {
     wait: wait,
-    nextFrame: nextFrame,
     reduced: reduced,
     starfield: starfield,
     flyDrone: flyDrone,

@@ -5,7 +5,7 @@
 
    Every anchored element is positioned in PERCENT of the stage,
    because both artwork layers are stretched to 100% x 100%.
-   The percentages below were measured off s1-cockpit-2.png
+   The percentages below were measured off s1-cockpit-2.webp
    (1672 x 941) so the readout and the button land exactly on
    the painted panels.
    ============================================================ */
@@ -13,25 +13,17 @@
 /* ---------------------------------------------------------- typeface
    Libre Baskerville, self-hosted, and the only face in the game:
    narration, HUD chrome, dimension callouts, pad numbers and the
-   gate all share the one voice. Both files are variable on a
-   single wght axis running 400-700 (checked in the fvar table), so
-   the range is declared and no weight above 700 is asked for
-   anywhere — past the axis the browser would fake the bold. */
+   gate all share the one voice. The file is variable on a single
+   wght axis running 400-700 (checked in the fvar table), so the
+   range is declared and no weight above 700 is asked for anywhere —
+   past the axis the browser would fake the bold. Upright only: no
+   italic text renders anywhere, so the italic file is not shipped. */
 @font-face {
   font-family: "Libre Baskerville";
   src: url("../assets/fonts/libre_baskerville/librebaskerville-variablefont_wght.ttf")
        format("truetype-variations");
   font-weight: 400 700;
   font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Libre Baskerville";
-  src: url("../assets/fonts/libre_baskerville/librebaskerville-italic-variablefont_wght.ttf")
-       format("truetype-variations");
-  font-weight: 400 700;
-  font-style: italic;
   font-display: swap;
 }
 
@@ -102,19 +94,11 @@ button { font: inherit; color: inherit; }
   --dash-w: 34.0%;
   --dash-h: 13.9%;
 
-  /* launch button — anchor only; the plate sizes itself from --btn-w */
-  --btn-cx: 50.7%;
-  --btn-cy: 91.1%;
-
   /* canopy opening — where the drone flies out */
   --win-cx: 50%;
   --win-bottom: 62%;
-  --win-top: 11%;
 
   --ink: #dff2ff;
-  --cyan: #4fd8ff;
-  --deep: #06101f;
-  --red: #ff3b30;
 }
 
 
@@ -148,6 +132,31 @@ button { font: inherit; color: inherit; }
   filter: blur(16px) saturate(0.5) brightness(1.15);
 }
 
+/* ---------------------------------------------------------- windowing
+   Seven screens, and on every one of them the sea, the wakes, the
+   effect layers and the craft are all promoted to their own
+   compositor layers (the will-change rules through this file,
+   css/water.css and css/failure.css). Kept for all seven at once
+   that is several hundred textures the GPU has to hold for six
+   screens nobody can see, and past its budget the browser EVICTS
+   textures — content on the screen that IS showing then paints
+   blank for a frame or two, on real machines, with nothing in
+   devtools to say why.
+
+   So only the screen in view, and the one on its way out under the
+   veil, keep their layers. Every other screen is already
+   `visibility: hidden` (the base rule above), and this hands its
+   will-change back too, so the layers are released rather than
+   held. It re-applies itself on every navigation for free: the
+   classes swapScreens() toggles are the ones this rule reads. */
+.screen:not(.is-active):not(.is-leaving),
+.screen:not(.is-active):not(.is-leaving) * {
+  /* !important because the camera (js/animation.js) pins its plates'
+     will-change INLINE when it parks them, and a parked lens on a
+     hidden screen is exactly the layer this rule is here to release */
+  will-change: auto !important;
+}
+
 
 /* ---------------------------------------------------------- artwork layers */
 .layer {
@@ -161,10 +170,10 @@ button { font: inherit; color: inherit; }
   pointer-events: none;
 }
 
-.s1-bg      { background-image: url("../assets/images/s1-bg.png"); }
-.s1-cockpit { background-image: url("../assets/images/s1-cockpit-2.png"); }
-.s2-bg      { background-image: url("../assets/images/s2-bg (2).png"); }
-.drone-hud  { background-image: url("../assets/images/drone-screen.png"); }
+.s1-bg      { background-image: url("../assets/images/s1-bg.webp"); }
+.s1-cockpit { background-image: url("../assets/images/s1-cockpit-2.webp"); }
+.s2-bg      { background-image: url("../assets/images/s2-bg (2).webp"); }
+.drone-hud  { background-image: url("../assets/images/drone-screen.webp"); }
 
 /* The drone bezel is only there to say "you are looking through a
    camera" while the feed is dark and sweeping. Once the scan lands
@@ -346,7 +355,7 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   LAUNCH BUTTON — assets/images/Launch button.png
+   LAUNCH BUTTON — assets/images/Launch button.webp
 
    The cap is painted art now, not CSS: a glass dome in a white rim,
    turned toward the player. What is left here is only what the art
@@ -1124,7 +1133,7 @@ button { font: inherit; color: inherit; }
    The lesson line lives in the HUD's own chrome rather than in a
    caption floating over the water: it is the mission instruction,
    and it has to stay readable while the player is looking down at
-   the shapes. Sits inside the painted bezel of drone-screen.png,
+   the shapes. Sits inside the painted bezel of drone-screen.webp,
    above the frame so the chamfers are not clipped by it.
    ============================================================ */
 .topbar {
@@ -1310,15 +1319,15 @@ button { font: inherit; color: inherit; }
 
    The two figures, measured off the alpha channel:
 
-     Triangle.png            fills 36.623% of its canvas,
+     Triangle.webp            fills 36.623% of its canvas,
                              centre of area (49.94%, 63.45%)
-     Triangle spaceship.png  hull fills 31.407% of its canvas,
+     Triangle spaceship.webp  hull fills 31.407% of its canvas,
                              centre of area (49.92%, 47.72%)
 
    Everything below, and TRI_GEO in js/failure.js, is those four
    numbers.
    ============================================================ */
-.s3-bg { background-image: url("../assets/images/s2-bg (2).png"); }
+.s3-bg { background-image: url("../assets/images/s2-bg (2).webp"); }
 
 
 /* ---------------------------------------------------------- the spaceship
@@ -1920,7 +1929,7 @@ button { font: inherit; color: inherit; }
 /* ============================================================
    START GATE
    ============================================================ */
-/* welcome-screen.png is scenery and nothing else — the moon's
+/* welcome-screen.webp is scenery and nothing else — the moon's
    surface, the ringed planet, the nebula behind them. Everything
    the screen SAYS is built here: the title, the craft that is about
    to fly the mission with its engines already lit, and the play
@@ -1958,7 +1967,7 @@ button { font: inherit; color: inherit; }
   inset: 0;
   z-index: 50;
   background-color: #050a18;
-  background-image: url("../assets/images/welcome-screen.png");
+  background-image: url("../assets/images/welcome-screen.webp");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;   /* stretched to fill, as specified */
@@ -2032,7 +2041,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------- the craft
 
-   welcome-screen-ship.png with its engines burning. The artwork
+   welcome-screen-ship.webp with its engines burning. The artwork
    paints the nozzles but no exhaust, so all four plumes below are
    CSS. The box is square because the image is (502 x 502), which is
    what lets every nozzle be pinned in percentages read straight off
