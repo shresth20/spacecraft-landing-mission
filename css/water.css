@@ -336,14 +336,15 @@
   67%      { transform: scale(1.020) rotate(.09deg)  translate3d(.10%, .30%, 0); }
 }
 
-/* Not on the survey. There the sea's plate belongs to the CAMERA
-   (THE CAMERA, js/animation.js): it is scaled up for altitude and
-   moved a fraction of the way with every pan, and between flights
-   it is PINNED as an inline style. A CSS animation outranks an
-   inline style, so left running this one would snap the photograph
-   back to scale 1.02 the moment a flight landed. The lens's own
-   loiter is that screen's breathing. */
-.screen--drone .s2-bg { animation: none; }
+/* Not on a playing screen. There the sea's plate belongs to the
+   CAMERA (THE CAMERA, js/animation.js): it is scaled up for
+   altitude and moved a fraction of the way with every pan, and
+   between flights it is PINNED as an inline style. A CSS animation
+   outranks an inline style, so left running this one would snap
+   the photograph back to scale 1.02 the moment a flight landed. The
+   lens's own loiter is those screens' breathing. */
+.screen--drone .s2-bg,
+.screen--round .s3-bg { animation: none; }
 
 
 /* ============================================================

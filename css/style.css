@@ -616,40 +616,6 @@ button { font: inherit; color: inherit; }
   --land-y: 71%;
   --far-y: 36%;
 
-  /* -- the shot --
-     --cam-wide   the world's scale at survey height. The islands
-                  are laid out at 1 and the descent ends at 1, so
-                  this is the only figure that says how far away
-                  "far away" is: at .32 the whole archipelago is
-                  about a fifth of the frame across, which reads as
-                  a group of small islands in a big sea rather than
-                  as five shapes that have been shrunk.
-
-     --cam-water  and the water's scale at the BOTTOM of the
-                  descent. Nothing like the world's travel, and
-                  deliberately: the sea is one photograph stretched
-                  to the frame, so its plate can only ever be
-                  scaled UP -- anything under 1 shows the frame
-                  behind it. The figure is here for the parallax,
-                  not for the distance; the distance is carried by
-                  the islands.
-
-     Read by js/animation.js (camPlates) as well as used here, so a
-     media query can retune the shot for a frame with less room in
-     it and the script follows without being told.             */
-  --cam-wide: .32;
-
-  /* the water's scale at the two ends of a descent, and how far it
-     follows a pan. The sea is one photograph stretched to the
-     frame, so its plate can only ever be scaled UP -- anything
-     under 1 shows the frame behind it -- and it has to stay over 1
-     by enough to cover the parallax: site B is a frame to the
-     right, and at .10 the water goes 10% of the frame with it,
-     which is what --cam-water-near's 24% of spare edge is for. */
-  --cam-water-wide: 1.14;
-  --cam-water-near: 1.24;
-  --cam-parallax: .10;
-
   /* ── the landing tableau, at site B ──
      Screen 3's figures, unchanged, so the landing looks exactly as
      it did when it had a screen of its own. Layout runs off ONE
@@ -673,6 +639,41 @@ button { font: inherit; color: inherit; }
   --scy: 0.4772;
 
   --advance-h: clamp(32px, 2.5vw, 42px);
+}
+
+/* ---------------------------------------------------------- the shot
+
+   Every playing screen flies the same shot, so its figures are set
+   once, for the survey and the five rounds together.
+
+   --cam-wide        the world's scale at survey height. The islands
+                     are laid out at 1 and each descent ends at 1,
+                     so this is the only figure that says how far
+                     away "far away" is: at .32 a site is about a
+                     fifth of the frame across, which reads as a
+                     group of small islands in a big sea rather than
+                     five shapes that have been shrunk.
+
+   --cam-water-*     the water's scale at the two ends of a descent,
+                     and --cam-parallax how far it follows a pan.
+                     The sea is one photograph stretched to the
+                     frame, so its plate can only ever be scaled UP
+                     -- anything under 1 shows the frame behind it --
+                     and it has to stay over 1 by enough to cover the
+                     parallax: site B is a frame to the right, and at
+                     .10 the water goes 10% of the frame with it,
+                     which is what --cam-water-near's 24% of spare
+                     edge is for.
+
+   Read by js/animation.js (camVars) as well as used here, so a
+   media query can retune the shot for a frame with less room in it
+   and the script follows without being told.                     */
+.screen--drone,
+.screen--round {
+  --cam-wide: .32;
+  --cam-water-wide: 1.14;
+  --cam-water-near: 1.24;
+  --cam-parallax: .10;
 }
 
 

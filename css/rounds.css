@@ -8,11 +8,12 @@
    css/failure.css, which is what decides all three outcomes. What this file adds is only
    the three things a round does that the landing does not:
 
-     · five islands instead of three, in two ranks — the round's
-       own shape in a row across the front, two other shapes
-       further out and further away
+     · two sites a frame apart on one sea (see .site in
+       css/style.css): five islands on the first — the round's own
+       shape three times, two other shapes — and the round's three
+       on the second, in the row, with the craft
      · a SHAPE task in front of the area task, so the pads pick up
-       the survey feed's manners: a tick when they match, a shake
+       the survey's manners: a green coast when they match, a shake
        when they do not, and a sink for the two that never did
      · the printed area held back until that task is over, because
        the areas are the SECOND question and showing them early
@@ -98,27 +99,16 @@
 
 
 /* ---------------------------------------------------------- the scatter
-   While the shape is the question the five islands are strewn about
-   the water, shuffled on every visit (see scatter() in js/pages.js).
-   --sx/--sy are that scattered station.
-
-   Dropping `.is-scattered` puts an island back at the row position
-   it was laid out at, and because `left`/`top` transition it GLIDES
-   there. It has to be the layout that moves and not a transform:
-   the landing measures an island's box to work out where the craft
-   is flying (plan() in js/failure.js), so a translated island would
-   have the craft coming down on open water beside it. */
+   While the shape is the question, site A's five islands are strewn
+   about the water, shuffled on every visit (see scatter() in
+   js/pages.js). --sx/--sy are that scattered station. The layout
+   moves and not a transform, for the same reason as everything else
+   on these screens: the landing measures an island's box to work
+   out where the craft is flying (plan() in js/failure.js). */
 :is(.screen--round, .screen--drone) .pads .pad.is-scattered {
   --cx: var(--sx);
   --cy: var(--sy);
 }
-
-.screen--round .pad {
-  transition: left .95s cubic-bezier(.3, 0, .2, 1),
-              top .95s cubic-bezier(.3, 0, .2, 1);
-}
-
-.is-reduced .screen--round .pad { transition: none; }
 
 
 /* ---------------------------------------------------------- the arrival

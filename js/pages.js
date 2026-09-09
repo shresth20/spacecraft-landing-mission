@@ -1,13 +1,14 @@
 /* ============================================================
    Geo Drone — screens 4 to 8, one round per shape
 
-   Screen 2, the survey, teaches the mission in two halves on one
-   sea: its first site asks "which of these is the same SHAPE as
-   the craft", and its second asks "which of these is the same
-   AREA" (see buildSurvey below, and runSurvey in js/script.js).
-   From screen 4 on -- there is no screen 3 any more; the landing
-   moved onto the survey -- each screen is one complete round that
-   asks both, for a new shape and a new area formula:
+   Every playing screen -- the survey (screen 2) and the five rounds
+   (screens 4 to 8; there is no screen 3 any more) -- is one
+   continuous camera shot over one sea, and the lens comes down on
+   it twice: on SITE A for "which of these is the same SHAPE as the
+   craft", and on SITE B for "which of these is the same AREA". The
+   survey asks that of the triangle, with the drone's dark-and-scan
+   opening in front of it; each round asks it of a new shape and a
+   new area formula, and opens straight onto the water:
 
      4  square         area = side x side
      5  rectangle      area = length x width
@@ -22,7 +23,7 @@
      offer  →  pick the exact match  →  land
 
    This file is the DATA and the MARKUP. The flow that plays it is
-   runRound() in js/script.js, which is one function for all five
+   runRound() in js/script.js, which is one function for all six
    screens — the difference between them lives entirely below.
 
    ── why the numbers are here and not in the stylesheet ─────────
@@ -377,12 +378,16 @@
      the product of the two lengths with the half forgotten — so
      flying the craft onto one is the mistake made visible.
 
-     `decoys` are the two shapes that are NOT the round's shape, and
-     they are chosen mathematically rather than for variety: a square
-     IS a rectangle, a rhombus and a parallelogram, and a rhombus IS
-     a parallelogram, so none of those can ever stand as a wrong
-     answer to "select the parallelograms". Every pairing below is
-     one a mathematician would accept.                              */
+     `decoyPool` is every shape that is NOT the round's shape, and
+     two of them are drawn at random on every visit (see arrangeSite
+     below). The pools are cut mathematically rather than for
+     variety: a square IS a rectangle, a rhombus and a parallelogram,
+     and a rhombus IS a parallelogram, so none of those can ever
+     stand as a wrong answer to "select the parallelograms". A
+     trapezium is read the way the mission draws it -- exactly one
+     pair of parallel sides -- so every other shape is a fair wrong
+     answer to it. Every pool below is one a mathematician would
+     accept.                                                        */
   var ROUNDS = [
     {
       shape: 'square',
@@ -395,7 +400,7 @@
         sum:     'AREA = 6 × 6 = 36'
       },
       row: [54, 24, 36],              /* 24 is the perimeter */
-      decoys: ['triangle', 'trapezium']
+      decoyPool: ['triangle', 'rectangle', 'parallelogram', 'trapezium', 'rhombus']
     },
 
     {
@@ -409,7 +414,7 @@
         sum:     'AREA = 10 × 5 = 50'
       },
       row: [50, 30, 75],              /* 30 is the perimeter */
-      decoys: ['trapezium', 'rhombus']
+      decoyPool: ['triangle', 'parallelogram', 'trapezium', 'rhombus']   /* a square IS a rectangle */
     },
 
     {
@@ -423,7 +428,7 @@
         sum:     'AREA = 7 × 6 = 42'
       },
       row: [63, 30, 42],
-      decoys: ['triangle', 'trapezium']
+      decoyPool: ['triangle', 'trapezium']       /* squares, rectangles and rhombi ARE parallelograms */
     },
 
     {
@@ -437,7 +442,7 @@
         sum:     'AREA = ½ × (5 + 10) × 6 = 45'
       },
       row: [45, 30, 90],              /* 90 is the half forgotten */
-      decoys: ['rhombus', 'triangle']
+      decoyPool: ['triangle', 'square', 'rectangle', 'parallelogram', 'rhombus']
     },
 
     {
@@ -455,9 +460,17 @@
         sum:     'AREA = ½ × 6 × 7 = 21'
       },
       row: [42, 14, 21],              /* 42 is the half forgotten */
-      decoys: ['rectangle', 'triangle']
+      decoyPool: ['triangle', 'rectangle', 'parallelogram', 'trapezium']   /* a square IS a rhombus */
     }
   ];
+
+  /* Site A's three islands of the round's own shape are SIZES, not
+     answers -- the areas are never printed there -- and these are
+     the sizes, as multiples of the round's area: visibly three
+     different islands, and out of step with the two decoys, which
+     are drawn to the fit island's own painted area so that neither
+     the biggest three nor the smallest three are the answer. */
+  var SIZES_A = [1.3, 0.6, 1.0];
 
 
   /* ---------------------------------------------------------- sizing
@@ -493,18 +506,13 @@
      Where each island sits is a LAYOUT question, so it lives in
      css/rounds.css against the slot classes handed out below —
      `pad--row1/2/3` for the three of the round's own shape, sitting
-     in a row on one centre-of-area line exactly as screen 3's three
-     do, and `pad--far1/2` for the two decoys, which sit higher up
-     the frame, smaller, and wide of the craft's callouts (those
-     reach 28% of the ship box out to its left). Keeping it there is
-     what lets the portrait and short-screen blocks move a whole
-     rank, which an inline style could not be overridden to do.
+     in a row on one centre-of-area line, and `pad--far1/2` for the
+     two decoys on site A, which sit higher up the frame. Keeping it
+     there is what lets the portrait and short-screen blocks move a
+     whole rank, which an inline style could not be overridden to do.
 
-     The order they breach the water in: near, far, near, near, far,
-     so the archipelago arrives scattered instead of in two batches.
-     Indices into the DOM order, which is decoys-then-row so the two
-     far islands paint behind the three that carry the question. */
-  var REVEAL = [2, 0, 3, 4, 1];
+     Site A's five are then strewn across those five stations on
+     every visit (scatter below); site B's three stay in the row. */
 
 
   /* ---------------------------------------------------------- the scatter
@@ -521,12 +529,12 @@
      the same scatter() below, on the same stations, with the same
      shuffle (see buildSurvey, and resetSurvey in js/script.js).
 
-     Once the shape task is over the three survivors drop the scatter
-     and go home to the row, which is the arrangement everything
-     downstream — the craft's callouts, the HUD line, the fall
-     arithmetic — was tuned against. The craft only flies in after
-     that: it comes down the middle of the frame, which is water a
-     scattered island can perfectly well be sitting in.
+     The area question is asked somewhere else entirely: site B, a
+     frame away, where the three islands of the round's shape stand
+     in the row everything downstream — the craft's callouts, the
+     HUD line, the fall arithmetic — was tuned against, and nothing
+     else stands at all. The craft comes down the middle of that
+     frame, which is water by construction.
 
      ── the five stations ──
 
@@ -680,14 +688,10 @@
       el.classList.add('is-scattered');
     });
 
-    if (order) {
-      round.el.reveal = order;
-      return;
-    }
+    if (order) return;
 
     /* too cramped for any draw: back to the row it was laid out at */
     pads.forEach(function (pad) { pad.classList.remove('is-scattered'); });
-    round.el.reveal = REVEAL.map(function (i) { return pads[i]; });
   }
 
   /* ---------------------------------------------------------- dealing
@@ -725,108 +729,89 @@
     }), ROW_SLOTS);
   }
 
-  /* The three that matched go home to the row to be compared. Their
-     row positions are the ones they were laid out at, so dropping
-     the scatter is the whole move — and it is the LAYOUT that
-     changes, not a transform, so the landing still reads the position
-     each island is really at. `left`/`top` transition in
-     css/rounds.css, which is what turns the change into a glide. */
-  function regroup(round) {
-    round.el.padList.forEach(function (pad) {
-      if (pad.dataset.shape === round.shape) pad.classList.remove('is-scattered');
-    });
-  }
-
-
   /* ============================================================
-     THE SURVEY -- screen 2's two sites and the sea between them
+     THE SITES -- how every playing screen is laid out
 
-     The survey is one shot over one sea, and the lens comes down on
-     it twice. Each place it comes down on is a SITE: a frame-sized
-     coordinate box inside the camera plate (see .site in
-     css/style.css), holding five islands laid out exactly as a
-     round screen lays out its five -- same stations, same --pu,
-     same centre-of-area anchoring -- so the shape task and the
-     landing are played on the same kind of island as every screen
-     after them.
+     Each screen is one shot over one sea, and the lens comes down
+     on it twice. Each place it comes down on is a SITE: a
+     frame-sized coordinate box inside the camera plate (see .site
+     in css/style.css), holding the islands of one question, laid
+     out on the same stations, the same --pu and the same
+     centre-of-area anchoring as the other.
 
-       site A   three triangles of three sizes, two other shapes.
-                Strewn across the five stations on every entry,
-                as a round is. The SHAPE question.
-       site B   three triangles of 30, 12 and 20 square units,
-                dealt across the row, and the craft. Nothing else:
-                the shape question has been answered by the time
-                the lens gets here, so the only islands on the
-                water are the three the area question is about.
-                What used to be screen 3, on the same sea as the
-                shape question instead of a screen of its own.
+       site A   three islands of the round's own shape, three sizes,
+                and two other shapes drawn from the round's decoy
+                pool -- a different pair every visit. Strewn across
+                the five stations. The SHAPE question.
+       site B   three islands of the round's own shape carrying the
+                round's three areas, dealt across the row, and the
+                craft. Nothing else: the shape question has been
+                answered by the time the lens gets here, so the only
+                islands on the water are the three the area question
+                is about.
 
-     Site A carries all five other shapes as decoys and shows TWO
-     of them, a different pair every visit: an island's shoreline
-     is built from its silhouette at load (js/water.js), so
-     swapping a pad's shape later would leave it wearing the wrong
-     coast. Hiding three of five is the same random pair with none
-     of that.
+     Site A carries every shape in its pool as a decoy and shows TWO
+     of them: an island's shoreline is built from its silhouette at
+     load (js/water.js), so swapping a pad's shape later would leave
+     it wearing the wrong coast. Hiding all but two is the same
+     random pair with none of that.
 
      And around and between the two sites, the ISLETS: the rest of
-     the archipelago, twenty-odd small islands of every shape,
-     which are what the wide shot is of. Scenery -- no shoreline,
-     no tap target, no number -- and kept out of both sites'
-     frames, so neither task ever has a sixth island in it.
+     the archipelago, sixteen small islands cycling through every
+     shape the mission has, which are what the wide shot is of.
+     Scenery -- no shoreline, no tap target, no number -- and kept
+     out of both sites' frames, so neither question ever has an
+     extra island in it.
 
-     The site objects come back shaped like a round (the same `el`
-     fields, `shape`, `area`, `copy`, `geo`), because that is what
-     lets js/script.js play them through the round helpers rather
-     than a second copy of them.
+     Both sites come back shaped like a round (the same `el` fields,
+     `shape`, `area`, `copy`, `geo`), because that is what lets
+     js/script.js play them through one set of helpers.
      ============================================================ */
 
+  /* Screen 2's round: the triangle, with the drone's dark-and-scan
+     opening in front of it (`intro`), a recorded clip for the line
+     that names the shape (`sayKey`; the rounds' lines are typed),
+     and the landing's own three areas. Its screen is written in
+     index.html rather than built -- see buildSurvey(). */
   var SURVEY = {
+    intro: true,
     shape: 'triangle',
     area: 20,                        /* 1/2 x 8 x 5 */
+    sayKey: 'pickTriangles',
+    say: 'The spaceship is a triangle. Select all the triangular landing zones.',
+    areaKey: 'calcArea',
     copy: {
       formula: 'AREA = ½ × BASE × HEIGHT',
       tally:   'BASE 8 · HEIGHT 5',
       sum:     'AREA = ½ × 8 × 5 = 20'
     },
-
-    /* site A's three triangles are sizes, not answers: the areas
-       are never printed there, they only make the three visibly
-       different -- and out of step with the two decoys, which are
-       drawn to the fit island's own painted area so that the
-       biggest three and the smallest three are both wrong. */
+    /* site A's sizes, in square units, never printed */
     sizesA: [26, 12, 20],
-
     /* site B's row, as screen 3 had it: 30 too much room, 12 too
        little, 20 the fit */
     row: [30, 12, 20],
-
-    /* every shape that is not the craft's */
-    decoys: ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus'],
-
-    /* the islets: how many, and the range of land they cover, in
-       painted box units -- between a third and two thirds of the
-       fit island */
-    islets: 16,
-    isletArea: [FIT_AREA * 0.30, FIT_AREA * 0.66],
-
-    /* the world the islets are strewn over, in per cent of one
-       frame. Site A's frame is (0..100, 0..100); site B's is a
-       frame right and 45% down (css/style.css). The lens at
-       survey height (--cam-wide .32, centred between the two)
-       sees about -56..256 by -84..229, so this is the part of it
-       with a margin, and EXCLUDE is the two sites' frames with a
-       margin of their own. */
-    world: { l: -44, r: 244, t: -68, b: 214 },
-    exclude: [
-      { l: -8,  r: 108, t: -8, b: 108 },
-      { l: 92,  r: 208, t: 37, b: 153 }
-    ]
+    decoyPool: ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus']
   };
 
-  /* the shape order the islets cycle through, so all six land
-     tiles are on the water however few islets fit */
+  /* the islets: how many, and the range of land they cover, in
+     painted box units -- between a third and two thirds of the fit
+     island -- cycling through every shape */
+  var ISLETS = 16;
+  var ISLET_AREA = [FIT_AREA * 0.30, FIT_AREA * 0.66];
   var ISLET_SHAPES = ['triangle', 'square', 'rectangle',
                       'parallelogram', 'trapezium', 'rhombus'];
+
+  /* The world the islets are strewn over, in per cent of one frame.
+     Site A's frame is (0..100, 0..100); site B's is a frame right
+     and 45% down (css/style.css). The lens at survey height
+     (--cam-wide .32, centred between the two) sees about -56..256
+     by -84..229, so WORLD is the part of it with a margin, and
+     EXCLUDE is the two sites' frames with a margin of their own. */
+  var WORLD = { l: -44, r: 244, t: -68, b: 214 };
+  var EXCLUDE = [
+    { l: -8, r: 108, t: -8, b: 108 },
+    { l: 92, r: 208, t: 37, b: 153 }
+  ];
 
   function isletHTML(shape, k) {
     var land = LAND[shape];
@@ -838,19 +823,28 @@
     '</div>';
   }
 
-  /* Build one site's islands into its .pads: three triangles and,
-     where `decoyArea` is given, all five decoys, hidden until
-     arrangeSite() shows a pair. `areas` null for a site that never
-     prints a number. Decoys first in the DOM, so they paint behind
-     the row that carries the question -- the same order a round is
-     built in, and the order REVEAL indexes. */
-  function siteHTML(sizes, areas, decoyArea) {
-    var land = LAND[SURVEY.shape];
+  function isletsHTML() {
+    var out = [];
+    for (var i = 0; i < ISLETS; i++) {
+      var shape = ISLET_SHAPES[i % ISLET_SHAPES.length];
+      var area = ISLET_AREA[0] + Math.random() * (ISLET_AREA[1] - ISLET_AREA[0]);
+      out.push(isletHTML(shape, boxFor(area, LAND[shape])));
+    }
+    return out.join('');
+  }
+
+  /* One site's islands: three of the round's shape at `sizes` (areas
+     in square units; printed only where `print` is true) and, where
+     `decoyArea` is given, every shape in the round's pool as a
+     decoy, hidden until arrangeSite() shows a pair. Decoys first in
+     the DOM, so they paint behind the row that carries the question. */
+  function siteHTML(round, sizes, print, decoyArea) {
+    var land = LAND[round.shape];
     var kFit = boxFor(FIT_AREA, land);
     var out = [];
 
     if (decoyArea != null) {
-      SURVEY.decoys.forEach(function (shape) {
+      round.decoyPool.forEach(function (shape) {
         out.push(padHTML(shape, {
           k: boxFor(decoyArea, LAND[shape]),
           slot: 'far1',
@@ -860,31 +854,66 @@
     }
 
     sizes.forEach(function (size, i) {
-      out.push(padHTML(SURVEY.shape, {
-        k: kFit * Math.sqrt(size / SURVEY.area),
+      out.push(padHTML(round.shape, {
+        k: kFit * Math.sqrt(size / round.area),
         slot: 'row' + (i + 1),
-        area: areas ? areas[i] : null
+        area: print ? size : null
       }));
     });
 
     return out.join('');
   }
 
-  function siteOf(node, key, offset) {
+  function sitesHTML(round) {
+    return '<div class="islets" aria-hidden="true">' + isletsHTML() + '</div>' +
+      '<div class="site site--a">' +
+        '<div class="pads">' +
+          siteHTML(round, SIZES_A.map(function (m) { return round.area * m; }), false, FIT_AREA) +
+        '</div>' +
+      '</div>' +
+      '<div class="site site--b">' +
+        shipHTML(round) +
+        '<div class="pads">' + siteHTML(round, round.row, true, null) + '</div>' +
+        fxHTML() +
+      '</div>';
+  }
+
+  /* Everything a round shares between its two sites and its lens */
+  var CHROME =
+    '<div class="aerial" aria-hidden="true"></div>' +
+    '<div class="fix" aria-hidden="true">' +
+      '<div class="fix__box">' +
+        '<span class="fix__ring"></span>' +
+        '<i class="fix__c fix__c--tl"></i><i class="fix__c fix__c--tr"></i>' +
+        '<i class="fix__c fix__c--bl"></i><i class="fix__c fix__c--br"></i>' +
+      '</div>' +
+    '</div>' +
+    '<div class="alt" aria-hidden="true">' +
+      '<span class="alt__track"><i class="alt__mark"></i></span>' +
+      '<span class="alt__read">' +
+        '<span class="alt__row"><b class="alt__num">4200</b><i class="alt__unit">m</i></span>' +
+        '<em class="alt__state">STANDBY</em>' +
+      '</span>' +
+    '</div>';
+
+  /* One site, shaped like a round so the flow's helpers can play it:
+     the round's own figures, plus this site's node, offset and
+     islands. `el.all` is every island it carries, hidden ones
+     included; `el.padList` the ones in play, set by arrangeSite(). */
+  function siteOf(round, node, key, offset) {
     var all = Array.prototype.slice.call(node.querySelectorAll('.pad'));
     return {
       key: key,
       node: node,
       offset: offset,
-      shape: SURVEY.shape,
-      area: SURVEY.area,
-      copy: SURVEY.copy,
-      geo: null,                         /* the triangle's: plan()'s default */
+      shape: round.shape,
+      area: round.area,
+      copy: round.copy,
+      geo: round.geo,
       el: {
         pads: node.querySelector('.pads'),
         all: all,
         padList: all.slice(),
-        reveal: all.slice(),
         ship: node.querySelector('.ship'),
         shipCraft: node.querySelector('.ship__craft'),
         shipDims: node.querySelector('.ship__dims')
@@ -892,46 +921,93 @@
     };
   }
 
-  /* Called once, at boot, before js/water.js dresses the stage, so
-     every pad built here gets its shoreline with the rest. */
+  /* Look a built screen up into the object the flow plays: the two
+     sites, the islets, the lens's plate and every piece of chrome.
+     The survey's screen is written in index.html and the rounds'
+     are built by sectionHTML(); both come through here, so a
+     class, not an id, is how everything is found. */
+  function wireRound(node, round) {
+    var land = LAND[round.shape];
+    var craft = CRAFT[round.shape];
+
+    round.node = node;
+
+    /* what the fall arithmetic in js/failure.js runs on. The
+       triangle's craft is not in CRAFT -- its callouts are written
+       out in index.html -- and its four figures are plan()'s own
+       defaults (TRI_GEO), so it passes nothing. */
+    round.geo = craft ? {
+      shipCX: craft.cx, shipCY: craft.cy,
+      padCX: land.cx, padCY: land.cy,
+      fit: Math.sqrt(land.fill / craft.fill)
+    } : null;
+
+    round.sites = {
+      a: siteOf(round, node.querySelector('.site--a'), 'a', { x: 0, y: 0 }),
+      b: siteOf(round, node.querySelector('.site--b'), 'b', { x: 100, y: 45 })
+    };
+    round.islets = Array.prototype.slice.call(node.querySelectorAll('.islet'));
+
+    round.el = {
+      cam: node.querySelector('.cam'),
+      bg: node.querySelector('.layer--bg'),
+      aerial: node.querySelector('.aerial'),
+      fix: node.querySelector('.fix'),
+      alt: node.querySelector('.alt'),
+      altNum: node.querySelector('.alt__num'),
+      altState: node.querySelector('.alt__state'),
+      confetti: node.querySelector('.confetti'),
+      hud: node.querySelector('.hud'),
+      caption: node.querySelector('.hud__caption'),
+      tally: node.querySelector('.hud__tally'),
+      topbar: node.querySelector('.topbar'),
+      topbarText: node.querySelector('.topbar__text'),
+      advance: node.querySelector('.advance__btn'),
+      /* the survey's opening only */
+      blackout: node.querySelector('.blackout'),
+      scanner: node.querySelector('.scanner'),
+      bezel: node.querySelector('.drone-hud')
+    };
+
+    /* the frame-level chrome both sites share -- the helpers reach
+       it through the site, as they reach a round's own */
+    ['a', 'b'].forEach(function (k) {
+      var site = round.sites[k];
+      site.el.confetti = round.el.confetti;
+      site.el.hud = round.el.hud;
+      site.el.caption = round.el.caption;
+      site.el.tally = round.el.tally;
+      site.el.topbar = round.el.topbar;
+      site.el.topbarText = round.el.topbarText;
+      site.el.advance = round.el.advance;
+    });
+
+    return round;
+  }
+
+  /* The survey: its screen is in index.html with its sites' .pads
+     and its .islets empty; this fills them and wires it. Called at
+     boot, before js/water.js dresses the stage, so every island
+     built here gets its shoreline with the rest. */
   function buildSurvey(screen) {
     if (!screen) return null;
-
-    var a = screen.querySelector('.site--a');
-    var b = screen.querySelector('.site--b');
+    var a = screen.querySelector('.site--a .pads');
+    var b = screen.querySelector('.site--b .pads');
     var sea = screen.querySelector('.islets');
     if (!a || !b || !sea) return null;
 
-    a.querySelector('.pads').innerHTML = siteHTML(SURVEY.sizesA, null, FIT_AREA);
-    b.querySelector('.pads').innerHTML = siteHTML(SURVEY.row, SURVEY.row, null);
+    a.innerHTML = siteHTML(SURVEY, SURVEY.sizesA, false, FIT_AREA);
+    b.innerHTML = siteHTML(SURVEY, SURVEY.row, true, null);
+    sea.innerHTML = isletsHTML();
 
-    var islets = [];
-    for (var i = 0; i < SURVEY.islets; i++) {
-      var shape = ISLET_SHAPES[i % ISLET_SHAPES.length];
-      var area = SURVEY.isletArea[0] +
-                 Math.random() * (SURVEY.isletArea[1] - SURVEY.isletArea[0]);
-      islets.push(isletHTML(shape, boxFor(area, LAND[shape])));
-    }
-    sea.innerHTML = islets.join('');
-
-    return {
-      shape: SURVEY.shape,
-      area: SURVEY.area,
-      copy: SURVEY.copy,
-      decoys: SURVEY.decoys.slice(),
-      sites: {
-        a: siteOf(a, 'a', { x: 0, y: 0 }),
-        b: siteOf(b, 'b', { x: 100, y: 45 })
-      },
-      islets: Array.prototype.slice.call(sea.querySelectorAll('.islet'))
-    };
+    return wireRound(screen, SURVEY);
   }
 
-  /* Show two of a site's five decoys and hide the rest, and hand
-     the pair the slots the site's layout wants them on -- the far
-     rank, which is the scatter's fallback. Sets padList to the
-     islands in play, decoys first. A site built without decoys
-     (site B) comes out as its three triangles. */
+  /* Show two of a site's decoys and hide the rest, and hand the pair
+     the slots the site's layout wants them on -- the far rank, which
+     is the scatter's fallback. Sets padList to the islands in play,
+     decoys first. A site built without decoys (site B) comes out as
+     its three islands of the round's shape. */
   function arrangeSite(site, pair, slots) {
     var tris = [], shown = [];
 
@@ -954,8 +1030,6 @@
     shown.forEach(function (pad, i) { if (slots[i]) pad.classList.add(slots[i]); });
 
     site.el.padList = shown.concat(tris);
-    site.el.reveal = REVEAL.map(function (i) { return site.el.padList[i]; })
-                           .filter(function (pad) { return !!pad; });
     return site.el.padList;
   }
 
@@ -968,19 +1042,16 @@
   /* Strew the islets over the world, clear of the two sites and of
      each other. Rejection sampling, like the pads' own scatter: a
      spot is drawn, measured against the exclusions and against
-     every islet already placed, and kept only if it is clear.
-     Returns the islets back to front, the order they should
-     surface in. */
+     every islet already placed, and kept only if it is clear. */
   function strewIslets(cam, islets) {
     var W = cam.clientWidth || 1;
     var H = cam.clientHeight || 1;
-    var world = SURVEY.world;
     var placed = [];
 
     function clear(x, y, rx, ry) {
       var i, e, o;
-      for (i = 0; i < SURVEY.exclude.length; i++) {
-        e = SURVEY.exclude[i];
+      for (i = 0; i < EXCLUDE.length; i++) {
+        e = EXCLUDE[i];
         if (x + rx > e.l && x - rx < e.r && y + ry > e.t && y - ry < e.b) return false;
       }
       for (i = 0; i < placed.length; i++) {
@@ -997,27 +1068,23 @@
       var t, x, y;
 
       for (t = 0; t < 80; t++) {
-        x = world.l + rx + Math.random() * (world.r - world.l - 2 * rx);
-        y = world.t + ry + Math.random() * (world.b - world.t - 2 * ry);
+        x = WORLD.l + rx + Math.random() * (WORLD.r - WORLD.l - 2 * rx);
+        y = WORLD.t + ry + Math.random() * (WORLD.b - WORLD.t - 2 * ry);
         if (clear(x, y, rx, ry)) break;
       }
       if (t === 80) {
         /* nowhere clear: park it well off the visible sea */
-        x = world.l - 60; y = world.t - 60;
+        x = WORLD.l - 60; y = WORLD.t - 60;
       }
 
       el.style.setProperty('--wx', x.toFixed(2) + '%');
       el.style.setProperty('--wy', y.toFixed(2) + '%');
-      placed.push({ x: x, y: y, rx: rx, ry: ry, el: el });
+      placed.push({ x: x, y: y, rx: rx, ry: ry });
     });
-
-    return placed.slice()
-      .sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
-      .map(function (o) { return o.el; });
   }
 
 
-  /* ---------------------------------------------------------- markup */
+  /* ---------------------------------------------------------- markup */  /* ---------------------------------------------------------- markup */
 
   var BADGE =
     '<span class="topbar__badge" aria-hidden="true">' +
@@ -1059,31 +1126,48 @@
     '</div>';
   }
 
+  /* the craft, from its CRAFT entry. .ship__cast and .ship__wash are
+     not written here: js/water.js inserts them at the front of
+     .ship, and css/failure.css animates the cast one as the landing
+     shadow. .ship__dust is the touchdown puff, and .engine-flame is
+     off unless the craft artwork has no exhaust painted on it -- see
+     block 2 of css/failure.css. */
+  function shipHTML(round) {
+    var craft = CRAFT[round.shape];
+    return '<div class="ship">' +
+      '<span class="ship__dust" aria-hidden="true"></span>' +
+      '<div class="ship__craft">' +
+        '<img class="ship__img" src="assets/images/' + encodeURI(craft.img) +
+             '" alt="' + craft.alt + '" />' +
+        '<span class="engine-flame" aria-hidden="true"></span>' +
+        '<svg class="ship__dims" viewBox="-28 -6 132 132" aria-hidden="true">' +
+          craft.dims +
+        '</svg>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* The landing's effect layers, one either side of the craft: the
+     back one (z 3) holds the scorch mark the wreck lies on and half
+     the spray, the front one (z 6) the rest. Between them sits the
+     water overlay (z 5), which is painted OVER a sinking craft so it
+     goes under something rather than fading out. All three are
+     filled by js/failure.js -- and they live inside site B, because
+     the points they are parked on are worked out in screen
+     coordinates, and with the lens down on the site the site's box
+     IS the screen's box. */
+  function fxHTML() {
+    return '<div class="fx-layer fx-layer--back" aria-hidden="true"></div>' +
+           '<div class="water-depth-overlay" aria-hidden="true"></div>' +
+           '<div class="fx-layer fx-layer--front" aria-hidden="true"></div>';
+  }
+
   function sectionHTML(round) {
     var land = LAND[round.shape];
     var craft = CRAFT[round.shape];
 
     var kFit = boxFor(FIT_AREA, land);
     var fit = Math.sqrt(land.fill / craft.fill);
-
-    var pads = [];
-
-    /* decoys first, so they paint behind the row that matters */
-    round.decoys.forEach(function (shape, i) {
-      pads.push(padHTML(shape, {
-        k: boxFor(DECOY_AREA, LAND[shape]),
-        slot: 'far' + (i + 1),
-        area: null
-      }));
-    });
-
-    round.row.forEach(function (area, i) {
-      pads.push(padHTML(round.shape, {
-        k: kFit * Math.sqrt(area / round.area),
-        slot: 'row' + (i + 1),
-        area: area
-      }));
-    });
 
     var vars = [
       '--ship-k:' + round2(kFit * fit),
@@ -1096,35 +1180,11 @@
 
       '<div class="layer layer--bg s3-bg" aria-hidden="true"></div>' +
 
-      /* .ship__cast and .ship__wash are not written here: js/water.js
-         inserts them at the front of .ship, and css/failure.css
-         animates the cast one as the landing shadow. .ship__dust is
-         the touchdown puff, and .engine-flame is off unless the
-         craft artwork has no exhaust painted on it — see block 2 of
-         css/failure.css. */
-      '<div class="ship">' +
-        '<span class="ship__dust" aria-hidden="true"></span>' +
-        '<div class="ship__craft">' +
-          '<img class="ship__img" src="assets/images/' + encodeURI(craft.img) +
-               '" alt="' + craft.alt + '" />' +
-          '<span class="engine-flame" aria-hidden="true"></span>' +
-          '<svg class="ship__dims" viewBox="-28 -6 132 132" aria-hidden="true">' +
-            craft.dims +
-          '</svg>' +
-        '</div>' +
-      '</div>' +
+      /* the camera plate: the islets, the two sites, and the wave
+         fronts js/water.js mounts in here. See .cam in css/style.css */
+      '<div class="cam">' + sitesHTML(round) + '</div>' +
 
-      '<div class="pads">' + pads.join('') + '</div>' +
-
-      /* The landing's effect layers, one either side of the craft:
-         the back one (z 3) holds the scorch mark the wreck lies on
-         and half the spray, the front one (z 6) the rest. Between
-         them sits the water overlay (z 5), which is painted OVER a
-         sinking craft so it goes under something rather than
-         fading out. All three are filled by js/failure.js. */
-      '<div class="fx-layer fx-layer--back" aria-hidden="true"></div>' +
-      '<div class="water-depth-overlay" aria-hidden="true"></div>' +
-      '<div class="fx-layer fx-layer--front" aria-hidden="true"></div>' +
+      CHROME +
 
       '<div class="confetti" aria-hidden="true"></div>' +
 
@@ -1157,10 +1217,11 @@
      gate counts what it has to wait for, and the round screens are
      covered by the loading bar like everything else.
 
-     Each round comes back with its elements already looked up (there
-     are no ids on these screens: five copies of one screen cannot
-     each own an id, and the flow is handed the round it is playing
-     anyway) and with the four figures the landing's plan() needs.  */
+     Each round comes back wired (wireRound): its two sites, its
+     islets, its lens and its chrome already looked up -- there are
+     no ids on these screens; five copies of one screen cannot each
+     own an id, and the flow is handed the round it is playing anyway
+     -- and with the four figures the landing's plan() needs.       */
   function build(stage, before) {
     if (!stage) return [];
 
@@ -1171,44 +1232,14 @@
       var node = host.firstChild;
       stage.insertBefore(node, before || null);
 
-      var land = LAND[round.shape];
-      var craft = CRAFT[round.shape];
-      var pads = Array.prototype.slice.call(node.querySelectorAll('.pad'));
-
-      round.node = node;
-      round.el = {
-        ship: node.querySelector('.ship'),
-        shipCraft: node.querySelector('.ship__craft'),
-        shipDims: node.querySelector('.ship__dims'),
-        pads: node.querySelector('.pads'),
-        padList: pads,
-        /* the order they surface in, near and far alternating */
-        reveal: REVEAL.map(function (i) { return pads[i]; }),
-        confetti: node.querySelector('.confetti'),
-        hud: node.querySelector('.hud'),
-        caption: node.querySelector('.hud__caption'),
-        tally: node.querySelector('.hud__tally'),
-        topbar: node.querySelector('.topbar'),
-        topbarText: node.querySelector('.topbar__text'),
-        advance: node.querySelector('.advance__btn')
-      };
-
-      /* what the fall arithmetic in js/animation.js runs on */
-      round.geo = {
-        shipCX: craft.cx, shipCY: craft.cy,
-        padCX: land.cx, padCY: land.cy,
-        fit: Math.sqrt(land.fill / craft.fill)
-      };
-
-      return round;
+      return wireRound(node, round);
     });
   }
 
   global.GeoPages = {
-    build: build, scatter: scatter, regroup: regroup,
-    deal: deal, dealRow: dealRow,
-    buildSurvey: buildSurvey, arrangeSite: arrangeSite,
-    drawPair: drawPair, strewIslets: strewIslets,
+    build: build, buildSurvey: buildSurvey,
+    scatter: scatter, deal: deal, dealRow: dealRow,
+    arrangeSite: arrangeSite, drawPair: drawPair, strewIslets: strewIslets,
     rounds: ROUNDS, survey: SURVEY, land: LAND, craft: CRAFT
   };
 })(window);

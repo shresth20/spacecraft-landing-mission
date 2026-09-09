@@ -221,8 +221,9 @@
   /* ============================================================
      THE CAMERA
 
-     Screen 2 is one continuous shot over one sea, and the lens
-     comes down on it twice. What this module owns is the LENS:
+     Every playing screen -- the survey and the five rounds -- is one
+     continuous shot over one sea, and the lens comes down on it
+     twice. What this module owns is the LENS:
      where it is, how it gets somewhere else, and the four plates
      that have to move together for the move to read as a camera
      and not as things sliding about on a screen.
@@ -249,8 +250,9 @@
                    with the origin at the corner: the one transform
                    the state describes.
 
-       the water   .s2-bg, .sea__deep and .sea__swell -- the three
-                   sea sheets with no transform of their own. The
+       the water   the screen's sea photograph (.s2-bg or .s3-bg),
+                   .sea__deep and .sea__swell -- the sea sheets with
+                   no transform of their own. The
                    sea is one photograph stretched to the frame, so
                    its plate can only be scaled UP, never under 1;
                    it grows a little with the zoom (--cam-water-wide
@@ -348,7 +350,7 @@
     var world = screen.querySelector('.cam');
     if (world) out.push({ el: world, kind: 'world' });
     Array.prototype.forEach.call(
-      screen.querySelectorAll('.s2-bg, .sea__deep, .sea__swell'),
+      screen.querySelectorAll('.s2-bg, .s3-bg, .sea__deep, .sea__swell'),
       function (el) { out.push({ el: el, kind: 'water' }); }
     );
     var haze = screen.querySelector('.aerial');
@@ -435,6 +437,13 @@
     return new Promise(function (resolve) {
       var anim = el.animate(frames, { duration: ms, fill: 'forwards' });
       anim.id = CAM_ID;
+      /* A finished fill-forwards animation that a later one fully
+         covers is "replaceable", and the browser may drop it from
+         getAnimations() on its own. Every camera animation is
+         cancelled by camStop through that list, so one that has
+         quietly left it can neither be cancelled nor accounted for.
+         persist() keeps it listed until the camera says otherwise. */
+      if (anim.persist) anim.persist();
       anim.onfinish = resolve;
       anim.oncancel = resolve;
       wait(ms + 250).then(resolve);
@@ -534,7 +543,13 @@
   /* A slow drift at the current height, for the lens to hold on
      while nothing is happening: `dx`/`dy` in world per cent. A
      state, not a beat -- whatever asks for the next flight reads
-     the live lens and interrupts it wherever it has got to. */
+     the live lens and interrupts it wherever it has got to.
+
+     Only ever called on a screen that is showing, and given a
+     duration nothing on the screen can outwait: a camera animation
+     that finishes on a hidden screen and is then cancelled leaves
+     its last frame stuck on the element in Chromium (see the note
+     at the end of resetRound() in js/script.js). */
   function camLoiter(screen, st, o) {
     o = o || {};
     if (!screen || !st) return;
