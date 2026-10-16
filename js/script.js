@@ -2108,6 +2108,8 @@
     SEA.init(el.stage);
     /* The square's environment replaces the shared water on that screen. */
     REEF.init(el.stage);
+    /* and draws its sea through moving water (js/reef-water.js) */
+    if (global.GeoReefWater) global.GeoReefWater.init(el.stage);
 
     /* every playing screen in its opening state from the off -- after
        the water is in, because the lens parks the sea's own sheets */

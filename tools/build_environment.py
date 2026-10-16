@@ -166,7 +166,7 @@ def main():
     for i, crop in enumerate([(8, 0, 207, 177), (250, 4, 464, 173), (509, 3, 743, 179),
                               (789, 14, 1001, 180), (1041, 5, 1253, 181), (1292, 2, 1484, 191)]):
         data['deep'].append(export(f'deep-{i + 1:02}', layer, crop, 240, submerged=True, group=True))
-    sea = SOURCE / 'Deep Blue Ocean layer 01.png'
+    sea = SOURCE / 'bg water.png'
     Image.open(sea).save(OUT / 'ocean.webp', quality=92, method=6)
     data['ocean'] = dict(src='assets/images/environment/ocean.webp', source=str(sea.relative_to(ROOT)), size=[1672, 941])
     # Drop textures a previous pick left behind.

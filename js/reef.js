@@ -4,7 +4,7 @@
 
    The sea is the supplied layers only, bottom to top:
 
-     01  the deep blue ocean     css/reef.css, on .s3-bg
+     01  the ocean, "bg water"   css/reef.css, on .s3-bg
      02  rocks under the water   "underwater rock layer 02", strewn in the
                                  open water
          dry land                the landing platforms, a few small rocks
@@ -12,8 +12,8 @@
                                  each laid with its long straight side on
                                  the screen edge
 
-   Water contours use the artwork's waterlines, behind all dry land.
-   Only these local contours move; the pond texture stays stationary. */
+   The water itself, its shores round all this land and the breach as land
+   comes up are drawn by js/reef-water.js, under all of it. */
 (function (global) {
   'use strict';
   var doc = document, ART = global.GeoEnvironmentAssets;
@@ -26,15 +26,7 @@
        of the screen, and how many places are tried for each */
     edgeSize: [.18, .28], edgeOverhang: .5, edgeAttempts: 160,
     deepSize: [.11, .2],
-    riseMs: 1400, risePx: 14, deepOpacity: .62,
-    // Distances are percentages of each sprite's width. All paths are
-    // prepared once; CSS interpolates them without a JavaScript frame loop.
-    water: {
-      samples: 80, contact: 4.8, spread: 29, duration: 14500,
-      durationVariance: 3500, shorelineDuration: 19000,
-      aqua: '#59f2e2', cyan: '#24dae5', blue: '#249bcf', deep: '#176caf',
-      shorelineOpacity: .76, rippleOpacity: .50
-    }
+    riseMs: 1400, risePx: 14, deepOpacity: .62
   };
   function random(seed) {
     return function () {
@@ -50,119 +42,10 @@
     if (parent) parent.appendChild(el);
     return el;
   }
-  function svgNode(tag, attrs, parent) {
-    var el = doc.createElementNS('http://www.w3.org/2000/svg', tag);
-    Object.keys(attrs).forEach(function (key) { el.setAttribute(key, attrs[key]); });
-    if (parent) parent.appendChild(el);
-    return el;
-  }
   function waterSeed(src, salt) {
     var seed = salt || 0;
     for (var i = 0; i < src.length; i++) seed = Math.imul(seed ^ src.charCodeAt(i), 16777619);
     return seed >>> 0;
-  }
-  // Smooth closed cubic splines, with matching tangents at the seam. Every
-  // keyframe has the same point/command count so the curves can interpolate.
-  function closedCurve(points) {
-    var n = points.length, d = 'M' + points[0].map(r).join(' ');
-    for (var i = 0; i < n; i++) {
-      var a = points[(i + n - 1) % n], b = points[i];
-      var c = points[(i + 1) % n], e = points[(i + 2) % n];
-      d += 'C' + [b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6,
-        c[0] - (e[0] - b[0]) / 6, c[1] - (e[1] - b[1]) / 6,
-        c[0], c[1]].map(r).join(' ');
-    }
-    return d + 'Z';
-  }
-  function shoreline(meta, el, salt) {
-    var cfg = CONFIG.water, tau = Math.PI * 2, seed = waterSeed(meta.src, salt);
-    var rng = random(seed), phase = rng() * tau, duration = cfg.duration + rng() * cfg.durationVariance;
-    var height = meta.size[1] / meta.size[0] * 100;
-    var coast = meta.waterline.map(function (p) { return [p[0] / meta.size[0] * 100, p[1] / meta.size[0] * 100]; });
-    // The polygon centroid anchors each system, including asymmetric rocks.
-    var area = 0, cx = 0, cy = 0;
-    coast.forEach(function (a, i) {
-      var b = coast[(i + 1) % coast.length], cross = a[0] * b[1] - b[0] * a[1];
-      area += cross; cx += (a[0] + b[0]) * cross; cy += (a[1] + b[1]) * cross;
-    });
-    cx = area ? cx / (3 * area) : 50; cy = area ? cy / (3 * area) : height / 2;
-    var segments = coast.map(function (a, i) {
-      var b = coast[(i + 1) % coast.length], dx = b[0] - a[0], dy = b[1] - a[1];
-      var len = Math.hypot(dx, dy) || 1;
-      return { x: a[0] - cx, y: a[1] - cy, dx: dx, dy: dy, nx: dy / len, ny: -dx / len };
-    });
-    // Intersect a ray with the coast's offset segments and rounded vertex
-    // caps. This is an outward distance from the actual silhouette, not a
-    // scaled rectangle. The outermost intersection joins small coastal nooks
-    // into a single broad contour instead of creating little foam loops.
-    function radius(ux, uy, distance) {
-      var far = 0;
-      segments.forEach(function (s) {
-        var dot = s.x * ux + s.y * uy;
-        var disc = distance * distance - (s.x * s.x + s.y * s.y - dot * dot);
-        if (disc >= 0) far = Math.max(far, dot + Math.sqrt(disc));
-        var den = ux * s.dy - uy * s.dx;
-        if (Math.abs(den) < .00001) return;
-        [-1, 1].forEach(function (sign) {
-          var x = s.x + s.nx * distance * sign, y = s.y + s.ny * distance * sign;
-          var t = (x * s.dy - y * s.dx) / den, along = (x * uy - y * ux) / den;
-          if (along >= 0 && along <= 1) far = Math.max(far, t);
-        });
-      });
-      return far;
-    }
-    function contour(progress, time, contact) {
-      var points = [];
-      for (var i = 0; i < cfg.samples; i++) {
-        var angle = tau * i / cfg.samples;
-        var curl = .24 * Math.sin(3 * angle + phase) + .14 * Math.cos(5 * angle - phase);
-        var breathe = .9 * Math.sin(4 * angle + time + phase) + .45 * Math.cos(7 * angle - time);
-        var distance = cfg.contact + 1.6 * Math.sin(3 * angle + phase) + 1.1 * Math.cos(5 * angle - phase) + breathe;
-        if (!contact) distance += 3.5 + cfg.spread * progress * (1 + curl);
-        var ux = Math.cos(angle), uy = Math.sin(angle), rad = radius(ux, uy, distance);
-        points.push([cx + ux * rad, cy + uy * rad]);
-      }
-      // Remove small chips from the traced rock edge, retaining broad coves
-      // and curls. Applying the same positive kernel keeps layers nested.
-      return closedCurve(points.map(function (_, i) {
-        var x = 0, y = 0;
-        [1, 2, 3, 2, 1].forEach(function (weight, j) {
-          var p = points[(i + j - 2 + points.length) % points.length];
-          x += p[0] * weight / 9; y += p[1] * weight / 9;
-        });
-        return [x, y];
-      }));
-    }
-    var svg = svgNode('svg', { 'class': 'env-water', viewBox: '0 0 100 ' + height,
-      'aria-hidden': 'true', focusable: 'false' }, el);
-    var name = 'envPond' + seed, shoreName = name + 'Shore';
-    svg.style.setProperty('--pond-ripple', name);
-    svg.style.setProperty('--pond-shore', shoreName);
-    svg.style.setProperty('--pond-duration', r(duration) + 'ms');
-    svg.style.setProperty('--pond-shore-duration', r(cfg.shorelineDuration + rng() * 4000) + 'ms');
-    svg.style.setProperty('--pond-phase', r(-rng() * duration) + 'ms');
-    svg.style.setProperty('--pond-half-cycle', r(-duration / 2) + 'ms');
-    var frames = [], shoreFrames = [], start = contour(0, 0, true);
-    // A front is invisible at both ends of its loop. Its companion is half
-    // a cycle ahead, while the shoreline remains visible continuously.
-    var stops = [[0, cfg.cyan, 0], [.125, cfg.cyan, cfg.rippleOpacity],
-      [.25, cfg.cyan, cfg.rippleOpacity * .87], [.375, cfg.blue, cfg.rippleOpacity * .71],
-      [.5, cfg.blue, cfg.rippleOpacity * .54], [.625, cfg.blue, cfg.rippleOpacity * .37],
-      [.75, cfg.deep, cfg.rippleOpacity * .22], [.875, cfg.deep, cfg.rippleOpacity * .08], [1, cfg.deep, 0]];
-    stops.forEach(function (stop) {
-      var p = stop[0];
-      frames.push((p * 100) + '%{d:path("' + contour(p, p * tau, false) + '");stroke:' + stop[1] + ';fill:' + stop[1] + ';opacity:' + r(stop[2]) + '}');
-      shoreFrames.push((p * 100) + '%{d:path("' + (p === 1 ? start : contour(0, p * tau, true)) + '")}');
-    });
-    svgNode('style', {}, svg).textContent = '@keyframes ' + name + '{' + frames.join('') + '}@keyframes ' + shoreName + '{' + shoreFrames.join('') + '}';
-    // The attribute paths are also the static/reduced-motion composition.
-    svgNode('path', { 'class': 'env-water__ripple env-water__ripple--outer',
-      d: contour(.90, 0, false), stroke: cfg.deep, fill: cfg.deep, opacity: .10 }, svg);
-    svgNode('path', { 'class': 'env-water__ripple', d: contour(.40, 0, false),
-      stroke: cfg.blue, fill: cfg.blue, opacity: .30 }, svg);
-    svgNode('path', { 'class': 'env-water__soft', d: start, stroke: cfg.aqua }, svg);
-    svgNode('path', { 'class': 'env-water__shore', d: start, stroke: cfg.aqua,
-      fill: cfg.cyan, opacity: cfg.shorelineOpacity }, svg);
   }
   function box(el, host) {
     var x = 0, y = 0, n = el;
@@ -197,18 +80,51 @@
     img.src = meta.src;
     return img;
   }
-  // A dry object: its artwork, and for land that rises, a blue wash over
-  // it that dries off as it comes up.
+  // Spray thrown off land breaking the surface: droplets leave points
+  // spread evenly along its waterline, rise towards the camera and fall
+  // back further out. Sizes and reach are shares of the object's width;
+  // css/reef.css plays them off `.pad.is-up`.
+  function spray(meta, el, salt, big) {
+    var rng = random(waterSeed(meta.src, (salt | 0) + 0x5eed));
+    var line = meta.waterline, W = meta.size[0], H = meta.size[1], total = 0;
+    var lengths = line.map(function (a, i) {
+      var b = line[(i + 1) % line.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      total += len; return len;
+    });
+    var box = node('div', 'env-spray', el), count = big ? 22 : 7;
+    for (var i = 0; i < count; i++) {
+      var at = (i + rng() * .8) / count * total, k = 0;
+      while (at > lengths[k] && k < lengths.length - 1) at -= lengths[k++];
+      var a = line[k], b = line[(k + 1) % line.length], f = at / (lengths[k] || 1);
+      var x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f;
+      var dx = x - W / 2, dy = y - H / 2, len = Math.hypot(dx, dy) || 1;
+      var size = big ? 2.6 + rng() * 2.6 : 9 + rng() * 6;
+      var reach = big ? 9 + rng() * 22 : 30 + rng() * 45;
+      var drop = node('i', 'env-drop', box);
+      drop.style.left = r(x / W * 100) + '%'; drop.style.top = r(y / H * 100) + '%';
+      drop.style.width = r(size) + '%';
+      // translate percentages are of the droplet's own size
+      drop.style.setProperty('--tx', r(dx / len * reach / size * 100) + '%');
+      drop.style.setProperty('--ty', r(dy / len * reach / size * 100) + '%');
+      drop.style.setProperty('--drop-delay', Math.round(rng() * 240) + 'ms');
+      drop.style.setProperty('--drop-time', Math.round(620 + rng() * 480) + 'ms');
+    }
+  }
+  // A dry object: its artwork, and for land that rises, the water it
+  // comes up through: a blue wash that dries off, wet edges that drain
+  // last, a wet shine, and the spray it throws.
   function dryObject(meta, cls, reveal, waveSeed) {
     var el = node('div', cls + ' env-object');
     el.setAttribute('aria-hidden', 'true');
-    shoreline(meta, el, waveSeed);
     var art = node('div', 'env-art', el);
     image(meta, art);
     if (reveal) {
-      var tint = node('span', 'env-wet', art);
-      tint.style.maskImage = 'url("' + meta.src + '")';
-      tint.style.webkitMaskImage = 'url("' + meta.src + '")';
+      ['env-wet', 'env-wet env-wet--edge', 'env-wet env-wet--sheen'].forEach(function (c) {
+        var tint = node('span', c, art);
+        tint.style.maskImage = 'url("' + meta.src + '")';
+        tint.style.webkitMaskImage = 'url("' + meta.src + '")';
+      });
+      spray(meta, el, waveSeed, cls === 'env-platform');
     }
     return el;
   }
@@ -379,6 +295,8 @@
         var db = grow(rect(dx, dy, dw, dh), 8);
         if (!safe(db, true)) continue;
         var deep = node('div', 'env-submerged', s.deep);
+        // js/reef-water.js redraws it through the water by this sprite
+        deep.dataset.art = dm.src;
         image(dm, deep); place(deep, dx, dy, dw, W, H);
         occupied.push(db); break;
       }
