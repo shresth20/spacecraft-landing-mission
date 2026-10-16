@@ -11,32 +11,22 @@
    ============================================================ */
 
 /* ---------------------------------------------------------- typeface
-   Libre Baskerville, self-hosted, and the only face in the game:
-   narration, HUD chrome, dimension callouts, pad numbers and the
-   gate all share the one voice. The file is variable on a single
-   wght axis running 400-700 (checked in the fvar table), so the
-   range is declared and no weight above 700 is asked for anywhere —
-   past the axis the browser would fake the bold. Upright only: no
-   italic text renders anywhere, so the italic file is not shipped. */
+   Baloo 2, self-hosted, and the only face in the game: the gate's
+   title, narration, HUD chrome, the altimeter, dimension callouts
+   and pad numbers all share the one voice. The file is variable on
+   a single wght axis running 400-800 (checked in the fvar table),
+   so the range is declared and no weight above 800 is asked for
+   anywhere — past the axis the browser would fake the bold. It
+   carries tabular figures (tnum), which the altimeter and the
+   loading readout lean on. Upright only: no italic text renders
+   anywhere, and the family has no italic to ship. */
 @font-face {
-  font-family: "Libre Baskerville";
-  src: url("../assets/fonts/libre_baskerville/librebaskerville-variablefont_wght.ttf")
-       format("truetype-variations");
-  font-weight: 400 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Lilita One, self-hosted, and the ONE exception to the rule above:
-   the start gate's title. The mission itself still speaks in Libre
-   Baskerville — this face is the game's logo, not its voice, and a
-   chunky rounded display cut is what carries a painted-title look
-   the serif cannot. Single static weight (400), so nothing here
-   asks for a bold the file does not have. */
-@font-face {
-  font-family: "Lilita One";
-  src: url("../assets/fonts/lilita_one/lilitaone-regular.ttf") format("truetype");
-  font-weight: 400;
+  font-family: "Baloo 2";
+  src: url("../assets/fonts/baloo_2/baloo2-variablefont_wght.woff2")
+       format("woff2-variations"),
+       url("../assets/fonts/baloo_2/baloo2-variablefont_wght.woff2")
+       format("woff2");
+  font-weight: 400 800;
   font-style: normal;
   font-display: swap;
 }
@@ -56,7 +46,7 @@ body {
 }
 
 body {
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   color: #dff2ff;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -625,27 +615,11 @@ button { font: inherit; color: inherit; }
   --land-y: 71%;
   --far-y: 36%;
 
-  /* ── the landing tableau, at site B ──
-     Screen 3's figures, unchanged, so the landing looks exactly as
-     it did when it had a screen of its own. Layout runs off ONE
-     unit, --pu: whichever axis is scarcer sets the size of the
-     tableau, and neither the row nor the craft's callouts ever run
-     off the frame. */
+  /* the round screens' unit, so site A's islands come out the size
+     they will be on the landing screen: whichever axis is scarcer
+     sets it. (The survey has no craft any more -- the landing is
+     screen 3, and its figures are on .screen--round.) */
   --pu: min(1vw, 1.74vh);
-
-  /* the row the craft's own centre of area hovers on before it is
-     sent down. 31% leaves the callouts clear of the narration bar
-     above and the flame clear of the islands below. */
-  --ship-y: 31%;
-
-  /* 18.36 = 17 x 1.0799, and 1.0799 is sqrt(36.623 / 31.407) -- the
-     land fills more of its canvas than the hull fills its own, so
-     the ship's BOX has to be the larger of the two for the two
-     painted areas to come out equal. TRI_GEO in js/failure.js is
-     the same reading. */
-  --ship-k: 18.36;
-  --scx: 0.4992;
-  --scy: 0.4772;
 
   --advance-h: clamp(32px, 2.5vw, 42px);
 }
@@ -1025,7 +999,7 @@ button { font: inherit; color: inherit; }
   justify-content: space-between;
   align-items: flex-start;
   gap: 4px;
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   color: rgba(198, 246, 255, .92);
   text-shadow: 0 0 10px rgba(60, 200, 255, .45);
 }
@@ -1070,61 +1044,6 @@ button { font: inherit; color: inherit; }
    and the landing are played on one kind of island. The zoneRise /
    zoneSink / zoneBeckon keyframes in css/animation.css stay: the
    pads and the islets both use them. */
-
-
-
-/* ---------------------------------------------------------- HUD chrome */
-.hud {
-  position: absolute;
-  inset: 0;
-  z-index: 7;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .8s ease;
-}
-.hud.is-on { opacity: 1; }
-
-.hud__caption {
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  bottom: 12%;
-  margin: 0;
-  text-align: center;
-  font-size: clamp(11px, 1.55vw, 26px);
-  font-weight: 600;
-  letter-spacing: .02em;
-  line-height: 1.3;
-  color: rgba(120, 220, 255, .95);
-  text-shadow:
-    0 2px 14px rgba(0, 0, 0, .85),
-    0 0 22px rgba(30, 150, 255, .55);
-  opacity: 0;
-  transform: translateY(35%);
-  transition: opacity .45s ease, transform .45s ease;
-}
-.hud__caption.is-shown { opacity: 1; transform: none; }
-
-/* running count while the shapes are being picked, tucked under
-   the caption line so the two never collide */
-.hud__tally {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 6.5%;
-  margin: 0;
-  text-align: center;
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
-  font-weight: 700;
-  font-size: clamp(9px, 1.05vw, 16px);
-  letter-spacing: .22em;
-  color: rgba(120, 220, 255, .95);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, .8);
-  opacity: 0;
-  transform: translateY(40%);
-  transition: opacity .4s ease, transform .4s ease;
-}
-.hud__tally.is-shown { opacity: 1; transform: none; }
 
 
 /* ============================================================
@@ -1251,11 +1170,11 @@ button { font: inherit; color: inherit; }
 .topbar__badge circle { fill: none; }
 
 
-/* Set in Baskerville, sentence case: the bar carries the
-   commander's spoken line, so it reads as speech rather than as
-   machine-printed chrome. The serif runs wider and taller per em
-   than the Poppins it replaced, so the size and tracking come
-   down to keep the longest line on one row inside the plate. */
+/* Sentence case: the bar carries the commander's spoken line, so
+   it reads as speech rather than as machine-printed chrome. The
+   size and tracking were set for Libre Baskerville, which runs about
+   15% wider per em than Baloo 2, so the longest line keeps room to
+   spare on its one row inside the plate. */
 .topbar__text {
   flex: 1 1 auto;
   margin: 0;
@@ -1264,9 +1183,9 @@ button { font: inherit; color: inherit; }
   /* the same room either side, so the badge does not shove the line
      off the pill's centre */
   padding-inline: calc(var(--badge) + clamp(4px, .5vw, 10px));
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   font-weight: 700;
-  font-size: clamp(11px, 1.45vw, 26px);
+  font-size: clamp(14px, 1.75vw, 28px);
   line-height: 1.3;
   letter-spacing: .012em;
   color: var(--bar-ink);
@@ -1306,10 +1225,10 @@ button { font: inherit; color: inherit; }
 /* ============================================================
    THE LANDING — the craft, the pads and the verdicts
 
-   Played on the survey screen now (site B, screen 2) and on every
-   round screen after it. The figures the tableau is laid out to --
-   --pu, --land-y, --ship-y, --ship-k -- are set on each of those
-   screens; what follows is the machinery they share.
+   Played on site B of every round screen, screens 3 to 8. The
+   figures the tableau is laid out to -- --pu, --land-y, --ship-y,
+   --ship-k -- are set on each of those screens; what follows is
+   the machinery they share.
 
    Every anchor is expressed against a shape's CENTRE OF AREA
    rather than its box or a base line. The artwork is seen from
@@ -1430,7 +1349,7 @@ button { font: inherit; color: inherit; }
 
 .dim__text {
   fill: #f2fbff;
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   font-weight: 700;
   font-size: 9px;
   letter-spacing: .04em;
@@ -1476,7 +1395,6 @@ button { font: inherit; color: inherit; }
      5  .water-depth-overlay  the sea closing over a sinking craft
      6  .fx-layer--front  the rest of the burst, over both
      6  .layer--hud   the frame (global; not on screens 3-8)
-     7  .hud          the caption and the tally (global)
      8  .confetti     the celebration, falling in front of both
      9  .topbar       the narration bar (global)
     12  .advance      the way on, centred on the footer         */
@@ -1541,7 +1459,7 @@ button { font: inherit; color: inherit; }
   justify-items: center;
   gap: .1em;
   transform: translate(-50%, -50%) scale(.7);
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   line-height: 1;
   color: #2a1405;
   text-shadow: 0 1px 0 rgba(255, 232, 202, .55);
@@ -1762,7 +1680,7 @@ button { font: inherit; color: inherit; }
   padding: 0 1.2em 0 1.45em;
   border: 0;
   border-radius: 999px;
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   font-weight: 700;
   font-size: clamp(11px, 1.15vw, 17px);
   letter-spacing: .18em;
@@ -1997,8 +1915,10 @@ button { font: inherit; color: inherit; }
   width: min(92%, 1040px);
   margin: 0;
   text-align: center;
-  font-family: "Lilita One", "Libre Baskerville", Georgia, serif;
-  font-weight: 400;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  /* the top of the axis: the chunky, rounded cut is what carries
+     the painted-title look */
+  font-weight: 800;
   /* Bound on BOTH axes: vw alone reads a tall portrait tablet as
      roomy and runs three lines of display type off the bottom of
      it. The height term is the one that binds on nearly every
@@ -2009,8 +1929,8 @@ button { font: inherit; color: inherit; }
      The width term is what keeps the type clear of the craft, and
      the frame it is set for is the squarish landscape one (4:3,
      5:4) where vw binds and the title is at its widest. "MISSION"
-     sets 4.1em, so 4.1 x 9.2vw is 38% of the frame and centres to
-     31% — clear of the craft's trailing edge at 26.5%. Raise it and
+     sets about 3.9em, so 3.9 x 9.2vw is 36% of the frame and centres
+     to 32% — clear of the craft's trailing edge at 26.5%. Raise it and
      the longest line runs into the hull. */
   font-size: clamp(26px, min(9.2vw, 15vh), 150px);
   /* tight, because the lines are meant to stack into one mass */
@@ -2338,7 +2258,7 @@ button { font: inherit; color: inherit; }
   display: block;
   margin: .8em 0 0;
   text-align: center;
-  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: .16em;
   color: rgba(150, 232, 255, .8);

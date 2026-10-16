@@ -370,6 +370,7 @@
 
     active = null;
     held = [];
+    thrust(0);
   }
 
   /* ---------------------------------------------------------- one-shots */
@@ -607,6 +608,81 @@
     }
   }
 
+  /* ---------------------------------------------------------- the burner
+
+     The roar of the flown landing's thrusters (js/pilot.js). There is
+     no clip for it: a jet is held for as long as the player holds the
+     control, so what it needs is a sound with no length — a loop of
+     brown noise, a rumble rather than a hiss, through a low-pass, and
+     a gain that rides up as a jet lights and falls away when the last
+     one is cut. Built on first use and never stopped, only silenced:
+     a fresh source per burn would click at the start of every one.
+
+     `jets` is how many are lit. Each one opens the filter a little,
+     so two at once (a diagonal) are louder and brighter than one.
+
+     Needs the AudioContext, which this module only builds over
+     http(s) (see CAN_ANALYSE), so a file:// run flies in silence. */
+  var burner = null;
+
+  function burnerOf(c) {
+    if (burner !== null) return burner;
+    try {
+      var len = Math.floor(c.sampleRate * 2);
+      var buf = c.createBuffer(1, len, c.sampleRate);
+      var d = buf.getChannelData(0);
+      var last = 0;
+      for (var i = 0; i < len; i++) {
+        last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02;
+        d[i] = last * 3.5;
+      }
+      var src = c.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      var tone = c.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.frequency.value = 500;
+      tone.Q.value = 0.8;
+      var gain = c.createGain();
+      gain.gain.value = 0;
+      src.connect(tone);
+      tone.connect(gain);
+      gain.connect(c.destination);
+      src.start();
+      burner = { tone: tone, gain: gain, jets: 0 };
+    } catch (e) {
+      burner = false;
+    }
+    return burner;
+  }
+
+  function thrust(jets) {
+    jets = Math.max(0, jets | 0);
+    var c = ensureContext();
+    if (!c) return;
+    if (!jets && !burner) return;          /* nothing to silence yet */
+    if (c.state === 'suspended') c.resume();
+
+    var b = burnerOf(c);
+    if (!b) return;
+
+    var now = c.currentTime;
+    var level = jets ? Math.min(0.42, 0.26 + 0.08 * (jets - 1)) : 0;
+    var g = b.gain.gain;
+
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    if (jets > b.jets) {
+      /* ignition: a short swell over the burn's own level */
+      g.linearRampToValueAtTime(level * 1.5, now + 0.04);
+      g.setTargetAtTime(level, now + 0.04, 0.08);
+    } else {
+      g.setTargetAtTime(level, now, jets ? 0.06 : 0.1);
+    }
+    b.tone.frequency.setTargetAtTime(jets ? 900 + 300 * jets : 400, now, 0.07);
+    b.jets = jets;
+  }
+
   /* ---------------------------------------------------------- lifecycle
      Pause every player that is actually making sound and remember
      which ones they were, so returning to the tab picks each of
@@ -679,6 +755,7 @@
     hasVoice: hasVoice,
     sfx: sfx,
     prime: prime,
+    thrust: thrust,
     stopVoice: stopVoice,
     stopAll: stopAll,
     isSpeaking: isSpeaking,

@@ -1,0 +1,307 @@
+/* ============================================================
+   Geo Drone — THE SURFACE: moving water over the reef
+
+   Everything js/surface.js builds, on the one screen that has a
+   reef (`data-reef`, the square's flown landing). Additive: the
+   sea, the rocks, the shore and the islands are untouched, and
+   nothing here can be tapped.
+
+   ── the stack ─────────────────────────────────────────────────
+
+   .surface sits in the screen straight before .cam, and it is NOT
+   a stacking context (no z-index, no transform, no opacity), so
+   each piece in it takes z 1 in the screen's own stack: after the
+   photograph, the rocks and the sea sheets, and under .cam (z 4),
+   which holds the islands and the craft. Light and wind on the
+   water, then, over the reef and under the land.
+
+     .surface__net   the caustic net, two sheets
+     .eddy__ring     round each rock
+     .curl           crests on the open water
+
+   The contours are inside each island, at z 1 there: over its
+   shore and under its land (z 2), like the ripples in
+   css/water.css that they stand in for on this screen.
+
+   ── what moves, and what it costs ─────────────────────────────
+
+   Transform and opacity only, on elements of their own, so the
+   compositor runs all of it. No filter and no blend mode: the glow
+   on every line is a wide faint stroke under a thin bright one, and
+   the net's is baked into its tile.
+   ============================================================ */
+
+.surface {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+
+/* ---------------------------------------------------------- the net
+
+   One tile of caustic net (drawn by js/surface.js), repeated, on
+   two sheets at two sizes. Each drifts exactly one tile in its
+   loop, which lands the pattern on itself: there is no seam to see.
+   They run different ways at different speeds, so where the two
+   nets cross the light gathers and moves, and the net never reads
+   as one picture sliding. Oversized by one tile on every side, so
+   neither walks its own edge into the frame.
+
+   Until the tile exists (a moment after boot) the sheets are bare
+   and see-through. */
+.surface__net {
+  --tile: 60vmin;
+  position: absolute;
+  z-index: 1;
+  inset: calc(var(--tile) * -1);
+  background-image: var(--surface-net, none);
+  background-size: var(--tile) var(--tile);
+  background-repeat: repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.surface__net--b {
+  --tile: 84vmin;
+}
+
+.screen[data-reef].is-netted .surface__net--a {
+  animation: netDriftA 110s linear infinite,
+             netBeatA 19s ease-in-out infinite;
+}
+
+/* mirrored, so the two nets are never the same cells */
+.screen[data-reef].is-netted .surface__net--b {
+  animation: netDriftB 76s linear infinite,
+             netBeatB 23s ease-in-out -9s infinite;
+}
+
+@keyframes netDriftA {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(var(--tile), var(--tile), 0); }
+}
+
+@keyframes netDriftB {
+  from { transform: scaleX(-1) translate3d(0, 0, 0); }
+  to   { transform: scaleX(-1) translate3d(var(--tile), calc(var(--tile) * -1), 0); }
+}
+
+@keyframes netBeatA {
+  0%, 100% { opacity: .36; }
+  50%      { opacity: .56; }
+}
+
+@keyframes netBeatB {
+  0%, 100% { opacity: .05; }
+  50%      { opacity: .16; }
+}
+
+
+/* ---------------------------------------------------------- round the islands
+
+   Five outlines per island, each the coast pushed a few per cent
+   out with a wobble on it and broken into long runs. Positioned
+   like css/water.css's ripples: on the centre of area (--wcx/--wcy,
+   set by js/water.js), with a viewBox in the island's own per cent,
+   so they sit on the coast at scale 1 and only ever grow from it.
+
+     hug   two, close in, trading places: as one brightens the other
+           fades, so the waterline slowly changes shape
+     run   three, born at the coast and running out into the water,
+           fading as they go, each a different shape */
+.contour {
+  position: absolute;
+  z-index: 1;
+  left: var(--wcx, 50%);
+  top: var(--wcy, 50%);
+  width: var(--sw, 136%);
+  aspect-ratio: 1;
+  overflow: visible;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.contour path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.contour__glow { stroke: rgba(var(--sea-shallow), .14); stroke-width: 2.6; }
+.contour__line { stroke: rgba(var(--sea-lit), .62);     stroke-width: .6; }
+
+.contour--run .contour__glow { stroke-width: 2.2; }
+.contour--run .contour__line { stroke: rgba(var(--sea-lit), .62); stroke-width: .55; }
+
+/* after the island's own rise (padRise, 1.15s), as the ripples do */
+.pad.is-up .contour--hug { animation: contourHug 9s ease-in-out 1s infinite; }
+.pad.is-up .contour--h1  { animation-delay: 5.5s; }
+
+.pad.is-up .contour--run { animation: contourRun 10.5s cubic-bezier(.3, .55, .45, 1) 1.4s infinite; }
+.pad.is-up .contour--r1  { animation-delay: 4.9s; --spin: -1.6deg; }
+.pad.is-up .contour--r2  { animation-delay: 8.4s; }
+
+@keyframes contourHug {
+  0%, 100% { opacity: 0;   transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: .8;  transform: translate(-50%, -50%) scale(1.014); }
+}
+
+@keyframes contourRun {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(.99) rotate(0deg); }
+  16%  { opacity: .72; }
+  55%  { opacity: .3; }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(1.2) rotate(var(--spin, 1.4deg)); }
+}
+
+/* going back under: the water closes, and the outlines go with it */
+.pad.is-up.is-sunk .contour { animation: none; opacity: 0; transition: opacity .6s ease; }
+
+/* On this screen the contours ARE the ripples. css/water.css's
+   dashed copies of the coast would be a second set of lines round
+   every island. */
+.screen[data-reef] .lap { display: none; }
+
+
+/* ---------------------------------------------------------- round the rocks
+
+   Two broken rings per rock, each a wobbly ellipse the shape of its
+   sprite, opening out and turning a little as they fade: the water
+   at the top going round what is under it. Placed, sized, turned
+   and flipped exactly as the rock is (the same five variables,
+   copied over by js/surface.js), and weighted by --ew so a pebble's
+   ring is the same line as a cluster's. */
+.eddy { display: contents; }
+.eddy[hidden] { display: none; }
+
+.eddy__ring {
+  position: absolute;
+  z-index: 1;
+  left: var(--x);
+  top: var(--y);
+  width: calc(var(--w) * 1.16);
+  aspect-ratio: 1 / var(--ea, 1);
+  overflow: visible;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--r, 0deg)) scaleX(var(--f, 1));
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.eddy__ring path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.eddy__glow { stroke: rgba(var(--sea-shallow), .14); stroke-width: calc(var(--ew, .8) * 3.4px); }
+.eddy__line { stroke: rgba(var(--sea-lit), .5);      stroke-width: calc(var(--ew, .8) * 1px); }
+
+.screen[data-reef].is-active .eddy__ring { animation: eddyOpen 9s cubic-bezier(.3, .55, .45, 1) infinite; }
+.screen[data-reef].is-active .eddy__ring--b { animation-delay: -4.5s; }
+
+/* each rock on its own clock */
+.screen[data-reef].is-active .eddy:nth-child(3n + 1) .eddy__ring   { animation-duration: 10.5s; }
+.screen[data-reef].is-active .eddy:nth-child(3n + 1) .eddy__ring--a { animation-delay: -2s; }
+.screen[data-reef].is-active .eddy:nth-child(3n + 1) .eddy__ring--b { animation-delay: -7.2s; }
+.screen[data-reef].is-active .eddy:nth-child(3n + 2) .eddy__ring   { animation-duration: 8s; }
+.screen[data-reef].is-active .eddy:nth-child(3n + 2) .eddy__ring--a { animation-delay: -5.4s; }
+.screen[data-reef].is-active .eddy:nth-child(3n + 2) .eddy__ring--b { animation-delay: -1.4s; }
+
+@keyframes eddyOpen {
+  0%   { opacity: 0;
+         transform: translate(-50%, -50%) rotate(var(--r, 0deg)) scaleX(var(--f, 1)) scale(.96) rotate(0deg); }
+  24%  { opacity: .7; }
+  62%  { opacity: .3; }
+  100% { opacity: 0;
+         transform: translate(-50%, -50%) rotate(var(--r, 0deg)) scaleX(var(--f, 1)) scale(1.3) rotate(8deg); }
+}
+
+
+/* ---------------------------------------------------------- crests on the open water
+
+   A handful of thin, tapered crests that curl at one end. Each
+   fades in, drifts a couple of vmin with the swell while it grows
+   a little, and fades out -- and while it is out js/surface.js
+   moves it somewhere clear and gives it a new shape, so no crest
+   is ever seen twice. */
+.curl {
+  position: absolute;
+  z-index: 1;
+  left: var(--qx);
+  top: var(--qy);
+  width: var(--qw, 12vmin);
+  height: calc(var(--qw, 12vmin) * var(--qh, .3));
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.curl[hidden] { display: none; }
+
+.curl__glow {
+  fill: none;
+  stroke: rgba(var(--sea-shallow), .16);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.curl__line { fill: rgba(var(--sea-lit), .86); }
+
+.screen[data-reef].is-active .curl {
+  animation: curlCycle var(--qt, 13s) ease-in-out var(--qd, 0s) infinite;
+}
+
+@keyframes curlCycle {
+  0%   { opacity: 0;
+         transform: rotate(var(--qa, 0deg)) scaleY(var(--qf, 1)) translate3d(-1.6vmin, 0, 0) scale(.9); }
+  28%  { opacity: .7; }
+  66%  { opacity: .5; }
+  100% { opacity: 0;
+         transform: rotate(var(--qa, 0deg)) scaleY(var(--qf, 1)) translate3d(2vmin, 0, 0) scale(1.06); }
+}
+
+
+/* ---------------------------------------------------------- housekeeping
+
+   Nothing here moves on a screen nobody is looking at -- paused,
+   as css/water.css pauses its own, so the net picks up where it
+   left off. The rings and the crests are keyed off .is-active and
+   simply stop. */
+.screen[data-reef]:not(.is-active) .surface__net,
+.screen[data-reef]:not(.is-active) .contour { animation-play-state: paused; }
+
+/* a lean device keeps one net and two of the three runs */
+.is-lean .surface__net--b,
+.is-lean .contour--r2 { display: none; }
+
+
+/* ---------------------------------------------------------- reduced motion
+
+   The net stays, still: a caustic net that holds is light on the
+   water, not a pattern stopped mid-move. One of the two hugging
+   outlines stays too, as the island's waterline. Everything that
+   is only there to move -- the runs, the rings, the crests, the
+   second net -- goes. */
+@media (prefers-reduced-motion: reduce) {
+  .surface__net--b,
+  .contour--h1,
+  .contour--run,
+  .eddy,
+  .curl { display: none; }
+
+  .screen[data-reef].is-netted .surface__net--a { animation: none; opacity: .38; }
+  .pad.is-up .contour--h0 { animation: none; opacity: .6; }
+}
+
+.is-reduced .surface__net--b,
+.is-reduced .contour--h1,
+.is-reduced .contour--run,
+.is-reduced .eddy,
+.is-reduced .curl { display: none; }
+
+.is-reduced .screen[data-reef].is-netted .surface__net--a { animation: none; opacity: .38; }
+.is-reduced .pad.is-up .contour--h0 { animation: none; opacity: .6; }

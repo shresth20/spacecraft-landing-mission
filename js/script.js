@@ -15,47 +15,45 @@
      → the scan clears the dark to the drone's SURVEY HEIGHT: open
         water corner to corner, three frames of it, with nothing in it
      → the archipelago breaks the surface: twenty-odd small islands
-        of every shape in the mission, and among them the two sites
-        the lens will come down on
+        of every shape in the mission, and among them site A
      → the lens brackets site A and descends — see THE CAMERA in
         js/animation.js
      → "the scanner found several landing zones"
      → "look at the shapes of the landing zones"
-     → "the spaceship is a triangle — select all the triangular
-        landing zones"
-     → site A's five islands become selectable; three triangles to
+     → "the spaceship is a square — select all the square landing
+        zones"
+     → site A's five islands become selectable; three squares to
        find, two other shapes to leave
        · right shape → green coast, zone locks in
        · wrong shape → red coast, buzzer, "try again"
-     → all three found: the lens climbs back to survey height while
-       the two wrong shapes sink and "correct! these landing zones
-       have the same shape as the spaceship" plays, crosses the
-       water with the whole archipelago under it, brackets site B
-       and comes down onto it
-     → the craft flies in over site B's row of three triangles (30,
-       12 and 20 square units) -- nothing else is on the water there
-     → "next, we need to find how much space the spaceship needs",
-        and its base and height are called out
-     → the three triangles get their areas printed on them
-     → "calculate the area of spaceship, and select the land with
-        required area" · "choose the landing zone with the exact area"
-     → the player picks; the craft flies down and the geometry
-       decides what happens (see THE LANDING below)
-     → it fits: confetti falls over the whole frame, "landing
-       successful", and a NEXT button arrives under the footer lines
-       to carry the mission on to the first round
+     → all three found: the two wrong shapes sink, "correct! these
+       landing zones have the same shape as the spaceship", and a
+       NEXT button arrives
 
-   (There is no screen 3 any more. The landing used to have a
-   screen of its own; it is site B of the survey now, so the two
-   halves of the lesson are asked over one sea by one camera.)
+   Screen 3 · the square's landing, flown by hand
+     the lens is already down on the landing site: the three squares
+     (54, 24 and 36 square units) break the surface strewn round the
+     middle of the frame, the craft flies in and hovers there, its
+     side is called out, the areas are printed on, "choose the
+     landing zone with the exact area" -- and the joystick comes up.
+     The player flies the craft over an island, lets go, and presses
+     GO (js/pilot.js); it comes down and the geometry decides what
+     happens (see THE LANDING below). A miss costs one of three
+     hearts and the craft comes back to the middle; with all three
+     gone the autopilot lands it on the one that fits. It fits:
+     confetti, "landing successful", and NEXT. The narration bar on
+     this screen stays up while each sentence is spoken and steps
+     aside once it is finished, so the screen is left clear.
 
    Screens 4 to 8 · a round per shape
-     the same shot, for a new shape and a new area formula each
-     time, opening straight onto the water at survey height: the
-     archipelago breaks the surface, the lens comes down on site A
-     for "select all the square landing zones", climbs and crosses
-     and comes down on site B, where the square-hulled craft lands
-     on the island whose area it needs. See runRound().
+     the whole lesson on one screen, for a new shape and a new area
+     formula each time, opening straight onto the water at survey
+     height: the archipelago breaks the surface, the lens comes down
+     on site A for "select all the rectangular landing zones", climbs
+     and crosses and comes down on site B, where the player flies the
+     craft onto the island whose area it needs, exactly as on screen
+     3 -- hearts, autopilot and all. Rectangle, parallelogram,
+     trapezium, rhombus, and the triangle last. See runRound().
 
    The "<" / ">" nav can cut in at any point, so each screen is
    described as a list of steps run under a generation id. Jumping
@@ -73,9 +71,14 @@
   var T = global.GeoType;
 
   /* js/failure.js — the landing and its two failures, shared by
-     screen 3 and all five round screens. Every one of the three
-     outcomes below goes through it. */
+     screens 3 to 8. Every one of the three outcomes below goes
+     through it. */
   var F = global.GeoFail;
+
+  /* js/pilot.js -- every landing, flown by hand. Without it the
+     landings are made by tapping an island instead: see `flown()`
+     below. */
+  var PILOT = global.GeoPilot || null;
 
   /* js/water.js, or a stand-in that does nothing. The water is the
      scene's finish rather than its plumbing: with the module
@@ -89,6 +92,11 @@
       approve: noop, reject: noop, settle: noop, impact: noop
     };
   })();
+
+  /* js/reef.js -- the flown landing's sea. Scenery, on the same
+     bargain as the water: without it that screen plays on the
+     round screens' own sea. */
+  var REEF = global.GeoReef || { init: function () {}, strew: function () {}, prepare: function () { return Promise.resolve(); } };
 
   var el = {};
   var launched = false;
@@ -120,11 +128,17 @@
     perfectFit: 'Perfect match! The spaceship fits exactly.',
     landed: 'Landing successful! Great work, Space Commander.',
 
-    /* the two lines screens 4-8 add: the hand-off from the shape
+    /* the two lines screens 3-8 add: the hand-off from the shape
        task to the area task, and a second way of asking for the
        area so five rounds do not all open with the same sentence */
     onlyMatching: 'Now we only need to check these matching landing zones.',
-    findArea: 'Find the area of spaceship, and select the suitable land.'
+    findArea: 'Find the area of spaceship, and select the suitable land.',
+
+    /* the flown landing (js/pilot.js): how to fly, and what happens
+       when the hearts run out. No clips for either -- typed at
+       reading rate, as the shape lines are (see voice()) */
+    pilotHow: 'Drag the joystick to fly the spaceship. Stop over a landing zone and press GO.',
+    autoPilot: 'Out of hearts! Autopilot will land on the zone that fits.'
   };
 
   function grab() {
@@ -135,9 +149,7 @@
       'droneHud', 'cam',
       'altHud', 'altNum', 'altState',
       'topbar', 'topbarText',
-      'ship', 'shipCraft', 'shipDims',
       'confetti', 'advanceBtn',
-      'landHud', 'landCaption', 'landTally',
       'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
       'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -187,8 +199,82 @@
      bar instead of cross-fading in, and the typing is clocked off
      the voice clip itself rather than off a chars/second guess —
      GeoAudio hands the <audio> element over through `onPlay`, and
-     GeoType reads currentTime off it. See js/typewriter.js. */
+     GeoType reads currentTime off it. See js/typewriter.js.
+
+     A bar marked `data-step-aside` (the square's landing screen)
+     comes up for each line, stays while the whole sentence is typed
+     and spoken, and steps aside as soon as it is finished, so it is
+     not left standing over the craft while the player flies. The
+     attribute's value is only a grace: a line that follows within
+     it keeps the bar up, so back-to-back lines do not slide it out
+     and straight back in. Every line takes a fresh ticket, which is
+     what stops a hide armed by an earlier line from taking down the
+     bar under a later one. And a sentence is shown
+     only the first time the visit speaks it: said again (the retry
+     prompt after a miss, a second "too small") it is heard alone,
+     with the bar kept away -- see hear(). */
+  var barTicket = 0;
+
+  /* the grace a full round's bar is given once its landing is flown
+     -- the same the landing screen's markup carries (js/pages.js) */
+  var STEP_ASIDE_MS = '400';
+
   function narrate(bar, key, text) {
+    var top = bar && bar.closest('.topbar');
+    var grace = top ? top.getAttribute('data-step-aside') : null;
+    if (grace == null) return voice(bar, key, text);
+    grace = +grace || 0;
+
+    /* each sentence is printed the first time this visit speaks it;
+       after that it is only heard (`data-said`, emptied by
+       clearRound) */
+    var said = top.dataset.said ? top.dataset.said.split(' ') : [];
+    if (said.indexOf(key) >= 0) return hear(top, bar, key);
+    said.push(key);
+    top.dataset.said = said.join(' ');
+
+    var up = top.classList.contains('is-on');
+    top.dataset.line = String(++barTicket);
+    if (!up) T.clear(bar);
+    top.classList.add('is-on');
+
+    /* a bar that was away gets most of its slide in before the
+       typing starts */
+    return M.wait(up ? 0 : (M.reduced() ? 0 : 450)).then(function () {
+      return voice(bar, key, text);
+    }).then(function () {
+      /* the sentence is finished: away, unless another line takes
+         the bar within the grace */
+      var mine = top.dataset.line = String(++barTicket);
+      M.wait(grace).then(function () {
+        if (top.dataset.line !== mine) return;
+        top.classList.remove('is-on');
+        /* emptied once it is out of sight, so the next line types
+           into a clean bar instead of sliding in with this one */
+        return M.wait(650).then(function () {
+          if (top.dataset.line === mine) T.clear(bar);
+        });
+      });
+    });
+  }
+
+  /* A repeated line on an auto-hiding bar: the bar is taken down if
+     it is still up, so it never shows one sentence under another,
+     and the clip plays on its own. A line with no clip is skipped --
+     it has already been read once. */
+  function hear(top, bar, key) {
+    var mine = top.dataset.line = String(++barTicket);
+    if (top.classList.contains('is-on')) {
+      top.classList.remove('is-on');
+      M.wait(650).then(function () {
+        if (top.dataset.line === mine) T.clear(bar);
+      });
+    }
+    if (!A.hasVoice(key)) return M.wait(0);
+    return A.say(key).then(function () { return M.wait(300); });
+  }
+
+  function voice(bar, key, text) {
     if (text == null) text = LINE[key] || '';
 
     /* A line with no clip recorded for it yet. Screens 4-8 each name
@@ -305,10 +391,11 @@
   }
 
   /* ============================================================
-     THE SURVEY AND THE ROUNDS — screens 2 and 4 to 8
+     THE SURVEY AND THE ROUNDS — screens 2 to 8
 
-     One driver for all six. Every playing screen is one continuous
-     shot over one sea, and the lens comes down on it twice:
+     One driver for all seven. Every playing screen is one continuous
+     shot over one sea, and a full round brings the lens down on it
+     twice:
 
        survey height       the whole archipelago breaks the surface
                            under the lens -- sixteen islets of every
@@ -329,13 +416,16 @@
                            decides, exactly as it always has
        land                planted, confetti, NEXT
 
-     The survey (screen 2) is this with the drone's dark-and-scan
-     opening in front of it (`round.intro`) and a recorded clip for
-     the line that names its shape; a round opens straight onto the
-     water. What differs between the six otherwise is entirely data
-     -- the artwork, the measurements, the numbers on the islands,
-     the formula -- and all of it lives in js/pages.js. Nothing below
-     names a shape.
+     The first round is split in two. The survey (screen 2) is the
+     drone's dark-and-scan opening (`round.intro`) and the shape
+     question on site A, and stops there with NEXT
+     (`round.shapeOnly`); screen 3 is that round's landing, opened
+     with the lens already down on site B (`round.landingOnly`, see
+     runLanding). Every other round opens straight onto the water
+     and plays both. What differs between them otherwise is
+     entirely data -- the artwork, the measurements, the numbers on
+     the islands, the formula -- and all of it lives in
+     js/pages.js. Nothing below names a shape.
 
      ── the two sites ──
 
@@ -430,15 +520,27 @@
     clearRound(a);
     clearRound(b);
 
+    /* a full round's bar only steps aside once its landing is flown
+       (landingSteps); the landing screen's is marked so in its markup */
+    if (!round.landingOnly && e.topbar) e.topbar.removeAttribute('data-step-aside');
+
     P.arrangeSite(a, P.drawPair(round.decoyPool), ['pad--far1', 'pad--far2']);
     P.arrangeSite(b, [], []);
     P.dealRow(a);
     P.scatter(a);
-    P.dealRow(b);
+    /* a flown landing strews its three round the hovering craft
+       instead of lining them up under it */
+    if (flown(b)) P.strewPilot(round);
+    else P.dealRow(b);
 
-    /* the rest of the archipelago, strewn again */
+    /* and the reef under the water, clear of where they now are,
+       on the screen that has one */
+    REEF.strew(round);
+
+    /* the rest of the archipelago, strewn again -- over the frame of
+       any site this screen never plays, too */
     round.islets.forEach(function (isl) { isl.classList.remove('is-up'); });
-    P.strewIslets(e.cam, round.islets);
+    P.strewIslets(e.cam, round.islets, round.plays);
 
     /* And the lens: PARKED at survey height over the middle of the
        sea, before the screen is shown. Reset runs under the veil (see
@@ -453,13 +555,18 @@
        element reports no animations and an inline transform, and
        renders the finished keyframe anyway, immovably, until the
        page is reloaded. A loiter that only ever runs on a screen the
-       player is looking at is cancelled long before it can finish. */
+       player is looking at is cancelled long before it can finish.
+
+       A landing screen is the exception: it opens with the lens
+       already down on site B, and never leaves it. */
     airborne = !M.reduced();
-    M.camSet(round.node, wideState(round));
+    M.camSet(round.node, round.landingOnly ? siteState('b') : wideState(round));
   }
 
   function runRound(round) {
     W.stop();
+
+    if (round.landingOnly) return runLanding(round);
 
     var e = round.el;
     var a = round.sites.a;
@@ -582,13 +689,47 @@
       /* a beat to look at the water before the line names the shape */
       function () { return M.wait(560); },
 
-      /* the survey's line has a clip; a round's names a shape no clip
-         was recorded for, and is typed at reading rate (see narrate) */
+      /* the triangle's line has a clip; every other names a shape no
+         clip was recorded for, and is typed at reading rate (see
+         narrate) */
       function () { return narrate(e.topbarText, round.sayKey || round.shape, round.say); },
 
       /* --- over to the player, until all three are found --- */
-      function (id) { return startRoundPicking(a, id); },
+      function (id) { return startRoundPicking(a, id); }
+    );
 
+    if (round.shapeOnly) {
+      steps.push(
+        /* the shape question is this screen's whole question, so
+           answering it is what earns the way on -- and, as on a
+           landing, the watchdog makes sure that way on arrives */
+        function (id) {
+          a.solved = true;
+          armAdvanceWatchdog(a, id);
+          return M.wait(420);
+        },
+
+        /* --- the two that never matched go back under, and the
+               payoff line plays over them --- */
+        function (id) {
+          var said = M.wait(700).then(function () {
+            if (live(id)) return narrate(e.topbarText, 'shapeMatch');
+          });
+          return Promise.all([sinkRoundDecoys(a), said]);
+        },
+
+        /* --- NEXT: on to this round's landing, on the next screen --- */
+        function (id) {
+          return M.wait(400).then(function () {
+            if (live(id)) showRoundAdvance(a);
+          });
+        }
+      );
+
+      return sequence(steps);
+    }
+
+    steps.push(
       /* --- up, across, and down onto site B ---
 
          The two shapes that never matched go back under and the
@@ -656,32 +797,66 @@
       function () {
         altTo(round, 'HOLD');
         return altOut(round);
+      }
+    );
+
+    return sequence(steps.concat(landingSteps(round)));
+  }
+
+  /* The first round's landing, on a screen of its own: the survey
+     has just asked its shape question, so this opens with the lens
+     already down on site B, where the three islands that matched
+     break the surface, and goes straight on to the area question. */
+  function runLanding(round) {
+    R = round.sites.b;
+
+    return sequence([
+      function () {
+        A.duckAmbience(0.22, 900);
+        return M.wait(M.reduced() ? 200 : 650);
       },
+      /* site B's three, and nothing else: site A and the islets are
+         empty on this screen */
+      function () { return emerge(round); },
+      function () { return M.wait(300); }
+    ].concat(landingSteps(round)));
+  }
 
-      /* ═══════════════ the area question, on site B ═══════════════ */
+  /* ═══════════════ the area question, on site B ═══════════════
+     Everything from the craft's arrival to NEXT, which a full round
+     plays after its crossing and a landing screen plays on its own. */
+  function landingSteps(round) {
+    var e = round.el;
+    var b = round.sites.b;
 
+    return [
       /* --- the craft arrives ---
          It comes down the middle of the frame, which is water by
          construction: the row is across the front and there is
          nothing else on this site. Site B's question is the live one
-         from here. */
+         from here. A flown landing's hearts come up with it. */
       function () {
         R = b;
         b.el.ship.classList.add('is-in');
-        e.hud.classList.add('is-on');
+        if (flown(b)) {
+          PILOT.show(b);
+          /* and the bar steps aside between lines from here on, as it
+             does on the square's landing screen, so the craft is
+             flown over clear water. Site A's lines kept it up: that
+             is a question read, not flown. */
+          if (!e.topbar.hasAttribute('data-step-aside')) {
+            e.topbar.setAttribute('data-step-aside', STEP_ASIDE_MS);
+          }
+        }
         /* the flight in takes 1.55s (shipArrive, css/rounds.css);
            the line lands as it settles onto its station */
         return M.wait(M.reduced() ? 200 : 1250);
-      }
-    );
+      },
 
-    if (!round.intro) {
-      /* a round has already been told once that these match; what
+      /* the player has already been told once that these match; what
          is new is that the three of them are all that is left */
-      steps.push(function () { return narrate(e.topbarText, 'onlyMatching'); });
-    }
+      function () { return narrate(e.topbarText, 'onlyMatching'); },
 
-    steps.push(
       /* --- how much space it needs ---
          the callouts are drawn on as the line lands: they ARE "how
          much space it needs" */
@@ -698,20 +873,19 @@
       function () { return narrate(e.topbarText, round.areaKey); },
       function () { return narrate(e.topbarText, 'chooseExact'); },
 
-      /* --- over to the player, for as many attempts as it takes --- */
-      function (id) { return startRoundChoosing(b, id); },
+      /* --- over to the player, for as many attempts as it takes ---
+         by tapping an island, or on a flown landing by flying there */
+      function (id) {
+        return flown(b) ? startPiloting(b, id) : startRoundChoosing(b, id);
+      },
 
       /* --- planted; plantRound() has already said its piece --- */
       function (id) {
-        e.tally.textContent = round.copy.sum;
-        e.tally.classList.add('is-shown');
-        return handFooterToAdvance(id, e.caption, e.tally, function () {
-          showRoundAdvance(b);
+        return M.wait(600).then(function () {
+          if (live(id)) showRoundAdvance(b);
         });
       }
-    );
-
-    return sequence(steps);
+    ];
   }
 
   /* One flight of the lens, with the altimeter following it. Under
@@ -908,42 +1082,13 @@
 
 
   /* ============================================================
-     THE LANDING — what the survey's site B and every round share
+     THE LANDING — what every round's site B shares
 
      The craft is flown down onto the island the player picked and
-     the geometry decides what happens (js/failure.js). The two
-     pieces below are the halves of that which are the same on all
-     six screens: the footer's hand-over to the NEXT button, and the
-     fall.
+     the geometry decides what happens (js/failure.js). The piece
+     below is the half of that which is the same on every screen:
+     the fall.
      ============================================================ */
-
-  /* The footer is one strip, and the formula, the tally and the NEXT
-     button are all centred on it. So the two lines are taken away
-     BEFORE the button arrives: the footer says one thing at a time,
-     and NEXT lands in the space the text leaves instead of being
-     stacked under it.
-
-     The sum is the answer to the whole screen, so it gets its read
-     before the hand-over. And when there is nowhere for the button
-     to go — canAdvance() is false on the last screen — the two
-     lines STAY, because clearing the footer for a button that never
-     arrives would just empty it.
-
-     Shared by the survey's landing and the five round screens: the
-     footer is built the same way on all six. */
-  function handFooterToAdvance(id, caption, tally, reveal) {
-    if (!canAdvance()) return;
-
-    return M.wait(2400).then(function () {
-      if (!live(id)) return;
-      if (caption) caption.classList.remove('is-shown');
-      if (tally) tally.classList.remove('is-shown');
-      /* the lines' own fade — .45s in css/style.css */
-      return M.wait(520);
-    }).then(function () {
-      if (live(id)) reveal();
-    });
-  }
 
   /* ---------------------------------------------------------- the fall
      The half of a failed landing that is the same on all six
@@ -959,8 +1104,9 @@
      footing, which is where the spoken verdict starts. `onImpact`
      is fired on the frame something is actually hit, and carries
      the point it was hit at — the craft goes over wherever it went
-     over, never at a fixed spot. */
-  function failFlight(ship, pad, ref, tight, geo, id, onSettle) {
+     over, never at a fixed spot. `onHit`, where given, is handed
+     that same moment: a flown landing takes its heart there. */
+  function failFlight(ship, pad, ref, tight, geo, id, onSettle, onHit) {
     /* Built here, at the top of the attempt, and fired a second and
        a half later on the frame of impact. See prime() in
        js/audio.js for why the clip cannot be made at the moment it
@@ -987,6 +1133,8 @@
          the burst and SEA's front are one event rather than three
          near-misses. */
       onImpact: function (point, kind) {
+        if (onHit) onHit(point, kind);
+
         if (kind === 'water') {
           /* The splash is what comes UP out of the water; SEA's
              front is what goes OUT across it, and it is the half
@@ -1066,6 +1214,10 @@
     }
     if (e.shipDims) e.shipDims.classList.remove('is-drawn');
 
+    /* the helm, on a flown landing: three hearts, the craft back at
+       its hover point, the controller away */
+    if (flown(round)) PILOT.reset(round);
+
     e.pads.classList.remove('is-picking', 'is-cleared', 'is-choosing', 'is-priced');
     (e.all || roundPads(round)).forEach(function (pad) {
       pad.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk',
@@ -1082,18 +1234,9 @@
       e.advance.hidden = true;
     }
 
-    if (e.hud) e.hud.classList.remove('is-on');
-    if (e.caption) {
-      e.caption.classList.remove('is-shown');
-      e.caption.textContent = '';
-    }
-    if (e.tally) {
-      e.tally.classList.remove('is-shown');
-      e.tally.textContent = '';
-    }
-
     if (e.topbar) {
       e.topbar.classList.remove('is-on');
+      delete e.topbar.dataset.said;
       T.clear(e.topbarText);
     }
 
@@ -1231,11 +1374,48 @@
   function startRoundChoosing(round, id) {
     round.phase = 'area';
     armRound(round);
-    standingRoundHint(round);
 
     return new Promise(function (resolve) {
       round.release = resolve;
       if (!live(id)) clearRound(round);
+    });
+  }
+
+  /* ---------------------------------------------------------- the flown landing
+
+     A landing is not chosen with a tap: the player flies the craft
+     over an island and presses GO (js/pilot.js), and
+     the helm hands the island back here through onRoundAreaPick(),
+     which is exactly where a tap would have gone -- so the landing,
+     the two failures and the fit are the same on both. What is the
+     flown screen's own is in failRound() and autopilotRound(): a
+     heart for each miss, the craft brought back to the middle of
+     the frame, and the autopilot once the hearts are gone. */
+  function flown(site) {
+    return !!(PILOT && site && site.helm);
+  }
+
+  function startPiloting(round, id) {
+    round.phase = 'area';
+    armPilot(round);
+
+    /* how to fly, once a visit -- typed while the controls are
+       already live, so nobody has to wait for it to finish */
+    if (!round.helm.told) {
+      round.helm.told = true;
+      narrate(round.el.topbarText, 'pilotHow');
+    }
+
+    return new Promise(function (resolve) {
+      round.release = resolve;
+      if (!live(id)) clearRound(round);
+    });
+  }
+
+  function armPilot(round) {
+    PILOT.arm(round, function (pad) {
+      if (R !== round || round.phase !== 'area') return;
+      onRoundAreaPick(round, pad);
     });
   }
 
@@ -1250,23 +1430,12 @@
   }
 
   function disarmRound(round) {
+    if (flown(round)) PILOT.disarm(round);
     round.el.pads.classList.remove('is-choosing');
     roundPads(round).forEach(function (pad) {
       var hit = pad.querySelector('.pad__hit');
       if (hit) hit.tabIndex = -1;
     });
-  }
-
-  /* As on screen 3, the HUD lines are deliberately NOT a repeat of
-     the spoken line above: they carry the arithmetic the player is
-     being asked to do, and stay put while the narration comes and
-     goes. */
-  function standingRoundHint(round) {
-    var e = round.el;
-    e.caption.textContent = round.copy.formula;
-    e.caption.classList.add('is-shown');
-    e.tally.textContent = round.copy.tally;
-    e.tally.classList.add('is-shown');
   }
 
   function onRoundAreaPick(round, pad) {
@@ -1298,8 +1467,11 @@
       : failRound(round, pad, ref, area < round.area, id);
   }
 
-  /* ---------------------------------------------------------- it fits */
-  function plantRound(round, pad, ref, id) {
+  /* ---------------------------------------------------------- it fits
+     `auto` is the flown landing's autopilot bringing it in, with
+     the promise of its own line (`auto.said`) to wait on before the
+     verdict is spoken. */
+  function plantRound(round, pad, ref, id, auto) {
     var e = round.el;
 
     round.solved = true;
@@ -1317,9 +1489,8 @@
         pad.classList.add('is-fit');
         SEA.settle(pad);
 
-        e.caption.textContent = 'PERFECT FIT · ' + round.area + ' SQ UNITS';
-        e.caption.classList.add('is-shown');
-        e.tally.textContent = round.copy.sum;
+        /* down for good: the controller has nothing left to fly */
+        if (flown(round)) PILOT.stow(round);
 
         A.sfx('correct', { volume: 0.6 });
 
@@ -1334,16 +1505,21 @@
       }
     }).then(function () {
       if (!live(id)) return;
-      return sayRoundPlanted(round, id);
+      return auto && auto.said;
+    }).then(function () {
+      if (!live(id)) return;
+      return sayRoundPlanted(round, id, !!auto);
     });
   }
 
-  function sayRoundPlanted(round, id) {
+  /* "Great work" is not said over the autopilot's landing: the
+     player did not make it, and the fit is the lesson either way. */
+  function sayRoundPlanted(round, id, auto) {
     var e = round.el;
 
     return narrate(e.topbarText, 'perfectFit')
       .then(function () {
-        if (!live(id)) return;
+        if (!live(id) || auto) return;
         return narrate(e.topbarText, 'landed');
       })
       .then(function () {
@@ -1371,46 +1547,75 @@
 
     pad.classList.add(tight ? 'is-tight' : 'is-loose');
 
-    e.caption.textContent =
-      pad.dataset.area + ' SQ UNITS — THE CRAFT NEEDS ' + round.area;
-    e.caption.classList.add('is-shown');
-
     /* the verdict is SPOKEN OVER the struggle rather than after it,
        and awaited at the end, so a slow connection delays the retry
        prompt instead of talking over it */
     var said = null;
 
+    /* A flown landing pays a heart for the miss, on the frame the
+       craft hits the rock or the water, and flies the next attempt
+       from the middle of the frame again -- the craft drops back in
+       there (shipArrive), and the controls wait until it has. */
+    var helm = flown(round);
+
     return failFlight(e.ship, pad, ref, tight, round.geo, id, function () {
       said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
-    })
+    }, helm ? function () { PILOT.loseLife(round); } : null)
       .then(function () { return said; })
       .then(function () {
         if (!live(id)) return;
         /* put it back on the rail, callouts and all */
         pad.classList.remove('is-tight', 'is-loose');
+        if (helm) PILOT.home(round);
         F.resetSpaceship(e.ship);
         e.shipDims.classList.add('is-drawn');
-        return M.wait(760);
+        return M.wait(helm && !M.reduced() ? 1300 : 760);
       })
       .then(function () {
         if (!live(id)) return;
         round.landing = false;
-        if (!round.solved) armRound(round);
-        standingRoundHint(round);
+        if (helm && PILOT.lives(round) <= 0) return autopilotRound(round, ref, id);
+        if (!round.solved) {
+          if (helm) armPilot(round);
+          else armRound(round);
+        }
         return narrate(e.topbarText, 'chooseExact');
       });
   }
 
+  /* ---------------------------------------------------------- the autopilot
+     Three misses and the hearts are gone: the craft is flown to the
+     island that fits, on its own jets, and landed there. The line
+     goes up first and the flight starts a beat into it, so the
+     player is told what is about to happen before it does. The fit
+     is then the ordinary one -- outline, chime, confetti, NEXT. */
+  function autopilotRound(round, ref, id) {
+    var e = round.el;
+    var said = narrate(e.topbarText, 'autoPilot');
+
+    round.landing = true;
+
+    return M.wait(M.reduced() ? 300 : 1100).then(function () {
+      if (!live(id)) return;
+      return PILOT.flyTo(round, ref);
+    }).then(function () {
+      if (!live(id)) return;
+      disarmRound(round);
+      e.ship.classList.add('is-committed');
+      return plantRound(round, ref, ref, id, { said: said });
+    });
+  }
+
   /* The NEXT button's third road. It normally arrives at the end of
-     the planted sequence -- touchdown, two spoken lines, the footer
-     handed over (handFooterToAdvance) -- and every step of that is
+     the planted sequence -- touchdown and two spoken lines -- and
+     every step of that is
      a promise on a clip or a clock. Should any of them fail to
      settle (a clip whose `ended` never comes, an animation that is
      cancelled under it), the player would be left on a finished
      screen with no way on. So a landing arms this as well: the
      whole sequence's length plus grace, re-armed on every planting,
-     and if the button is still hidden when it fires the footer is
-     cleared and the button shown by hand. Under the same generation
+     and if the button is still hidden when it fires it is shown by
+     hand. Under the same generation
      check as everything else, so a jump away disarms it. */
   var ADVANCE_WATCHDOG_MS = 20000;
 
@@ -1418,8 +1623,6 @@
     M.wait(ADVANCE_WATCHDOG_MS).then(function () {
       var btn = round.el.advance;
       if (!live(id) || !round.solved || !btn || !btn.hidden || !canAdvance()) return;
-      if (round.el.caption) round.el.caption.classList.remove('is-shown');
-      if (round.el.tally) round.el.tally.classList.remove('is-shown');
       showRoundAdvance(round);
     });
   }
@@ -1465,24 +1668,24 @@
     ]);
   }
 
-  /* Screens 4 to 8 are built from js/pages.js at boot and appended
+  /* Screens 3 to 8 are built from js/pages.js at boot and appended
      here, so the nav, the veil, the NEXT button and goTo() pick them
      up with no special case: as far as everything below is
-     concerned they are five more entries in this list.
+     concerned they are six more entries in this list.
 
-     Built rather than written out in index.html because the five are
-     one screen five times over — the same markup with a different
-     shape's artwork and measurements in it. Five copies in the
-     document would be five copies to keep in step, and none of them
+     Built rather than written out in index.html because the six are
+     one screen six times over — the same markup with a different
+     shape's artwork and measurements in it. Six copies in the
+     document would be six copies to keep in step, and none of them
      could own an id. */
   function addRoundScreens() {
-    /* Loudly, because the mission still runs without it: screens 1-3
+    /* Loudly, because the mission still runs without it: screens 1-2
        play as normal and then simply stop, which looks like a broken
        NEXT button rather than a missing file. */
     if (!global.GeoPages) {
       if (global.console) {
         console.warn('GeoDrone: js/pages.js did not load — the survey has ' +
-                     'no islands and screens 4 to 8 are missing.');
+                     'no islands and screens 3 to 8 are missing.');
       }
       return;
     }
@@ -1503,6 +1706,11 @@
   function wireSites(round) {
     var a = round.sites.a;
     var b = round.sites.b;
+
+    /* a flown landing's controller and keys -- the islands stay
+       unarmed on that screen, so the tap listener below never fires
+       there */
+    if (round.pilot && PILOT) PILOT.attach(b);
 
     a.el.pads.addEventListener('click', function (e) {
       var hit = e.target.closest('.pad__hit');
@@ -1529,8 +1737,8 @@
      arrow answers by going disabled — a screen must never offer a
      button the nav has already given up on.
 
-     This matters most when js/pages.js has not arrived: screens 4-8
-     are built from it at boot, so without it the landing IS the
+     This matters most when js/pages.js has not arrived: screens 3-8
+     are built from it at boot, so without it the survey IS the
      last screen, and a NEXT there would appear and then refuse to
      go anywhere. That is a stale cache or a bad deploy rather than
      a state the flow can fix, so the button simply stays away. */
@@ -1689,7 +1897,7 @@
     });
   }
 
-  /* the two faces: fetched so they are in before the first caption,
+  /* the face: fetched so it is in before the first caption,
      and counted, but left to the CSS to use — a font is applied by
      name, not by URL */
   function fontJobs() {
@@ -1780,7 +1988,7 @@
       if (raf) cancelAnimationFrame(raf);
       draw(1);
       return M.wait(slow ? 260 : 0);
-    }).then(revealStart);
+    }).then(function () { return REEF.prepare(); }).then(revealStart);
   }
 
   function revealStart() {
@@ -1859,6 +2067,9 @@
     var hit = node.closest(TAPPABLE);
     if (!hit || hit.disabled) return;
     if (hit.getAttribute('aria-disabled') === 'true') return;
+    /* a control with a sound of its own -- the flight controller's
+       arrows, whose burn is their sound (js/pilot.js) */
+    if (hit.hasAttribute('data-quiet')) return;
 
     /* `keep` so goTo()'s audio cut does not eat the click of the
        very button that asked for the jump — see fireShot() */
@@ -1895,6 +2106,8 @@
     /* and after both, because every island on every screen needs a
        shoreline built from its own silhouette */
     SEA.init(el.stage);
+    /* The square's environment replaces the shared water on that screen. */
+    REEF.init(el.stage);
 
     /* every playing screen in its opening state from the off -- after
        the water is in, because the lens parks the sea's own sheets */
@@ -1913,9 +2126,9 @@
     el.navNext.addEventListener('click', function () { goTo(current + 1); });
 
     /* The reward button takes the same road as the ">" arrow, which
-       is what makes it carry straight on from the survey's landing
-       into the first round. Screens 4-8 wire the same handler, in
-       addRoundScreens(). */
+       is what makes it carry straight on from the survey's shape
+       question to the square's landing. Screens 3-8 wire the same
+       handler, in addRoundScreens(). */
     el.advanceBtn.addEventListener('click', onAdvance);
     syncNav();
 

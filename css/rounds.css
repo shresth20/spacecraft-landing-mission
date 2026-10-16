@@ -2,7 +2,7 @@
    Geo Drone — screens 4 to 8 (one round per shape)
 
    These screens reuse screen 3's stylesheet wholesale: the same
-   .ship, .ship__dims, .pads, .pad, .fx-layer, .confetti, .hud,
+   .ship, .ship__dims, .pads, .pad, .fx-layer, .confetti,
    .topbar and .advance, laid out off the same --pu unit and the
    same centre-of-area arithmetic — and the same landing chain in
    css/failure.css, which is what decides all three outcomes. What this file adds is only

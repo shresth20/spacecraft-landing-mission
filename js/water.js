@@ -620,6 +620,7 @@
      already been fitted out leaves it alone, so init() can be
      called again if screens are ever added after boot. */
   function attach(el) {
+    if (el.closest('.screen[data-reef]')) return; // Dedicated, asset-traced environment.
     if (el.dataset.wtr) return;
 
     var land = landOf(el);
@@ -683,6 +684,7 @@
      ARE the sea are .s2-bg (the survey) and .s3-bg (every round
      screen). */
   function dress(screen) {
+    if (screen.hasAttribute('data-reef')) return;
     if (screen.dataset.wtr) return;
 
     var bg = screen.querySelector('.s2-bg, .s3-bg');

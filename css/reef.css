@@ -1,0 +1,100 @@
+/* Square landing only. Timing/density live in GeoReef.config (js/reef.js).
+   All art shares site B's existing uniform camera transform.
+
+   Paint order inside the site (no stacking context of its own here):
+     layer 01  .s3-bg            the deep blue ocean
+     layer 02  .env-submerged    rocks under the water
+               .env-water        local, nested pond ripples
+               .env-art          dry land
+   Water and artwork keep separate layers, even across neighbouring objects. */
+.screen[data-reef] .s3-bg {
+  background: #0766b7 url('../assets/images/environment/ocean.webp') center / cover no-repeat;
+  animation: none;
+  filter: none;
+}
+/* The square screen never plays site A. Its former survey scenery is absent. */
+.screen[data-reef] :is(.site--a, .islets, .aerial) { display: none; }
+.env-world, .env-deep, .env-edges, .env-satellites {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.env-world *, .env-platform *, .env-satellites * { pointer-events: none; }
+.env-object, .env-submerged { position: absolute; }
+.env-world [hidden], .env-satellites [hidden] { display: none; }
+.env-image { display: block; width: 100%; height: auto; max-width: none; user-select: none; }
+
+/* ---------------------------------------------------------- under the water */
+.env-submerged { z-index: 0; opacity: var(--env-deep-alpha); }
+
+/* ---------------------------------------------------------- pond shorelines
+   No texture translation, filters, dashes or travelling highlights. The
+   precomputed closed curves gently change shape as two fronts move out.
+   The wide, faint duplicate is only the inner contour's restrained softness.
+   No stacking context on env-object: ALL water stays below ALL dry artwork. */
+.env-water {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  z-index: 1;
+  pointer-events: none;
+}
+.env-water path {
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.env-water__ripple {
+  stroke-width: .9px;
+  fill-opacity: .025;
+  animation: var(--pond-ripple) var(--pond-duration) linear var(--pond-phase) infinite;
+}
+.env-water__ripple--outer {
+  animation-delay: calc(var(--pond-phase) + var(--pond-half-cycle));
+}
+.env-water__shore, .env-water__soft {
+  animation: var(--pond-shore) var(--pond-shore-duration) linear var(--pond-phase) infinite;
+}
+.env-water__shore { stroke-width: 1.25px; fill-opacity: .027; }
+.env-water__soft { stroke-width: 4px; opacity: .09; fill: none; }
+/* Rocks that have not surfaced yet do not have a visible waterline. The
+   fade belongs to the water only; envRise never translates the SVG. */
+:is(.env-platform, .env-satellite) > .env-water { opacity: 0; transition: opacity 1.2s ease-out; }
+.pad.is-up :is(.env-platform, .env-satellite) > .env-water { opacity: 1; }
+.env-object:has(.is-missing) > .env-water { display: none; }
+
+/* ---------------------------------------------------------- dry land
+   The already full-size land comes up into place, its wet blue wash drying
+   off as it rises. */
+.env-art { position: relative; z-index: 2; }
+.env-platform .env-art, .env-satellite .env-art { opacity: 0; transform: translateY(var(--env-lift)); }
+.pad.is-up :is(.env-platform, .env-satellite) .env-art {
+  animation: envRise var(--env-rise) ease-out var(--satellite-delay, 0ms) both;
+}
+@keyframes envRise {
+  from { opacity: .28; transform: translateY(var(--env-lift)); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.env-wet { position: absolute; inset: 0; background: #087ab7; opacity: 0; mask-size: 100% 100%; -webkit-mask-size: 100% 100%; }
+.pad.is-up .env-wet { animation: envDry var(--env-rise) ease-out var(--satellite-delay, 0ms) both; }
+@keyframes envDry { from { opacity: .65; } to { opacity: 0; } }
+
+/* Loading failure remains legible and never blocks the landing calculation. */
+.env-art.is-missing { aspect-ratio: 1; background: #d87e23; }
+.env-art.is-missing .env-image { visibility: hidden; }
+.env-edge:has(.is-missing), .env-satellite:has(.is-missing), .env-submerged.is-missing { visibility: hidden; }
+
+/* Global lifecycle also freezes WAAPI animations; these rules cover motion
+   created while already paused, and keep inactive screens quiet. */
+.screen[data-reef]:not(.is-active) :is(.env-world, .env-platform, .env-satellites) *,
+.screen[data-reef].env-paused :is(.env-world, .env-platform, .env-satellites) * { animation-play-state: paused !important; }
+@media (prefers-reduced-motion: reduce) {
+  .screen[data-reef] :is(.env-world, .env-platform, .env-satellites) * { animation: none !important; transition: none !important; }
+  .screen[data-reef] .pad.is-up .env-art { opacity: 1; transform: none; }
+  .screen[data-reef] .env-wet { display: none; }
+}
+.is-reduced .screen[data-reef] :is(.env-world, .env-platform, .env-satellites) * { animation: none !important; transition: none !important; }
+.is-reduced .screen[data-reef] .pad.is-up .env-art { opacity: 1; transform: none; }
+.is-reduced .screen[data-reef] .env-wet { display: none; }

@@ -19,9 +19,6 @@
 @media (max-width: 620px) {
   .launch__body { --btn-w: clamp(113px, 29.1vw, 160px); }
 
-  .hud__caption { left: 8%; right: 8%; bottom: 14%; font-size: clamp(12px, 3.4vw, 20px); }
-  .hud__tally   { bottom: 8%; font-size: clamp(8px, 2.5vw, 13px); letter-spacing: .16em; }
-
   /* The survey height comes down on a small frame. --cam-wide is a
      share of the ISLANDS, not of the screen, and the islands are
      already small here -- the decoys are 30-odd px across on a
@@ -40,7 +37,7 @@
      roundel and the slashes are decoration and go first */
   .topbar { width: 92%; top: 4%; }
   .topbar__frame { padding: 8px 12px; }
-  .topbar__text { font-size: clamp(10px, 2.9vw, 16px); letter-spacing: .008em; }
+  .topbar__text { font-size: clamp(12px, 3.5vw, 19px); letter-spacing: .008em; }
 
   /* Narrow: the backdrop is stretched, so the sky, the limb and the
      surface stay the same fractions of it and every anchor holds.
@@ -56,8 +53,6 @@
 @media (max-height: 460px) {
   /* lift the plate so its shadow is not clipped by the stage edge */
   .stage { --btn-cy: 89.5%; }
-  .hud__caption { bottom: 11%; font-size: clamp(10px, 2.6vh, 16px); }
-  .hud__tally   { bottom: 5%; font-size: clamp(8px, 1.8vh, 12px); }
 
   /* the feed's two ranks close up on each other, exactly as
      css/rounds.css does it for a round screen — and the shot opens
@@ -74,16 +69,9 @@
      and the ship chip drops under it rather than beside it */
   .topbar { top: 3.4%; }
   .topbar__frame { min-height: 38px; padding: 6px 10px; }
-  .topbar__text { font-size: clamp(9px, 3.3vh, 16px); }
+  .topbar__text { font-size: clamp(11px, 4vh, 19px); }
   .topbar { --badge: clamp(20px, 5.6vh, 34px); }
 
-  /* barely any height: lift the whole landing tableau and close the
-     gap between the callouts and the islands */
-  /* 71%, not the 69% the wider frames use: with only 390px of
-     height the craft's exhaust ends up within a few pixels of the
-     30-unit island's apex, so the island row drops to open the
-     gap back up rather than the craft rising into the bar. */
-  .screen--drone { --ship-y: 30%; }
   /* Barely any height: the sky between the title and the moon's limb
      is only a few dozen pixels tall, so the cap comes down to what
      will sit inside it and the two blocks close up on each other.
@@ -101,8 +89,6 @@
 
 /* ---------------------------------------------------------- very wide (letterbox-ish) */
 @media (min-aspect-ratio: 21/9) {
-  .hud__caption { bottom: 14%; }
-  .hud__tally   { bottom: 8.5%; }
   .topbar { width: min(66%, 1180px); }
 
   /* a letterbox is all width: 21% of it would put the craft's plume
@@ -138,15 +124,10 @@
      is still the one that binds. */
   .gate__title { font-size: clamp(26px, min(15vw, 15vh), 150px); }
 
-  /* In portrait the LANDING tableau is bound by width, not height:
-     three triangles in a row plus the ship's callouts have to fit
-     across 390px. So --pu is pushed as far as the row allows and
-     the craft comes up the frame to open the gap. The row stays at
-     21/50/79, as on the round screens. */
-  .screen--drone {
-    --pu: min(1.62vw, 1.74vh);
-    --ship-y: 27%;
-  }
+  /* In portrait the survey's islands are bound by width, not
+     height: the round screens' portrait unit (css/rounds.css), so
+     site A's squares are the size the landing screen shows them. */
+  .screen--drone { --pu: min(1.42vw, 1.74vh); }
 
   /* no room for tracking on a 50px-wide triangle */
   .pad__area i { letter-spacing: .02em; }
@@ -162,7 +143,7 @@
   /* portrait stretches the feed tall: the bar can afford to wrap to
      two lines */
   .topbar { width: 92%; }
-  .topbar__text { font-size: clamp(11px, 3.2vw, 20px); }
+  .topbar__text { font-size: clamp(13px, 3.6vw, 23px); }
 }
 
 /* ---------------------------------------------------------- small pads

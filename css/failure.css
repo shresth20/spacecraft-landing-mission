@@ -296,6 +296,32 @@
   animation: shipApproach var(--approach-ms) var(--ease-flight) forwards;
 }
 
+/* The flown landing (js/pilot.js) never crosses to its island: by
+   the time it commits, the player — or the autopilot — has already
+   brought the craft over one and let it settle. So there is no
+   climb and no traverse, only the last few pixels onto the island's
+   centre of area, taken while it comes down (craftDescend below
+   still does the dip). It starts from wherever the craft is held,
+   because the player's offset is the craft's own `translate`, which
+   this transform is laid on top of.
+
+   :where() keeps it at the specificity of the rule above, and it is
+   written straight after it: so it wins over that one and loses to
+   every later phase, exactly as the approach itself does. Moved
+   anywhere further down this file, it would beat the crash and the
+   slip and hold the craft on its island through both. */
+.ship.ship-approaching:where(.is-piloted) {
+  animation: shipSettleOnto var(--approach-ms) cubic-bezier(.33, .08, .25, 1) forwards;
+}
+
+@keyframes shipSettleOnto {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% {
+    transform: translate3d(var(--target-x), var(--target-y), 0)
+               scale(var(--target-s));
+  }
+}
+
 @keyframes shipApproach {
   0% {
     transform: translate3d(0, 0, 0) scale(1);
