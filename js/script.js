@@ -98,6 +98,11 @@
      round screens' own sea. */
   var REEF = global.GeoReef || { init: function () {}, strew: function () {}, prepare: function () { return Promise.resolve(); } };
 
+  /* js/cinematic.js -- the square's landing, played as a cut-scene
+     once GO is pressed. Every other screen, or this one without it,
+     lands the way it always has: from straight overhead. */
+  var CINEMA = global.GeoCinema || null;
+
   var el = {};
   var launched = false;
 
@@ -1218,6 +1223,9 @@
        its hover point, the controller away */
     if (flown(round)) PILOT.reset(round);
 
+    /* a landing being played as a cut-scene stops where it stands */
+    if (CINEMA) CINEMA.stop(round);
+
     e.pads.classList.remove('is-picking', 'is-cleared', 'is-choosing', 'is-priced');
     (e.all || roundPads(round)).forEach(function (pad) {
       pad.classList.remove('is-up', 'is-picked', 'is-wrong', 'is-sunk',
@@ -1395,6 +1403,14 @@
     return !!(PILOT && site && site.helm);
   }
 
+  /* Is this landing played as the cut-scene? Only on a screen built
+     for it (the square's), and never under reduced motion: a shot with
+     a camera shake in it is just what that setting asks to be spared,
+     and the top-down landing says the same thing without one. */
+  function cinema(site) {
+    return !!(CINEMA && CINEMA.has(site) && !M.reduced());
+  }
+
   function startPiloting(round, id) {
     round.phase = 'area';
     armPilot(round);
@@ -1477,6 +1493,8 @@
     round.solved = true;
     armAdvanceWatchdog(round, id);
 
+    if (cinema(round)) return plantCinema(round, pad, ref, id, auto);
+
     return F.successfulLanding(e.ship, pad, {
       refPad: ref,
       geo: round.geo,
@@ -1512,6 +1530,60 @@
     });
   }
 
+  /* ---------------------------------------------------------- it fits, close up
+     The same landing played as the cut-scene (js/cinematic.js). The
+     touchdown -- the chime, the confetti, the stick put away -- is the
+     shot's, so it lands on the frame the craft settles in it. Under the
+     cut the top-down landing runs too, in silence, so that the shot
+     hands back to a craft already planted on its island. "Perfect
+     match" is said over the shot, while the craft sits edge for edge
+     on the rock; "landing successful" once it has handed back. */
+  function plantCinema(round, pad, ref, id, auto) {
+    var e = round.el;
+    var said = null;
+
+    var under = F.successfulLanding(e.ship, pad, {
+      refPad: ref,
+      geo: round.geo,
+      alive: function () { return live(id); },
+      onTouchdown: function () {
+        pad.classList.add('is-fit');
+        SEA.settle(pad);
+      }
+    });
+
+    var shot = CINEMA.play(round, 'fit', {
+      alive: function () { return live(id); },
+      onTouchdown: function () {
+        if (flown(round)) PILOT.stow(round);
+        A.sfx('correct', { volume: 0.6 });
+        M.wait(220).then(function () {
+          if (!live(id)) return;
+          A.sfx('cheer', { volume: 0.5 });
+          M.confetti(e.confetti);
+        });
+      },
+      onSettle: function () {
+        said = Promise.resolve(auto && auto.said).then(function () {
+          if (live(id)) return narrate(e.topbarText, 'perfectFit');
+        });
+      }
+    });
+
+    return Promise.all([under, shot]).then(function () {
+      return said;
+    }).then(function () {
+      if (!live(id) || auto) return;
+      return narrate(e.topbarText, 'landed');
+    }).then(function () {
+      if (!live(id)) return;
+      round.landing = false;
+      var done = round.release;
+      round.release = null;
+      if (done) done();
+    });
+  }
+
   /* "Great work" is not said over the autopilot's landing: the
      player did not make it, and the fit is the lesson either way. */
   function sayRoundPlanted(round, id, auto) {
@@ -1543,6 +1615,8 @@
                   within reach to go over — so it wrecks ON the rock
                   and never reaches the sea                         */
   function failRound(round, pad, ref, tight, id) {
+    if (cinema(round)) return failCinema(round, ref, tight, id);
+
     var e = round.el;
 
     pad.classList.add(tight ? 'is-tight' : 'is-loose');
@@ -1581,6 +1655,57 @@
         }
         return narrate(e.topbarText, 'chooseExact');
       });
+  }
+
+  /* ---------------------------------------------------------- it does not, close up
+     Both failures played as the cut-scene: off the edge of an island
+     too small for it and into the sea, or wrecked on one far too big.
+     Nothing moves under the cut this time -- the craft waits over the
+     island it was flown to -- and as the shot fades back it is put back
+     on its rail, so the player sees it drop in at the middle of the
+     frame (shipArrive), as after a miss seen from overhead. The heart
+     goes on the frame the craft hits the water or the rock, with its
+     sound, and the verdict is spoken over the struggle. */
+  function failCinema(round, ref, tight, id) {
+    var e = round.el;
+    var helm = flown(round);
+    var said = null;
+
+    /* built now, inside the GO press, and fired on the frame of
+       impact -- see failFlight() */
+    var bang = A.prime(tight ? 'sink' : 'crash');
+
+    return CINEMA.play(round, tight ? 'tight' : 'loose', {
+      alive: function () { return live(id); },
+      onSettle: function () {
+        said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
+      },
+      onImpact: function () {
+        if (helm) PILOT.loseLife(round);
+        bang({ volume: tight ? 0.75 : 0.85 });
+      },
+      onReturn: function () {
+        if (helm) PILOT.home(round);
+        F.resetSpaceship(e.ship);
+        e.shipDims.classList.add('is-drawn');
+      }
+    }).then(function () {
+      return said;
+    }).then(function () {
+      if (!live(id)) return;
+      /* it dropped back in as the shot faded; the controls wait until
+         it is on its station */
+      return M.wait(helm ? 900 : 400);
+    }).then(function () {
+      if (!live(id)) return;
+      round.landing = false;
+      if (helm && PILOT.lives(round) <= 0) return autopilotRound(round, ref, id);
+      if (!round.solved) {
+        if (helm) armPilot(round);
+        else armRound(round);
+      }
+      return narrate(e.topbarText, 'chooseExact');
+    });
   }
 
   /* ---------------------------------------------------------- the autopilot
@@ -2110,6 +2235,9 @@
     REEF.init(el.stage);
     /* and draws its sea through moving water (js/reef-water.js) */
     if (global.GeoReefWater) global.GeoReefWater.init(el.stage);
+    /* and plays its landings as a cut-scene (js/cinematic.js): built
+       here, before runGate(), so the shot's art is fetched with the rest */
+    if (CINEMA) CINEMA.init(el.stage);
 
     /* every playing screen in its opening state from the off -- after
        the water is in, because the lens parks the sea's own sheets */

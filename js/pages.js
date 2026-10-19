@@ -454,12 +454,17 @@
        This one's sea is the REEF (`reef`): deeper water, with rocks
        under it out towards the edges. See js/reef.js. It is still
        being tried out, so the other rounds keep the round screens'
-       own sea for now. */
+       own sea for now.
+
+       And its landings are played as a cut-scene (`cinema`): GO cuts
+       to the landing seen from the side, drawn from the square's own
+       sheets in assets/new4. See js/cinematic.js. */
     {
       shape: 'square',
       landingOnly: true,
       pilot: true,
       reef: true,
+      cinema: true,
       area: 36,                       /* 6 x 6 */
       say: 'The spaceship is a square. Select all the square landing zones.',
       areaKey: 'calcArea',
@@ -1506,7 +1511,8 @@
 
     return '<section class="screen screen--round" data-shape="' + round.shape + '"' +
                    (round.pilot ? ' data-pilot' : '') +
-                   (round.reef ? ' data-reef' : '') + ' style="' + vars + '">' +
+                   (round.reef ? ' data-reef' : '') +
+                   (round.cinema ? ' data-cinema' : '') + ' style="' + vars + '">' +
 
       '<div class="layer layer--bg s3-bg" aria-hidden="true"></div>' +
 

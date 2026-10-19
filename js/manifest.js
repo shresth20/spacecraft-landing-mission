@@ -60,6 +60,16 @@ window.GeoManifest = {
   "assets/images/Triangle craft.webp": 28980,
   "assets/images/Triangle spaceship.webp": 103760,
   "assets/images/Triangle.webp": 165974,
+  "assets/images/cinematic/atlas-fit.webp": 333444,
+  "assets/images/cinematic/atlas-loose.webp": 167438,
+  "assets/images/cinematic/atlas-tight.webp": 442646,
+  "assets/images/cinematic/land-fit.webp": 114076,
+  "assets/images/cinematic/land-loose.webp": 79546,
+  "assets/images/cinematic/land-tight.webp": 60470,
+  "assets/images/cinematic/sea.webp": 117874,
+  "assets/images/cinematic/shadow-fit.webp": 4582,
+  "assets/images/cinematic/shadow-loose.webp": 2730,
+  "assets/images/cinematic/shadow-tight.webp": 3210,
   "assets/images/drone-screen.webp": 69406,
   "assets/images/drone.webp": 93618,
   "assets/images/environment/deep-01.webp": 8828,
@@ -124,5 +134,10 @@ window.GeoManifest = {
   "assets/new3/dynamic-water-guide/assets/square-land.png": 1433933,
   "assets/new3/dynamic-water-guide/assets/underwater rock layer 02.png": 351143,
   "assets/new3/dynamic-water-guide/reference.png": 2921164,
-  "assets/new3/dynamic-water-guide/water-motion-demo.html": 26813
+  "assets/new3/dynamic-water-guide/water-motion-demo.html": 26813,
+  "assets/new4/bg.png": 1664433,
+  "assets/new4/craft distory in water.png": 2035078,
+  "assets/new4/distroy-on large land.png": 826570,
+  "assets/new4/landing successfully.png": 1929872,
+  "assets/new4/square land from angle view.png": 1050142
 };

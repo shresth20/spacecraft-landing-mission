@@ -756,6 +756,9 @@
     sfx: sfx,
     prime: prime,
     thrust: thrust,
+    /* the shared AudioContext (null over file://), for the cut-scene's
+       synthesised effects in js/cinematic-sfx.js */
+    context: ensureContext,
     stopVoice: stopVoice,
     stopAll: stopAll,
     isSpeaking: isSpeaking,

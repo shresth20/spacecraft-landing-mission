@@ -1,0 +1,654 @@
+/* ============================================================
+   Geo Drone — THE CLOSE-UP: the square's landing, as a cut-scene
+
+   The overlay js/cinematic.js plays once GO is pressed on the
+   square's landing (screen 3). z-index 7: over the sea and its
+   islands, the craft and the stick (which steps aside while it
+   plays), and UNDER the confetti (8), the narration bar (9) and the
+   hearts (10) -- the verdict is read, and the heart is lost, over
+   the shot itself.
+
+   Everything in the stage is in stage px (1600 x 900), scaled to the
+   frame by js/cinematic.js. Particles are parked by left/top and
+   moved only by their animation; their size, path and timing arrive
+   as custom properties.
+   ============================================================ */
+
+.cine {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0d6fc4;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .56s cubic-bezier(.4, 0, .2, 1), visibility 0s linear .56s;
+}
+
+.cine.is-on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity .38s cubic-bezier(.4, 0, .2, 1);
+}
+
+.cine.is-on.is-leaving {
+  opacity: 0;
+  transition: opacity .56s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* the cut (js/cinematic.js): its timeline fades the close-up in by
+   hand, frame by frame, so nothing may ease it on top */
+.cine.is-on.is-warping { transition: none; }
+
+/* cut off mid-shot (the screen was left): gone at once */
+.cine.is-cut,
+.cine.is-cut .cine__bar { transition: none; }
+
+/* the stick steps aside while the shot plays; the hearts stay */
+.screen.is-cinema .stick.is-on {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12%) scale(.9);
+  transition-delay: 0s, 0s, .7s;
+}
+
+
+/* ---------------------------------------------------------- the camera
+   .cine__cam is moved by the shot: a slow push in on the island, and
+   a shake when something is hit. The sea runs on past every edge of
+   the frame, so neither ever shows one. */
+
+.cine__cam {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.cine__sea {
+  position: absolute;
+  left: -6%;
+  top: -6%;
+  width: 112%;
+  height: 112%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.cine__stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  transform-origin: 0 0;
+}
+
+.cine__under,
+.cine__lands,
+.cine__top,
+.cine__fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cine__land,
+.cine__shade {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  height: auto;
+}
+
+.cine__shade {
+  will-change: transform, opacity;
+}
+
+/* the other landings' pieces, while one plays: `hidden` alone loses to
+   the global `img { display: block }` in css/style.css */
+.cine__land[hidden],
+.cine__shade[hidden],
+.cine__glow[hidden] { display: none; }
+
+/* The jets' light where they reach the ground. Pale at the middle and
+   not saturated, so over the orange rock it reads as light falling on
+   it rather than orange paint over orange paint. */
+.cine__glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 246, 214, .78),
+    rgba(255, 196, 120, .42) 42%,
+    rgba(255, 140, 60, .16) 70%,
+    rgba(255, 120, 40, 0));
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.cine__craft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+
+/* The jets' light, out from under the hull: white-hot where they
+   leave it, red as they reach down. Sized and placed by its transform
+   (a 100px box scaled), screened over what is behind it. */
+.cine__thrust {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+  height: 100px;
+  transform-origin: 0 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse 50% 100% at 50% 22%,
+    rgba(255, 246, 220, .95),
+    rgba(255, 168, 84, .8) 22%,
+    rgba(255, 62, 38, .55) 48%,
+    rgba(255, 24, 24, .2) 70%,
+    rgba(255, 0, 0, 0) 100%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* the cut's canvas: over the scene, under the vignette, the flash and
+   the letterbox */
+.cine__warp {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cine__warp[hidden] { display: none; }
+
+.cine__defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* The match, once the craft is down: its footprint and the island's
+   top face, over everything. On the island that fits they are the one
+   outline: its near edges are the seam's, its far ones drawn through
+   the hull as hidden lines, and a bracket on every corner. On the
+   others, the island in red and the footprint dashed white -- two
+   sizes. Faded in and out by the timeline. */
+.cine__match {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.cine__match polygon,
+.cine__match polyline {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.cine__match.is-ok {
+  filter: drop-shadow(0 0 6px rgba(120, 255, 168, .95)) drop-shadow(0 0 16px rgba(80, 255, 190, .6));
+}
+
+.cine__match.is-ok .m-foot,
+.cine__match.is-ok .m-face,
+.cine__match.is-bad .m-far { display: none; }
+
+/* hidden lines, as a drawing shows them: dashed, and fainter */
+.cine__match.is-ok .m-far {
+  stroke: #d8ffe6;
+  stroke-width: 3;
+  stroke-dasharray: 9 8;
+  opacity: 0;
+}
+
+.cine__match.is-ok .m-corner {
+  stroke: #7dffb0;
+  stroke-width: 8;
+  opacity: 0;
+}
+
+.cine__match.is-bad {
+  filter: drop-shadow(0 0 5px rgba(0, 0, 0, .45));
+}
+
+.cine__match.is-bad .m-foot {
+  stroke: #fff;
+  stroke-width: 4;
+  stroke-dasharray: 14 9;
+  animation: cineGuide .9s linear infinite;
+}
+
+.cine__match.is-bad .m-face {
+  fill: rgba(255, 90, 74, .2);
+  stroke: #ff5a4a;
+  stroke-width: 5;
+  animation: cineMismatch .36s ease-in-out infinite alternate;
+}
+
+.cine__match.is-bad .m-corner {
+  stroke: #fff;
+  stroke-width: 7;
+}
+
+@keyframes cineMismatch {
+  to { fill: rgba(255, 90, 74, .38); stroke-width: 7; }
+}
+
+/* The landing guide: the craft's footprint projected on the ground it
+   is coming down on, scanning as it comes. Its verdict, once there is
+   still ground round it to read it against: green edge for edge,
+   red hanging off the island or lost inside it. */
+.cine__guide {
+  --guide: 128, 240, 255;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 0 6px rgba(var(--guide), .85));
+}
+
+.cine__guide.is-ok  { --guide: 120, 255, 168; }
+.cine__guide.is-bad { --guide: 255, 98, 82; }
+
+.cine__guide polygon {
+  fill: rgba(var(--guide), .2);
+  stroke: rgb(var(--guide));
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-dasharray: 16 10;
+  animation: cineGuide .9s linear infinite;
+}
+
+/* the corners, which still show when the hull is over most of it */
+.cine__guide polyline {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cine__guide.is-bad polygon {
+  animation: cineGuide .9s linear infinite, cineGuideBad .3s ease-in-out 3;
+}
+
+.cine__guide.is-ok polyline,
+.cine__guide.is-bad polyline { stroke: rgb(var(--guide)); }
+
+@keyframes cineGuide { to { stroke-dashoffset: -52; } }
+@keyframes cineGuideBad { 50% { stroke-width: 7; fill: rgba(var(--guide), .4); } }
+
+/* the seam, lit from the front corner outwards once the craft is down
+   edge for edge (pathLength 100, so the dash is the whole edge) */
+.cine__seam {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px #7ff6ff) drop-shadow(0 0 14px rgba(43, 212, 255, .85));
+}
+
+.cine__seam polyline {
+  fill: none;
+  stroke: #effeff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+}
+
+.cine__seam.is-lit polyline {
+  animation: cineSeam 1.7s cubic-bezier(.3, .6, .3, 1) forwards;
+}
+
+@keyframes cineSeam {
+  0%   { stroke-dashoffset: 100; opacity: 1; }
+  38%  { stroke-dashoffset: 0; opacity: 1; }
+  70%  { opacity: .9; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+
+/* ---------------------------------------------------------- the frame
+   The letterbox slides in with the cut and back out with it; the
+   vignette and the flash are on the lens, not in the scene. */
+
+.cine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 58%, rgba(0, 20, 46, .36));
+  pointer-events: none;
+}
+
+.cine__flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cine__bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: var(--cine-bar, 8.5%);
+  background: #01060d;
+  transition: transform .7s cubic-bezier(.22, 1, .36, 1);
+}
+
+.cine__bar--top    { top: 0;    transform: translateY(-101%); }
+.cine__bar--bottom { bottom: 0; transform: translateY(101%); }
+
+.cine.is-on .cine__bar { transform: none; }
+.cine.is-on.is-leaving .cine__bar--top    { transform: translateY(-101%); }
+.cine.is-on.is-leaving .cine__bar--bottom { transform: translateY(101%); }
+
+
+/* ---------------------------------------------------------- particles */
+
+.cine-p {
+  position: absolute;
+  display: block;
+  pointer-events: none;
+}
+
+/* Billows -- smoke, steam, dust, soot: soft lobes of one colour, so a
+   puff reads as a cloud and not a disc, and melts into the next */
+.cine-puff {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  background:
+    radial-gradient(circle at 36% 46%, var(--tint) 0 10%, transparent 42%),
+    radial-gradient(circle at 63% 41%, var(--tint) 0 8%, transparent 38%),
+    radial-gradient(circle at 50% 62%, var(--tint) 0 12%, transparent 46%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--tint) 55%, transparent) 0 20%, transparent 60%);
+  opacity: 0;
+  animation: cinePuff var(--dur) cubic-bezier(.2, .6, .35, 1) var(--delay) both;
+}
+
+@keyframes cinePuff {
+  0%   { transform: translate(0, 0) scale(.35); opacity: 0; }
+  14%  { opacity: var(--peak); }
+  100% { transform: translate(var(--dx), var(--dy)) scale(var(--grow)); opacity: 0; }
+}
+
+/* Drops: up out of the sea and back down into it */
+.cine-drop {
+  width: var(--sz);
+  height: calc(var(--sz) * 1.2);
+  margin: calc(var(--sz) * -.6) 0 0 calc(var(--sz) / -2);
+  border-radius: 50% 50% 50% 50% / 60% 60% 42% 42%;
+  background: radial-gradient(circle at 38% 34%, #fff 0 30%, #c4f4ff 56%, rgba(110, 210, 255, .92) 78%);
+  box-shadow: 0 0 6px rgba(200, 246, 255, .7);
+  opacity: 0;
+  animation: cineDrop var(--dur) linear var(--delay) both;
+}
+
+@keyframes cineDrop {
+  0%   { transform: translate(0, 0) scale(.6); opacity: 0;
+         animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  8%   { opacity: 1; }
+  45%  { transform: translate(calc(var(--dx) * .55), var(--up)) scale(1);
+         animation-timing-function: cubic-bezier(.6, 0, .9, .5); }
+  90%  { opacity: .9; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(.7); opacity: 0; }
+}
+
+/* A ring across the water, as flat as the sea is seen from here */
+.cine-ripple {
+  width: var(--sz);
+  height: calc(var(--sz) * .44);
+  margin: calc(var(--sz) * -.22) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .86);
+  box-shadow: 0 0 8px rgba(200, 245, 255, .55), inset 0 0 10px rgba(200, 245, 255, .35);
+  opacity: 0;
+  animation: cineRipple var(--dur) cubic-bezier(.2, .6, .3, 1) var(--delay) both;
+}
+
+@keyframes cineRipple {
+  0%   { transform: scale(var(--from)); opacity: 0; }
+  12%  { opacity: var(--peak); }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+/* White water thrown open round a splash, flat on the sea */
+.cine-foam {
+  width: var(--sz);
+  height: calc(var(--sz) * .44);
+  margin: calc(var(--sz) * -.22) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(255, 255, 255, .95) 64%,
+    rgba(226, 250, 255, .78) 78%,
+    rgba(255, 255, 255, 0));
+  opacity: 0;
+  animation: cineFoam var(--dur) cubic-bezier(.15, .7, .3, 1) var(--delay) both;
+}
+
+@keyframes cineFoam {
+  0%   { transform: scale(.25); opacity: 0; }
+  10%  { opacity: 1; }
+  65%  { opacity: .75; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.cine-bubble {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  border: 1.5px solid rgba(235, 252, 255, .9);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .95) 0 14%,
+              rgba(180, 240, 255, .28) 32%, rgba(120, 210, 255, .12) 72%);
+  opacity: 0;
+  animation: cineBubble var(--dur) ease-out var(--delay) both;
+}
+
+@keyframes cineBubble {
+  0%   { transform: translate(0, 0) scale(.4); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1); opacity: 0; }
+}
+
+/* Chips of rock or metal, faceted, tumbling on an arc */
+.cine-chip {
+  width: var(--sz);
+  height: calc(var(--sz) * .8);
+  margin: calc(var(--sz) * -.4) 0 0 calc(var(--sz) / -2);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--tint) 62%, #fff) 0 32%,
+    var(--tint) 33% 68%,
+    color-mix(in srgb, var(--tint) 62%, #000) 69%);
+  clip-path: polygon(18% 0, 82% 12%, 100% 58%, 66% 100%, 8% 84%, 0 30%);
+  opacity: 0;
+  animation: cineChip var(--dur) linear var(--delay) both;
+}
+
+@keyframes cineChip {
+  0%   { transform: translate(0, 0) rotate(0); opacity: 1;
+         animation-timing-function: cubic-bezier(.2, .7, .4, 1); }
+  42%  { transform: translate(calc(var(--dx) * .5), var(--up)) rotate(calc(var(--rot) * .45));
+         animation-timing-function: cubic-bezier(.6, 0, .9, .4); }
+  86%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+}
+
+/* Sparks: hot streaks along the way they are thrown */
+.cine-spark {
+  width: var(--len);
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 170, 60, 0), #ffcf6b 45%, #fffbe6);
+  box-shadow: 0 0 6px #ffb347, 0 0 12px rgba(255, 140, 40, .6);
+  transform-origin: 0 50%;
+  opacity: 0;
+  animation: cineSpark var(--dur) cubic-bezier(.15, .7, .4, 1) var(--delay) both;
+}
+
+@keyframes cineSpark {
+  0%   { transform: translate(0, 0) rotate(var(--ang)) scaleX(.3); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--ang)) scaleX(1); opacity: 0; }
+}
+
+.cine-ember {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff3c2 0 25%, #ffae42 50%, rgba(255, 90, 20, 0) 72%);
+  opacity: 0;
+  animation: cineEmber var(--dur) ease-out var(--delay) both;
+}
+
+@keyframes cineEmber {
+  0%   { transform: translate(0, 0); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+
+/* Fire, on a smashed corner of the wreck: it flickers until the shot
+   is over (it is not removed when its fade in ends -- js/cinematic.js) */
+.cine-fire {
+  width: var(--sz);
+  height: calc(var(--sz) * 1.6);
+  margin: calc(var(--sz) * -1.45) 0 0 calc(var(--sz) / -2);
+  border-radius: 50% 50% 44% 44% / 72% 72% 28% 28%;
+  background:
+    radial-gradient(ellipse 30% 26% at 50% 76%, #fffbe2 0 50%, transparent 100%),
+    radial-gradient(ellipse 46% 44% at 50% 68%, #ffd45c 0 55%, transparent 100%),
+    radial-gradient(ellipse 50% 62% at 50% 60%, #ff8a2c 0 60%, rgba(255, 80, 20, 0) 100%);
+  transform-origin: 50% 92%;
+  opacity: 0;
+  animation: cineFireIn .45s ease-out var(--delay, 0ms) both,
+             cineFire var(--flick, .18s) ease-in-out var(--delay, 0ms) infinite alternate;
+}
+
+/* the light the fire throws on the hull round it */
+.cine-fireglow {
+  width: var(--sz);
+  height: var(--sz);
+  margin: calc(var(--sz) / -2) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 170, 70, .5), rgba(255, 110, 30, .18) 55%, rgba(255, 90, 20, 0));
+  opacity: 0;
+  animation: cineFireIn .45s ease-out both, cineGlow .9s ease-in-out .45s infinite alternate;
+}
+
+@keyframes cineFireIn { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes cineFire {
+  from { transform: scale(.86, .92) skewX(-6deg); }
+  to   { transform: scale(1.05, 1.18) skewX(6deg); }
+}
+
+@keyframes cineGlow {
+  from { transform: scale(.92); opacity: .75; }
+  to   { transform: scale(1.06); opacity: 1; }
+}
+
+/* Exhaust: a hot drop of flame thrown down off the hull's underside,
+   cooling to red as it goes */
+.cine-exhaust {
+  width: var(--sz);
+  height: calc(var(--sz) * 1.8);
+  margin: calc(var(--sz) * -.9) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 250, 228, .95),
+    rgba(255, 156, 72, .8) 38%,
+    rgba(255, 52, 32, .45) 68%,
+    rgba(255, 30, 20, 0));
+  opacity: 0;
+  animation: cineExhaust var(--dur) cubic-bezier(.25, .6, .4, 1) both;
+}
+
+@keyframes cineExhaust {
+  0%   { transform: translate(0, 0) scale(.5, .7); opacity: 0; }
+  12%  { opacity: var(--peak, .95); }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.5, 1.1); opacity: 0; }
+}
+
+/* The touchdown's shock: a ring of light out over the rock, as flat
+   as the island's top is seen. Scaled and faded by the timeline. */
+.cine-shock {
+  width: var(--sz);
+  height: calc(var(--sz) * .46);
+  margin: calc(var(--sz) * -.23) 0 0 calc(var(--sz) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 255, 255, 0) 56%,
+    rgba(232, 255, 246, .95) 78%,
+    rgba(140, 255, 200, .55) 90%,
+    rgba(255, 255, 255, 0));
+  opacity: 0;
+}
+
+/* Success: a spark of light up off the outline, a four-point star.
+   Moved, turned and faded by the timeline. */
+.cine-win {
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  background:
+    radial-gradient(circle, #fff 0 12%, var(--tint) 24%, transparent 46%),
+    linear-gradient(90deg, transparent 45%, var(--tint) 50%, transparent 55%),
+    linear-gradient(0deg, transparent 45%, var(--tint) 50%, transparent 55%);
+  -webkit-mask: radial-gradient(circle, #000 26%, transparent 66%);
+          mask: radial-gradient(circle, #000 26%, transparent 66%);
+  opacity: 0;
+}
+
+/* A four-point glint on a corner of the seam */
+.cine-glint {
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
+  background:
+    radial-gradient(circle, #fff 0 9%, rgba(170, 248, 255, .75) 17%, transparent 42%),
+    linear-gradient(90deg, transparent 47%, rgba(255, 255, 255, .95) 50%, transparent 53%),
+    linear-gradient(0deg, transparent 47%, rgba(255, 255, 255, .95) 50%, transparent 53%);
+  -webkit-mask: radial-gradient(circle, #000 22%, transparent 62%);
+          mask: radial-gradient(circle, #000 22%, transparent 62%);
+  opacity: 0;
+  animation: cineGlint .8s ease-out var(--delay) both;
+}
+
+@keyframes cineGlint {
+  0%   { transform: scale(0) rotate(0); opacity: 0; }
+  40%  { transform: scale(1.15) rotate(45deg); opacity: 1; }
+  100% { transform: scale(.5) rotate(90deg); opacity: 0; }
+}

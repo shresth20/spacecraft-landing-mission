@@ -33,6 +33,9 @@
   <link rel="stylesheet" href="css/pilot.css" />
   <!-- The square landing's supplied artwork: ocean, underwater rocks, land. -->
   <link rel="stylesheet" href="css/reef.css" />
+  <!-- and its landings as a cut-scene, played over the screen once GO is
+       pressed: the letterbox, the shot's layers and its particles -->
+  <link rel="stylesheet" href="css/cinematic.css" />
 
   <!-- the one face in the game, and the gate's title is the first
        type on screen -->
@@ -373,6 +376,15 @@
 <!-- the helm: flying the square's craft by hand. Before script.js,
      which hands it the landing screen's site at boot. -->
 <script src="js/pilot.js"></script>
+<!-- the square's landing as a cut-scene: its art, cut from the new4
+     sheets by tools/build_cinematic.py, then the player. Before
+     script.js, which builds it at boot and plays it from GO. Its
+     effects are tweened by anime.js (vendored, v3.2.2, MIT) and its
+     sounds synthesised by js/cinematic-sfx.js. -->
+<script src="js/vendor/anime.min.js"></script>
+<script src="js/cinematic-assets.js"></script>
+<script src="js/cinematic-sfx.js"></script>
+<script src="js/cinematic.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

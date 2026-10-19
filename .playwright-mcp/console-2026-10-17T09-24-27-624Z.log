@@ -1,0 +1,5 @@
+[   15733ms] [LOG] index script loaded @ https://study.iitm.ac.in/assets/js/custom/index.js:4
+[   15736ms] TypeError: Cannot read properties of null (reading 'innerHTML')
+    at https://study.iitm.ac.in/assets/js/custom/index.js:61:55
+[   15846ms] [ERROR] Failed to load resource: net::ERR_NAME_NOT_RESOLVED @ https://dsp-media.eskimi.comassets/js/e/gtr.min.js?_=0.0.0.3:0
+[   22894ms] [LOG] [Session] Created new session ID: 02085386-5adf-4ba3-8989-e33c87ded15b @ https://iitm-chatbot-worker-67856606432.asia-south1.run.app/qa.js:44

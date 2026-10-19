@@ -1,0 +1,2 @@
+[    8822ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0
+[    8822ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0

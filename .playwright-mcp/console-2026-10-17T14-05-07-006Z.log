@@ -1,0 +1,88 @@
+[    3179ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: https://use.fontawesome.com/releases/v5.0.6/webfonts/fa-solid-900.woff2 @ https://ds.study.iitm.ac.in/auth/login?_gl=1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw:0
+[   14665ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: https://fonts.gstatic.com/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2 @ https://connect.facebook.net/en_US/fbevents.js:305
+[  244865ms] Uncaught Error: Network Error
+    at <anonymous> (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:97184)
+    at e.b (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:28682)
+    at Pe (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:29666)
+    at De (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:29536)
+    at t.ec (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:30376)
+    at pe (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:27437)
+[  266650ms] Uncaught Error: Network Error
+    at <anonymous> (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:97632)
+[  272908ms] [WARNING] A network error (such as timeout, interrupted connection or unreachable host) has occurred. @ https://online-degree-app.firebaseapp.com/__/auth/iframe.js:314
+[  272908ms] [ERROR] Failed to load resource: net::ERR_NETWORK_CHANGED @ https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=AIzaSyC4QcaiopJCgvU23NOD6j2fON45oz8jNqA&cb=1792246173698:0
+[  281497ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: https://use.fontawesome.com/releases/v5.0.6/webfonts/fa-solid-900.woff2 @ https://ds.study.iitm.ac.in/auth/login?_gl=1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw:844
+[  284808ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://www.googleadservices.com/pagead/conversion/612138151/?random=1792246188607&cv=11&fst=1792246188607&fmt=7&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6ae1v9132755996z89176569161za20gzb9176569161zd9176569161xeaxf1&gcd=13l3l3l3l1l1&dma=0&tag_exp=115616986~115938466~115938468~117628654~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&u_w=1280&u_h=832&url=https%3A%2F%2Fds.study.iitm.ac.in%2Fauth%2Flogin%3F_gl%3D1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw&rcb=13&label=SE64COHYtpoYEKf58aMC&frm=0&tiba=IIT%20Madras%20BS%20Degree%20Programme&bttype=purchase&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1079267307.1792245721&uaa=arm&uab=64&uafvl=Chromium%3B154.0.8037.99%7CGoogle%2520Chrome%3B154.0.8037.99%7CNot%2520A(Brand%3B99.0.0.0&uamb=0&uam=&uap=macOS&uapv=27.0.1&uaw=0&ec_mode=a&oid=GG_2144251932.1792246189&oidsrc=3&ecsid=2016029547.1792245730&ecsid2=1711047260.1792245730&_tu=CBA&gcl_ctr=3~0~0~0&category=acrcp_v1_512&em=tv.1&emd=tvd.1&ept=5:0
+[  284810ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://www.googleadservices.com/ccm/conversion/612138151/?random=1792246188607&cv=11&fst=1792246188607&fmt=3&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6ae1v9132755996z89176569161za20gzb9176569161zd9176569161xeaxf1&gcd=13l3l3l3l1l1&dma=0&tag_exp=115616986~115938466~115938468~117628654~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&u_w=1280&u_h=832&url=https%3A%2F%2Fds.study.iitm.ac.in%2Fauth%2Flogin%3F_gl%3D1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw&rcb=13&label=SE64COHYtpoYEKf58aMC&frm=0&tiba=IIT%20Madras%20BS%20Degree%20Programme&bttype=purchase&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1079267307.1792245721&uaa=arm&uab=64&uafvl=Chromium%3B154.0.8037.99%7CGoogle%2520Chrome%3B154.0.8037.99%7CNot%2520A(Brand%3B99.0.0.0&uamb=0&uam=&uap=macOS&uapv=27.0.1&uaw=0&ec_mode=a&oid=GG_2144251932.1792246189&oidsrc=3&ecsid=2016029547.1792245730&ecsid2=1711047260.1792245730&_tu=CBA&gcl_ctr=3~0~0~0&category=acrcp_v1_512&em=tv.1&emd=tvd.1:0
+[  284815ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: https://fonts.gstatic.com/s/roboto/v51/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3yUBHMdazQ.woff2 @ https://ds.study.iitm.ac.in/auth/login?_gl=1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw:0
+[  289926ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://www.google.co.in/pagead/1p-conversion/612138151/?random=607656708&cv=11&fst=1792246188607&fmt=3&bg=ffffff&guid=ON&async=1&en=conversion&gtm=45be6ae1v9132755996z89176569161za20gzb9176569161zd9176569161xeaxf1&gcd=13l3l3l3l1l1&dma=0&tag_exp=115616986~115938466~115938468~117628654~118897920~118897930~120213116~120385422~120469145~120469153~121246026~121246034&u_w=1280&u_h=832&url=https%3A%2F%2Fds.study.iitm.ac.in%2Fauth%2Flogin%3F_gl%3D1*zt054g*_gcl_au*MTA3OTI2NzMwNy4xNzkyMjQ1NzIxLjIwMTYwMjk1NDcuMTc5MjI0NTczMC4xNzkyMjQ1NzMwLjE3MTEwNDcyNjAuMTc5MjI0NTczMC4xNzkyMjQ1NzMw&rcb=13&label=SE64COHYtpoYEKf58aMC&frm=0&tiba=IIT%20Madras%20BS%20Degree%20Programme&value=0&hn=www.googleadservices.com&npa=0&pscdl=noapi&auid=1079267307.1792245721&uaa=arm&uab=64&uafvl=Chromium%3B154.0.8037.99%7CGoogle%2520Chrome%3B154.0.8037.99%7CNot%2520A(Brand%3B99.0.0.0&uamb=0&uam=&uap=macOS&uapv=27.0.1&uaw=0&ec_mode=a&oidsrc=3&ecsid=2016029547.1792245730&ecsid2=1711047260.1792245730&_tu=CBA&gcl_ctr=3~0~0~0&category=acrcp_v1_512&em=tv.1&emd=tvd.1&gcp=2&sscte=1&ct_cookie_present=1&ept=8&ct_cookie_present=false&eoid=CkgKEQjwuczWBhDPyoHsqOOJobgBEjMASEyRh8UAaYw3tc9soz4VCs7p6b6JlmGOrkBHtZ27u4AFry6Wl54beCJ3gqOsdJaw5Ezw_wcB&crd=CLTesQII8t-xAgit4bECCK_hsQIIobixAgixwbECCLDBsQIIscOxAgiKxbECCMLJsQII1-ixAgi0xrECCOHTsQIIh9uxAgjTxbECCOvMsQII7c6xAgjVz7ECCIrysQII9NqxAgji6rECCOjusQIIkuuxAgjJ47ECCJfUsQIIyduxAgim3bECCLDesQIIgNuxAgjN4bEC&cerd=CgS5674t&eitems=ChEI8LnM1gYQjuGBksKmvuipARIdANDD3w6VsmD21pL7bOAnUs40vKco3rmBW2Mlv2c&fsk=ChAI8LnM1gYQh7mguv2gvsQTEiwA8eoU3NEvDgoLb4jsxfLfwbO4DRK6GYd5ib7V2OE5MWb8SNcQQdwKAK7yYhoC4uA&ipr=y&pscrd=IhMIgO-KrZ3BlwMV2I5mAh194BPhOhxodHRwczovL2RzLnN0dWR5LmlpdG0uYWMuaW4vQlZDaEFJOExuTTFnWVFxY0RpZ01uUWp0OWNFaXdBN3d3MWFtdWV0X3NWR0JJUk9oV1RKUnZOY1BHX2xWY3R2VF8yZ0k5TGVhX2VveXFnZGMzb3NwSndEZ2ICIAF6DAgJYggIABAAGAAgAYIBE3ABiAEB4gEBAvEBgBZ_Q33K5D8&ezwbk=AZuM4hCw5Pg53SSkGAuESW7MVBAD5EiarR5yx8fKRwV1LCGFWMMXJ2wiwa40-9OvV9InfDN02QY751Imjpal_C_FLIV1:0
+[  290628ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://apis.google.com/js/api.js?onload=__iframefcb784401:0
+[  290632ms] Uncaught Error: Network Error
+    at <anonymous> (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:97184)
+    at Ne.e.a.e.b (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:28682)
+    at Pe (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:29666)
+    at De (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:29536)
+    at <anonymous> (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:30376)
+    at pe (https://www.gstatic.com/firebasejs/7.14.2/firebase-auth.js:0:27437)
+[  329374ms] [LOG] version: 3.34.0 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  353172ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR @ https://seek.onlinedegree.iitm.ac.in/default-src_app_shared_assessments-view_assessments-view_component_ts-src_app_shared_pipes_pl-ac103b.f0e6d2b9a1e8f647.js:0
+[  353188ms] [ERROR] ChunkLoadError: Loading chunk default-src_app_shared_assessments-view_assessments-view_component_ts-src_app_shared_pipes_pl-ac103b failed.
+(error: https://seek.onlinedegree.iitm.ac.in/default-src_app_shared_assessments-view_assessments-view_component_ts-src_app_shared_pipes_pl-ac103b.f0e6d2b9a1e8f647.js)
+    at a.f.j (https://seek.onlinedegree.iitm.ac.in/runtime.a049119c25f3eeb3.js:3:5373)
+    at https://seek.onlinedegree.iitm.ac.in/runtime.a049119c25f3eeb3.js:3:1276
+    at Array.reduce (<anonymous>)
+    at a.e (https://seek.onlinedegree.iitm.ac.in/runtime.a049119c25f3eeb3.js:3:1255)
+    at Object.loadChildren (https://seek.onlinedegree.iitm.ac.in/main.aee142f7bb750e31.js:3:306385)
+    at ia (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:672404)
+    at w.loadChildren (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:672711)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:669533
+    at ft (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:160703)
+    at et (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:160636)
+    at y._next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:156578)
+    at y.next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:145855)
+    at be._subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:154545)
+    at be._trySubscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141433)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141375
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at se (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:160935)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:160991
+    at y.<anonymous> (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:173583)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141335
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:163884
+    at y.<anonymous> (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:173583)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141335
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at me.subscribe.re (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:163970)
+    at y._next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:156578)
+    at y.next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:145855)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:160023
+    at y._next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:156578)
+    at y.next (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:145855)
+    at be._subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:154545)
+    at be._trySubscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141433)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141375
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:159994
+    at y.<anonymous> (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:173583)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141335
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:163884
+    at y.<anonymous> (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:173583)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141335
+    at y (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:171846)
+    at be.subscribe (https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:141282)
+    at https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:3:157650 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  395165ms] [LOG] version: 3.34.0 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  432938ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  432938ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  457050ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  457064ms] [ERROR] Cross-Origin-Opener-Policy policy would block the window.closed call. @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  490639ms] [LOG] version: 3.34.0 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  494440ms] [LOG] version: 3.34.0 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2
+[  549455ms] [LOG] version: 3.34.0 @ https://seek.onlinedegree.iitm.ac.in/vendor.0426e8e9e756af17.js:2

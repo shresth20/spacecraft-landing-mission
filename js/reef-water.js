@@ -577,8 +577,11 @@
     if (s.reduced) s.timer = setTimeout(function () { s.timer = 0; schedule(s); }, 250);
     else schedule(s);
   }
+  // and not while a landing plays as a cut-scene over the whole screen
+  // (js/cinematic.js), where none of this sea can be seen
   function running(s) {
     return s.ok && s.screen.classList.contains('is-active') && !doc.hidden &&
+      !s.screen.classList.contains('is-cinema') &&
       !(global.GeoLife && global.GeoLife.isPaused && global.GeoLife.isPaused());
   }
   function schedule(s) {
