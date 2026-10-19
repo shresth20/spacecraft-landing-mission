@@ -34,8 +34,8 @@
      the lens is already down on the landing site: the three squares
      (54, 24 and 36 square units) break the surface strewn round the
      middle of the frame, the craft flies in and hovers there, its
-     side is called out, the areas are printed on, "choose the
-     landing zone with the exact area" -- and the joystick comes up.
+     side is called out, the areas are printed on -- and the
+     joystick comes up.
      The player flies the craft over an island, lets go, and presses
      GO (js/pilot.js); it comes down and the geometry decides what
      happens (see THE LANDING below). A miss costs one of three
@@ -103,6 +103,15 @@
      lands the way it always has: from straight overhead. */
   var CINEMA = global.GeoCinema || null;
 
+  /* js/square-landing.js -- the fit, close up: the craft and the
+     island alone, every jet and puff of smoke drawn live. It stands in
+     for the cut-scene's own fit shot wherever its art is in. */
+  var SQUARE = global.GeoSquareLanding || null;
+
+  /* js/close-up.js -- the overhead lens down onto the island before
+     the cut-scene, and back up to where it was once it has finished */
+  var CLOSE = global.GeoCloseUp || null;
+
   var el = {};
   var launched = false;
 
@@ -156,7 +165,8 @@
       'topbar', 'topbarText',
       'confetti', 'advanceBtn',
       'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
-      'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext'
+      'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext',
+      'navDebug', 'navDebugMenu'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -876,7 +886,7 @@
       function () { return priceRound(b); },
 
       function () { return narrate(e.topbarText, round.areaKey); },
-      function () { return narrate(e.topbarText, 'chooseExact'); },
+      function () { if (b.askExact) return narrate(e.topbarText, 'chooseExact'); },
 
       /* --- over to the player, for as many attempts as it takes ---
          by tapping an island, or on a flown landing by flying there */
@@ -1223,8 +1233,13 @@
        its hover point, the controller away */
     if (flown(round)) PILOT.reset(round);
 
-    /* a landing being played as a cut-scene stops where it stands */
+    /* a landing being played as a cut-scene stops where it stands, and
+       the lens is taken off the island at once; a craft hidden for the
+       pull back (failCinema) is shown again */
     if (CINEMA) CINEMA.stop(round);
+    if (SQUARE) SQUARE.stop(round);
+    if (CLOSE) CLOSE.stop(round);
+    if (e.ship) e.ship.style.removeProperty('visibility');
 
     e.pads.classList.remove('is-picking', 'is-cleared', 'is-choosing', 'is-priced');
     (e.all || roundPads(round)).forEach(function (pad) {
@@ -1411,6 +1426,25 @@
     return !!(CINEMA && CINEMA.has(site) && !M.reduced());
   }
 
+  /* Around the cut-scene, the overhead lens (js/close-up.js): down onto
+     the island GO was pressed over before the shot, and back up to just
+     where it was once the shot has finished -- called off the shot's
+     own `done`, so a long one is never cut short. `alive` stops either
+     dead. Without the module the shot simply plays as it always has. */
+  function closeIn(site, pad, alive) {
+    return CLOSE ? CLOSE.zoomIn(site, pad, { alive: alive }) : Promise.resolve(true);
+  }
+
+  function closeOut(site, alive) {
+    if (!CLOSE || !alive()) return Promise.resolve(false);
+    return CLOSE.zoomOut(site, { alive: alive });
+  }
+
+  /* for what measures the screen as the parked camera lays it out */
+  function closeBare(site, fn) {
+    return CLOSE ? CLOSE.bare(site, fn) : fn();
+  }
+
   function startPiloting(round, id) {
     round.phase = 'area';
     armPilot(round);
@@ -1537,40 +1571,56 @@
      cut the top-down landing runs too, in silence, so that the shot
      hands back to a craft already planted on its island. "Perfect
      match" is said over the shot, while the craft sits edge for edge
-     on the rock; "landing successful" once it has handed back. */
+     on the rock; "landing successful" once it has handed back. The
+     lens comes down onto the island before the shot and goes back up
+     after it (closeIn, closeOut). */
   function plantCinema(round, pad, ref, id, auto) {
     var e = round.el;
     var said = null;
+    var alive = function () { return live(id); };
 
-    var under = F.successfulLanding(e.ship, pad, {
-      refPad: ref,
-      geo: round.geo,
-      alive: function () { return live(id); },
-      onTouchdown: function () {
-        pad.classList.add('is-fit');
-        SEA.settle(pad);
-      }
-    });
+    /* the lens down onto the island first, and the shot once it has
+       stopped (js/close-up.js) */
+    return closeIn(round, pad, alive).then(function () {
+      if (!live(id)) return;
 
-    var shot = CINEMA.play(round, 'fit', {
-      alive: function () { return live(id); },
-      onTouchdown: function () {
-        if (flown(round)) PILOT.stow(round);
-        A.sfx('correct', { volume: 0.6 });
-        M.wait(220).then(function () {
-          if (!live(id)) return;
-          A.sfx('cheer', { volume: 0.5 });
-          M.confetti(e.confetti);
+      /* measured off the screen as the parked camera lays it out, so
+         with the lens's zoom taken off for that moment */
+      var under = closeBare(round, function () {
+        return F.successfulLanding(e.ship, pad, {
+          refPad: ref,
+          geo: round.geo,
+          alive: alive,
+          onTouchdown: function () {
+            pad.classList.add('is-fit');
+            SEA.settle(pad);
+          }
         });
-      },
-      onSettle: function () {
-        said = Promise.resolve(auto && auto.said).then(function () {
-          if (live(id)) return narrate(e.topbarText, 'perfectFit');
-        });
-      }
-    });
+      });
 
-    return Promise.all([under, shot]).then(function () {
+      var shot = (SQUARE && SQUARE.has(round) ? SQUARE : CINEMA).play(round, 'fit', {
+        alive: alive,
+        onTouchdown: function () {
+          if (flown(round)) PILOT.stow(round);
+          A.sfx('correct', { volume: 0.6 });
+          M.wait(220).then(function () {
+            if (!live(id)) return;
+            A.sfx('cheer', { volume: 0.5 });
+            M.confetti(e.confetti);
+          });
+        },
+        onSettle: function () {
+          said = Promise.resolve(auto && auto.said).then(function () {
+            if (live(id)) return narrate(e.topbarText, 'perfectFit');
+          });
+        }
+      });
+
+      /* and back out off the shot's own end, never a clock */
+      return Promise.all([under, shot.then(function () {
+        return closeOut(round, alive);
+      })]);
+    }).then(function () {
       return said;
     }).then(function () {
       if (!live(id) || auto) return;
@@ -1615,7 +1665,7 @@
                   within reach to go over — so it wrecks ON the rock
                   and never reaches the sea                         */
   function failRound(round, pad, ref, tight, id) {
-    if (cinema(round)) return failCinema(round, ref, tight, id);
+    if (cinema(round)) return failCinema(round, ref, tight, id, pad);
 
     var e = round.el;
 
@@ -1653,20 +1703,22 @@
           if (helm) armPilot(round);
           else armRound(round);
         }
-        return narrate(e.topbarText, 'chooseExact');
+        if (round.askExact) return narrate(e.topbarText, 'chooseExact');
       });
   }
 
   /* ---------------------------------------------------------- it does not, close up
      Both failures played as the cut-scene: off the edge of an island
      too small for it and into the sea, or wrecked on one far too big.
-     Nothing moves under the cut this time -- the craft waits over the
-     island it was flown to -- and as the shot fades back it is put back
-     on its rail, so the player sees it drop in at the middle of the
-     frame (shipArrive), as after a miss seen from overhead. The heart
-     goes on the frame the craft hits the water or the rock, with its
-     sound, and the verdict is spoken over the struggle. */
-  function failCinema(round, ref, tight, id) {
+     The lens comes down onto the island first (closeIn), and nothing
+     moves under the cut this time -- the craft waits over the island
+     it was flown to. As the shot fades back the craft is gone, so the
+     lens pulls back (closeOut) off the island alone; then the craft is
+     put back on its rail, and the player sees it drop in at the middle
+     of the frame (shipArrive), as after a miss seen from overhead. The
+     heart goes on the frame the craft hits the water or the rock, with
+     its sound, and the verdict is spoken over the struggle. */
+  function failCinema(round, ref, tight, id, pad) {
     var e = round.el;
     var helm = flown(round);
     var said = null;
@@ -1675,27 +1727,49 @@
        impact -- see failFlight() */
     var bang = A.prime(tight ? 'sink' : 'crash');
 
-    return CINEMA.play(round, tight ? 'tight' : 'loose', {
-      alive: function () { return live(id); },
-      onSettle: function () {
-        said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
-      },
-      onImpact: function () {
-        if (helm) PILOT.loseLife(round);
-        bang({ volume: tight ? 0.75 : 0.85 });
-      },
-      onReturn: function () {
-        if (helm) PILOT.home(round);
-        F.resetSpaceship(e.ship);
-        e.shipDims.classList.add('is-drawn');
-      }
+    /* too small, played live from the two pictures where their art is
+       in (js/square-landing.js); otherwise the cut-scene's sheets */
+    var kind = tight ? 'tight' : 'loose';
+    var player = SQUARE && SQUARE.has(round, kind) ? SQUARE : CINEMA;
+    var alive = function () { return live(id); };
+
+    /* the lens down onto the island first, and the shot once it has
+       stopped (js/close-up.js) */
+    return closeIn(round, pad, alive).then(function () {
+      if (!live(id)) return;
+      return player.play(round, kind, {
+        areas: { craft: round.area, land: pad ? +pad.dataset.area : 0 },
+        alive: alive,
+        onSettle: function () {
+          said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
+        },
+        onImpact: function () {
+          if (helm) PILOT.loseLife(round);
+          bang({ volume: tight ? 0.75 : 0.85 });
+        },
+        /* the craft is lost: the shot fades back onto the island
+           alone, and the lens pulls back off it with nothing on it */
+        onReturn: function () {
+          e.ship.style.visibility = 'hidden';
+        }
+      });
     }).then(function () {
+      /* back out off the shot's own end, never a clock */
+      return closeOut(round, alive);
+    }).then(function () {
+      if (!live(id)) return;
+      /* the lens is all the way out: the craft is put back on its
+         rail, and the player sees it drop in at the middle of the
+         frame (shipArrive) */
+      e.ship.style.removeProperty('visibility');
+      if (helm) PILOT.home(round);
+      F.resetSpaceship(e.ship);
+      e.shipDims.classList.add('is-drawn');
       return said;
     }).then(function () {
       if (!live(id)) return;
-      /* it dropped back in as the shot faded; the controls wait until
-         it is on its station */
-      return M.wait(helm ? 900 : 400);
+      /* the controls wait until it is on its station */
+      return M.wait(helm ? 1460 : 960);
     }).then(function () {
       if (!live(id)) return;
       round.landing = false;
@@ -1704,7 +1778,7 @@
         if (helm) armPilot(round);
         else armRound(round);
       }
-      return narrate(e.topbarText, 'chooseExact');
+      if (round.askExact) return narrate(e.topbarText, 'chooseExact');
     });
   }
 
@@ -1770,8 +1844,8 @@
      SCREENS + NAV
      ============================================================ */
   var SCREENS = [
-    { node: function () { return el.screenCockpit; }, reset: resetCockpit, run: runCockpit },
-    { node: function () { return el.screenDrone; },   reset: resetSurvey,  run: runSurvey }
+    { label: 'cockpit', node: function () { return el.screenCockpit; }, reset: resetCockpit, run: runCockpit },
+    { label: 'survey',  node: function () { return el.screenDrone; },   reset: resetSurvey,  run: runSurvey }
   ];
 
   /* Screen 2 is a round like the others once js/pages.js has built
@@ -1817,6 +1891,7 @@
 
     global.GeoPages.build(el.stage, el.veil).forEach(function (round) {
       SCREENS.push({
+        label: round.shape,
         node:  function () { return round.node; },
         reset: function () { resetRound(round); },
         run:   function () { return runRound(round); }
@@ -1855,6 +1930,71 @@
   function syncNav() {
     el.navPrev.disabled = busy || current === 0;
     el.navNext.disabled = busy || current === SCREENS.length - 1;
+    syncDebug();
+  }
+
+  /* ---------------------------------------------------------- debug jump
+     The third nav button opens a list: "Replay" first, which plays
+     the current screen again from the top (replay()), then every
+     screen, which jumps straight to the one picked through goTo()
+     like the arrows, so the screen left and the one arrived at are
+     both reset as usual. Like the arrows it is only there once the
+     mission has started. */
+  function buildDebug() {
+    if (!el.navDebug || !el.navDebugMenu) return;
+
+    var again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'debug__item debug__item--replay';
+    again.setAttribute('role', 'menuitem');
+    again.setAttribute('data-replay', '');
+    again.innerHTML = '<b>&#8635;</b>Replay';
+    el.navDebugMenu.appendChild(again);
+
+    SCREENS.forEach(function (screen, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'debug__item';
+      b.setAttribute('role', 'menuitem');
+      b.setAttribute('data-screen', i);
+      b.innerHTML = '<b>' + (i + 1) + '</b>' + (screen.label || 'screen');
+      el.navDebugMenu.appendChild(b);
+    });
+
+    el.navDebug.addEventListener('click', function () {
+      setDebugOpen(el.navDebugMenu.hidden);
+    });
+
+    el.navDebugMenu.addEventListener('click', function (e) {
+      var b = e.target.closest('.debug__item');
+      if (!b || b.disabled) return;
+      setDebugOpen(false);
+      if (b.hasAttribute('data-replay')) replay();
+      else goTo(+b.getAttribute('data-screen'));
+    });
+
+    /* a tap anywhere else, or Escape, puts the list away */
+    document.addEventListener('pointerdown', function (e) {
+      if (!el.navDebugMenu.hidden && !e.target.closest('#nav')) setDebugOpen(false);
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !el.navDebugMenu.hidden) setDebugOpen(false);
+    });
+  }
+
+  function setDebugOpen(open) {
+    el.navDebugMenu.hidden = !open;
+    el.navDebug.setAttribute('aria-expanded', open ? 'true' : 'false');
+    el.navDebug.classList.toggle('is-open', open);
+    if (open) syncDebug();
+  }
+
+  function syncDebug() {
+    if (!el.navDebugMenu) return;
+    Array.prototype.forEach.call(el.navDebugMenu.children, function (b) {
+      b.disabled = busy;
+      b.classList.toggle('is-current', b.getAttribute('data-screen') === String(current));
+    });
   }
 
   /* Is there a screen after this one? Asked by every NEXT button
@@ -1908,6 +2048,34 @@
       from.reset();
 
       return to.run();
+    });
+  }
+
+  /* Play the current screen again from the top. goTo() with no swap:
+     the same veil, timed as swapScreens() times it, and the reset
+     done while the veil covers the frame. */
+  function replay() {
+    if (busy) return Promise.resolve();
+
+    var screen = SCREENS[current];
+    var ms = 1300;
+
+    busy = true;
+    syncNav();
+
+    runId++;                               // strand the running sequence
+    A.stopAll();
+
+    el.veil.classList.add('is-on');
+
+    return M.wait(ms * 0.42).then(function () {
+      screen.reset();
+      return M.wait(ms * 0.34);
+    }).then(function () {
+      el.veil.classList.remove('is-on');
+      busy = false;
+      syncNav();
+      return screen.run();
     });
   }
 
@@ -2227,6 +2395,7 @@
        it has to fetch */
     addRoundScreens();
     wireSurvey();
+    buildDebug();
 
     /* and after both, because every island on every screen needs a
        shoreline built from its own silhouette */
@@ -2238,6 +2407,7 @@
     /* and plays its landings as a cut-scene (js/cinematic.js): built
        here, before runGate(), so the shot's art is fetched with the rest */
     if (CINEMA) CINEMA.init(el.stage);
+    if (SQUARE) SQUARE.init(el.stage);
 
     /* every playing screen in its opening state from the off -- after
        the water is in, because the lens parks the sea's own sheets */

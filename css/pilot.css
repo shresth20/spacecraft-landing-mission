@@ -21,8 +21,8 @@
 
 /* The joystick's size, and its gap from the frame's right and
    bottom edges -- one length for both, so it sits square in the
-   corner. On :root rather than the screen, because the screen nav
-   (css/style.css) is outside every screen and steps aside by them. */
+   corner. On :root so anything outside the screens can measure
+   itself against the stick too. */
 :root {
   --stick: clamp(104px, min(14.5vw, 25.5vh), 204px);
   --stick-gap: max(14px, 2.2vw);
@@ -389,8 +389,8 @@
    THE JOYSTICK
 
    In the bottom-right corner, the same gap from the bottom as from
-   the right; the screen nav that lives in that corner steps to its
-   left while it is up. The ring stays put and the knob is
+   the right; the screen nav is in the opposite corner, out of its
+   way. The ring stays put and the knob is
    dragged round inside it — js/pilot.js writes its `translate`,
    held to a throw that puts the knob's rim on the ring's bright rim
    — and let go, it springs home with a little overshoot. The whole
@@ -608,22 +608,6 @@
   0%   { transform: scale(.82); opacity: 0; }
   18%  { opacity: .95; }
   100% { transform: scale(1.32); opacity: 0; }
-}
-
-/* The screen nav shares the corner: while a joystick is up it steps
-   to the stick's left, on the same bottom line, so both stay in
-   reach. It slides back once the stick is put away. */
-.nav {
-  transition:
-    opacity .5s ease,
-    visibility 0s linear .5s,
-    right .45s cubic-bezier(.22, 1, .36, 1),
-    bottom .45s cubic-bezier(.22, 1, .36, 1);
-}
-
-body:has(.screen.is-active .stick.is-on) .nav {
-  right: calc(var(--stick-gap) + var(--stick) + clamp(10px, 1.2vw, 18px));
-  bottom: var(--stick-gap);
 }
 
 /* the controls dead: landing, or the autopilot has it */

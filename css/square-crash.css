@@ -1,0 +1,299 @@
+/* ============================================================
+   Geo Drone — THE SQUARE'S CRASH ON THE BIG ISLAND, close up
+
+   The pieces js/square-crash.js makes for the crash: the dust, the
+   hot gas, the ground haze, the shock rings, the bursts of light,
+   the fireballs and soot, the cracks and scorch on the rock, the
+   thrown rocks and sparks, and the hull's scorch, red heat and fires.
+   The overlay is also .cine.sql, so css/cinematic.css frames it and
+   css/square-landing.css gives it the island, the jets and the craft.
+
+   Everything here is moved only by transform and opacity, by the
+   shot's one clock; the flicker of a flame is its own CSS loop,
+   paused with the shot.
+   ============================================================ */
+
+.sqx__layer,
+.sqx__flat,
+.sqx__scorch,
+.sqx__cracks {
+  inset: 0;
+  pointer-events: none;
+}
+
+.sqx__cracks {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+
+/* ---------------------------------------------------------- the rock
+   Cracks drawn out from under the hull (stroke-dashoffset, by the
+   timeline), a dark crack over its lit lip; and the scorch. */
+.sqx__crack,
+.sqx__crack-lo {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+.sqx__crack    { stroke: rgba(62, 18, 2, .9); stroke-width: 4.5; }
+.sqx__crack-lo { stroke: rgba(255, 206, 130, .6); stroke-width: 3; }
+
+.sqx__scorch { opacity: 0; }
+.sqx__scorch i {
+  position: absolute;
+  width: 1120px;
+  height: 640px;
+  margin: -320px 0 0 -560px;
+  /* blotched: a dark burn round the hull, ragged lobes out past it */
+  background:
+    radial-gradient(44% 44% at 50% 50%, rgba(26, 10, 2, .95), rgba(40, 16, 4, .85) 58%, rgba(60, 24, 6, .4) 82%, rgba(60, 24, 6, 0)),
+    radial-gradient(16% 16% at 14% 50%, rgba(46, 18, 4, .8), rgba(70, 28, 6, 0)),
+    radial-gradient(15% 17% at 86% 46%, rgba(46, 18, 4, .75), rgba(70, 28, 6, 0)),
+    radial-gradient(18% 15% at 54% 90%, rgba(46, 18, 4, .75), rgba(70, 28, 6, 0)),
+    radial-gradient(13% 12% at 26% 80%, rgba(56, 22, 6, .7), rgba(70, 28, 6, 0)),
+    radial-gradient(14% 12% at 76% 82%, rgba(56, 22, 6, .65), rgba(70, 28, 6, 0)),
+    radial-gradient(14% 12% at 44% 10%, rgba(56, 22, 6, .6), rgba(70, 28, 6, 0));
+}
+
+
+/* ---------------------------------------------------------- clouds
+   Each is parked by left/top and moved by the timeline. A billow is
+   lumpy: soft lobes in its tint, lighter on top, greyer underneath. */
+.sqx__dust,
+.sqx__gas,
+.sqx__soot,
+.sqx__fire {
+  position: absolute;
+  width: var(--s);
+  height: calc(var(--s) * .66);
+  margin: calc(var(--s) * -.38) 0 0 calc(var(--s) * -.5);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.sqx__dust {
+  --tint: #d8c6a6;
+  background:
+    radial-gradient(24% 40% at 30% 50%, color-mix(in srgb, #fff 28%, var(--tint)) 0, var(--tint) 46%, color-mix(in srgb, var(--tint) 55%, transparent) 72%, transparent),
+    radial-gradient(26% 42% at 54% 42%, color-mix(in srgb, #fff 34%, var(--tint)) 0, var(--tint) 46%, color-mix(in srgb, var(--tint) 55%, transparent) 72%, transparent),
+    radial-gradient(22% 38% at 76% 54%, color-mix(in srgb, #fff 20%, var(--tint)) 0, var(--tint) 46%, color-mix(in srgb, var(--tint) 55%, transparent) 72%, transparent),
+    radial-gradient(32% 28% at 50% 72%, color-mix(in srgb, #6b5f52 30%, var(--tint)) 0, color-mix(in srgb, #6b5f52 22%, var(--tint)) 46%, color-mix(in srgb, var(--tint) 45%, transparent) 72%, transparent),
+    radial-gradient(14% 26% at 14% 70%, color-mix(in srgb, #6b5f52 24%, var(--tint)) 0, color-mix(in srgb, var(--tint) 60%, transparent) 60%, transparent),
+    radial-gradient(13% 24% at 88% 70%, color-mix(in srgb, #6b5f52 24%, var(--tint)) 0, color-mix(in srgb, var(--tint) 60%, transparent) 60%, transparent);
+}
+
+/* hot gas: a quick, thin, warm-white breath, blurred */
+.sqx__gas {
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side at 40% 55%, rgba(255, 246, 226, .8), rgba(255, 220, 180, .35) 55%, rgba(255, 210, 170, 0)),
+    radial-gradient(closest-side at 64% 46%, rgba(255, 238, 214, .6), rgba(255, 214, 170, 0));
+  filter: blur(6px);
+  mix-blend-mode: screen;
+}
+
+/* soot: dark grey-brown, lumpy */
+.sqx__soot {
+  background:
+    radial-gradient(26% 40% at 32% 52%, #5c5650 0, rgba(70, 64, 58, .92) 46%, rgba(70, 64, 58, .45) 72%, transparent),
+    radial-gradient(28% 44% at 56% 42%, #6a635c 0, rgba(80, 74, 67, .92) 46%, rgba(80, 74, 67, .45) 72%, transparent),
+    radial-gradient(22% 36% at 76% 56%, #514b46 0, rgba(62, 57, 52, .9) 46%, rgba(62, 57, 52, .4) 72%, transparent),
+    radial-gradient(30% 26% at 50% 74%, #3e3934 0, rgba(48, 44, 40, .85) 50%, transparent);
+  filter: blur(3px);
+}
+
+/* a fireball: white-hot core, yellow, orange, a red-black rim */
+.sqx__fire {
+  height: var(--s);
+  margin: calc(var(--s) * -.5) 0 0 calc(var(--s) * -.5);
+  /* billowing: a white-hot heart in lobes of flame, dark at their rims */
+  background:
+    radial-gradient(18% 18% at 50% 56%, #fffbe6 0, #fff0a0 50%, rgba(255, 220, 110, 0)),
+    radial-gradient(26% 26% at 36% 54%, #ffd256 0, #ff9a24 45%, #f0601a 70%, rgba(140, 36, 10, .8) 86%, rgba(60, 20, 8, 0)),
+    radial-gradient(28% 28% at 60% 44%, #ffd860 0, #ffa22a 45%, #f26a1c 70%, rgba(150, 40, 12, .8) 86%, rgba(60, 20, 8, 0)),
+    radial-gradient(22% 22% at 66% 66%, #ffc64a 0, #ff8a20 45%, #e85416 70%, rgba(130, 32, 10, .75) 86%, rgba(60, 20, 8, 0)),
+    radial-gradient(20% 20% at 30% 34%, #ffb83e 0, #f87a1c 50%, rgba(120, 30, 10, .7) 84%, rgba(60, 20, 8, 0)),
+    radial-gradient(16% 16% at 76% 30%, #ffae38 0, #f06a1a 50%, rgba(110, 28, 10, .6) 84%, rgba(60, 20, 8, 0));
+  filter: blur(1.5px);
+}
+
+/* the ground haze: a flat sheet of dust lying on the top, and swelling */
+.sqx__haze {
+  position: absolute;
+  width: var(--w, 800px);
+  height: calc(var(--w, 800px) * .5);
+  margin: calc(var(--w, 800px) * -.25) 0 0 calc(var(--w, 800px) * -.5);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(214, 198, 170, .9), rgba(200, 184, 158, .55) 55%, rgba(190, 176, 150, 0));
+  filter: blur(10px);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+/* in front: only the near half, so the craft stands in it */
+.sqx__haze--front {
+  -webkit-mask: linear-gradient(to bottom, transparent 48%, #000 62%);
+          mask: linear-gradient(to bottom, transparent 48%, #000 62%);
+}
+
+
+/* ---------------------------------------------------------- shock, light */
+.sqx__ring {
+  position: absolute;
+  width: var(--s);
+  height: calc(var(--s) * .5);
+  margin: calc(var(--s) * -.25) 0 0 calc(var(--s) * -.5);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 255, 255, 0) 58%, rgba(236, 222, 196, .9) 78%, rgba(200, 182, 150, .45) 90%, rgba(255, 255, 255, 0));
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.sqx__ring--hot {
+  background: radial-gradient(closest-side,
+    rgba(255, 255, 255, 0) 58%, rgba(255, 214, 140, .95) 76%, rgba(255, 110, 40, .55) 90%, rgba(255, 80, 20, 0));
+  mix-blend-mode: screen;
+}
+
+.sqx__burst {
+  position: absolute;
+  width: var(--s);
+  height: calc(var(--s) * .62);
+  margin: calc(var(--s) * -.31) 0 0 calc(var(--s) * -.5);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    #fff 0, rgba(255, 244, 200, .95) 18%, rgba(255, 180, 80, .7) 42%, rgba(255, 110, 40, .3) 70%, rgba(255, 90, 30, 0));
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+
+/* ---------------------------------------------------------- the rocks
+   Polygons of the island's rock (clip-path set per piece), lit from
+   the top left; sparks are hot points of light. */
+.sqx__rock {
+  position: absolute;
+  background: linear-gradient(150deg, #ffbe5a, #ef8a2a 34%, #c45a16 62%, #6e2a0a);
+  will-change: transform, opacity;
+}
+.sqx__spark {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #fff, #ffe08a 40%, rgba(255, 140, 40, 0));
+  mix-blend-mode: screen;
+}
+
+
+/* ---------------------------------------------------------- the hull
+   Over the craft's picture and moving with it: the scorch and the red
+   heat, each masked to the picture's own shape. */
+.sqx__hull {
+  pointer-events: none;
+  will-change: transform;
+}
+.sqx__char,
+.sqx__heat {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-size: 100% 100%;
+          mask-size: 100% 100%;
+  opacity: 0;
+}
+.sqx__char {
+  background:
+    radial-gradient(30% 26% at 50% 30%, rgba(20, 16, 14, .9), rgba(20, 16, 14, 0)),
+    radial-gradient(26% 30% at 24% 62%, rgba(30, 22, 18, .95), rgba(30, 22, 18, 0)),
+    radial-gradient(30% 30% at 76% 60%, rgba(26, 20, 16, .9), rgba(26, 20, 16, 0)),
+    radial-gradient(40% 24% at 50% 90%, rgba(18, 12, 10, .95), rgba(18, 12, 10, 0)),
+    linear-gradient(rgba(60, 50, 44, .55), rgba(40, 30, 26, .7));
+  mix-blend-mode: multiply;
+}
+.sqx__heat {
+  background:
+    linear-gradient(to bottom, rgba(255, 90, 20, 0) 50%, rgba(255, 100, 30, .55) 72%, rgba(255, 170, 70, .85) 92%),
+    radial-gradient(20% 14% at 50% 96%, rgba(255, 220, 140, .9), rgba(255, 120, 40, 0));
+  mix-blend-mode: screen;
+}
+
+/* paused: the flicker holds too */
+.sqx.is-paused *,
+.sqx.is-paused *::before,
+.sqx.is-paused *::after { animation-play-state: paused !important; }
+
+
+/* ---------------------------------------------------------- the wreck
+   As the reference shows a crash on the big rock: the bank of dust
+   hugging the base, lit warm by the fire under it, and that fire --
+   the four jets, on the rock -- flaring out from under the hull's edges. */
+
+/* the bank: denser and earthier than the thrown dust */
+.sqx__dust--bank {
+  height: calc(var(--s) * .72);
+  margin: calc(var(--s) * -.46) 0 0 calc(var(--s) * -.5);
+}
+.sqx__dust--bank b {
+  position: absolute;
+  inset: 30% 12% 4%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 150, 70, .75), rgba(255, 110, 40, .32) 60%, rgba(255, 90, 30, 0));
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+/* behind the craft, moving with it */
+.sqx__under {
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* a jet on the rock, flaring from under an edge: hung from its root,
+   turned to point out and down over the rock, flickering on its own clock */
+.sqx__tongue {
+  position: absolute;
+  width: calc(70px * var(--k, 1));
+  height: calc(120px * var(--k, 1));
+  margin-left: calc(-35px * var(--k, 1));
+  transform-origin: 50% 0;
+  rotate: var(--a, 0rad);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.sqx__tongue b,
+.sqx__tongue::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 0;
+}
+/* soft all round, no hard edge: a hot root, then orange, red, gone --
+   in three lobes, so its tip is ragged */
+.sqx__tongue b {
+  background:
+    radial-gradient(26% 20% at 50% 12%, #fffbe0, rgba(255, 240, 170, .7) 50%, rgba(255, 220, 120, 0)),
+    radial-gradient(34% 42% at 50% 30%, #ffc848, #ff8a24 45%, rgba(240, 70, 20, .7) 75%, rgba(200, 40, 14, 0)),
+    radial-gradient(18% 30% at 38% 62%, rgba(255, 120, 34, .85), rgba(220, 50, 16, .4) 60%, rgba(200, 40, 14, 0)),
+    radial-gradient(16% 26% at 62% 70%, rgba(255, 104, 30, .8), rgba(210, 44, 14, .35) 60%, rgba(200, 40, 14, 0)),
+    radial-gradient(12% 18% at 50% 86%, rgba(240, 80, 24, .6), rgba(200, 40, 14, 0));
+  filter: blur(2.5px);
+  animation: sqx-tongue .14s var(--d, 0s) steps(1, end) infinite;
+}
+/* and its glow on what is round it */
+.sqx__tongue::before {
+  inset: -10% -30% 10%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side at 50% 30%, rgba(255, 140, 50, .55), rgba(255, 100, 30, 0));
+  mix-blend-mode: screen;
+  filter: blur(6px);
+}
+
+@keyframes sqx-tongue {
+  0%   { transform: scale(1, 1) skewX(0); }
+  25%  { transform: scale(.84, 1.14) skewX(7deg); }
+  50%  { transform: scale(1.1, .86) skewX(-5deg); }
+  75%  { transform: scale(.92, 1.08) skewX(4deg); }
+  100% { transform: scale(1, 1) skewX(0); }
+}

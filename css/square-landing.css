@@ -1,0 +1,565 @@
+/* ============================================================
+   Geo Drone — THE SQUARE'S SUCCESSFUL LANDING, close up
+
+   The overlay js/square-landing.js plays when the craft is set down
+   on the island that fits it (screen 3): the cut-scene's overlay
+   (.cine, z-index 7 -- over the sea, the craft and the stick, UNDER
+   the confetti, the narration bar and the hearts) with this shot in it.
+
+   Inside the stage everything is in stage px (1600 x 900). Only two
+   pictures are used, the craft and the island; the jets, their light,
+   the shadow and the smoke are all drawn here.
+   ============================================================ */
+
+/* The overlay is also .cine, so css/cinematic.css gives it the
+   cut-scene's own frame: its fades, the cut, the vignette, the flash,
+   the letterbox, the guide, the seam, the match and the particles.
+   Only this shot's own pieces are styled here. */
+
+/* paused: the flicker holds too */
+.sql.is-paused *,
+.sql.is-paused *::before,
+.sql.is-paused *::after { animation-play-state: paused !important; }
+
+.sql .cine__stage > * { position: absolute; }
+
+.sql__land {
+  left: 0;
+  top: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+/* the island seated in the sea: the water darkened round its base */
+.sql__seat {
+  inset: 0;
+  filter: blur(14px);
+  opacity: .45;
+}
+.sql__seat i {
+  position: absolute;
+  inset: 0;
+  background: #062a48;
+  transform: translateY(6px) scale(1.02);
+  transform-origin: 800px 700px;
+}
+
+/* the craft's shadow on the rock: darker and sharper as it nears */
+.sql__shade {
+  inset: 0;
+  filter: blur(var(--blur, 10px));
+  opacity: 0;
+}
+.sql__shade i {
+  position: absolute;
+  inset: 0;
+  background: rgba(40, 14, 0, .8);
+}
+
+/* the jets' light on the rock, under the craft */
+.sql__glow {
+  inset: 0;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.sql__glow i {
+  position: absolute;
+  width: 640px;
+  height: 400px;
+  margin: -200px 0 0 -320px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 120, .95), rgba(255, 140, 40, .6) 45%, rgba(255, 90, 20, 0));
+}
+
+.sql__smoke {
+  inset: 0;
+}
+
+.sql__rig,
+.sql__craft {
+  will-change: transform;
+}
+
+.sql__craft {
+  max-width: none;
+  user-select: none;
+}
+
+
+/* ---------------------------------------------------------- the jets
+   Four big jets, two hung under each front face of the craft's base
+   in a box skewed to its edge; js/square-landing.js sets each box's
+   height (never past the rock) and opacity. Each jet is an orange
+   flame round a yellow-white core in its own glow, flickering on its
+   own clock, with a heat haze behind all four. */
+.sql__aura {
+  position: absolute;
+  height: 0;
+  border-radius: 50% 50% 46% 46% / 30% 30% 70% 70%;
+  background: radial-gradient(closest-side at 50% 34%,
+    rgba(255, 168, 70, .5), rgba(255, 120, 40, .26) 55%, rgba(255, 90, 30, 0));
+  filter: blur(12px);
+  opacity: 0;
+}
+
+.sql__band {
+  position: absolute;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.sql__jet {
+  position: absolute;
+  top: 0;
+  width: 150px;
+  margin-left: -75px;
+  height: calc(100% * var(--k, 1));
+}
+
+/* its own glow, longer than the haze */
+.sql__jet::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -6%;
+  border-radius: 50% 50% 50% 50% / 20% 20% 80% 80%;
+  background: radial-gradient(closest-side at 50% 38%,
+    rgba(255, 150, 50, .9), rgba(255, 105, 30, .5) 60%, rgba(255, 80, 24, 0));
+  filter: blur(8px);
+}
+
+.sql__fire {
+  position: absolute;
+  top: 0;
+  bottom: 4%;
+  left: 24%;
+  right: 24%;
+  transform-origin: 50% 0;
+  animation: sql-flicker var(--r, .11s) var(--d, 0s) steps(1, end) infinite;
+}
+
+/* the streak: yellow-white down its length, orange to its tip */
+.sql__fire::before,
+.sql__fire::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+.sql__fire::before {
+  background: linear-gradient(to bottom,
+    #ffeaa0 0%,
+    #ffb43a 24%,
+    #ff7d1e 56%,
+    rgba(240, 62, 20, .85) 80%,
+    rgba(220, 40, 18, 0) 100%);
+  clip-path: polygon(2% 0, 98% 0, 96% 30%, 86% 58%, 70% 82%, 50% 100%, 30% 82%, 14% 58%, 4% 30%);
+  filter: blur(1.5px);
+}
+/* and its white-hot core */
+.sql__fire::after {
+  left: 26%;
+  right: 26%;
+  bottom: 30%;
+  background: linear-gradient(to bottom, #fff 0%, #fff8c8 40%, rgba(255, 222, 110, .7) 72%, rgba(255, 200, 80, 0) 100%);
+  clip-path: polygon(0 0, 100% 0, 88% 46%, 50% 100%, 12% 46%);
+  filter: blur(1px);
+}
+
+/* where the fire meets the rock it spreads along the edge, bright */
+.sql__band::after {
+  content: '';
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  bottom: -14px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 238, 180, .95), rgba(255, 150, 50, .5) 60%, rgba(255, 110, 30, 0));
+  opacity: 0;
+  transition: opacity .12s linear;
+}
+.sql__band.is-hit::after { opacity: 1; }
+
+@keyframes sql-flicker {
+  0%   { transform: scale(1, 1);       opacity: 1; }
+  20%  { transform: scale(.88, 1.05);  opacity: .9; }
+  40%  { transform: scale(1.08, .92);  opacity: 1; }
+  60%  { transform: scale(.92, 1.04);  opacity: .86; }
+  80%  { transform: scale(1.05, .95);  opacity: .96; }
+  100% { transform: scale(1, 1);       opacity: 1; }
+}
+
+/* the jets' light along the base's front edges, over the hull */
+.sql__lit {
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.sql__lit svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: blur(3px);
+}
+.sql__lit polyline {
+  fill: none;
+  stroke: rgba(255, 150, 60, .95);
+  stroke-width: 9;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+
+/* ---------------------------------------------------------- the smoke
+   Parked by left/top on the island's edge, moved only by the
+   timeline (transform, opacity). Each puff is a lumpy cluster --
+   five soft lobes, white on top and greyer underneath -- so a row of
+   them reads as one rolling bank; and a warm wash on its top while
+   the jets still light it. */
+.sql__puff {
+  position: absolute;
+  width: var(--s);
+  height: calc(var(--s) * .62);
+  margin: calc(var(--s) * -.36) 0 0 calc(var(--s) * -.5);
+  opacity: 0;
+  will-change: transform, opacity;
+  background:
+    /* each lobe kept inside the box, so none is cut square; solid
+       through most of its radius, then soft at its rim */
+    radial-gradient(24% 40% at 28% 55%, #fff 0, rgba(250, 251, 253, .97) 45%, rgba(240, 242, 246, .6) 72%, rgba(236, 239, 244, 0)),
+    radial-gradient(26% 42% at 52% 45%, #fff 0, rgba(252, 252, 254, .97) 45%, rgba(242, 244, 248, .6) 72%, rgba(238, 240, 245, 0)),
+    radial-gradient(22% 38% at 74% 56%, #fdfdfe 0, rgba(246, 247, 250, .96) 45%, rgba(234, 237, 242, .6) 72%, rgba(230, 233, 239, 0)),
+    radial-gradient(14% 26% at 16% 70%, #f1f3f7 0, rgba(230, 233, 239, .95) 45%, rgba(216, 221, 230, .55) 72%, rgba(212, 217, 226, 0)),
+    radial-gradient(30% 26% at 50% 72%, #eceff4 0, rgba(224, 228, 235, .95) 45%, rgba(210, 215, 225, .55) 72%, rgba(206, 211, 221, 0)),
+    radial-gradient(12% 24% at 86% 72%, #e9ecf1 0, rgba(222, 226, 233, .92) 45%, rgba(208, 213, 223, .5) 72%, rgba(204, 209, 219, 0));
+}
+.sql__puff b {
+  position: absolute;
+  inset: 4% 14% 34%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 186, 110, .7), rgba(255, 150, 80, .3) 60%, rgba(255, 140, 70, 0));
+  opacity: 0;
+}
+
+/* the stick steps aside while it plays, as for the cut-scene
+   (css/cinematic.css owns the rule, keyed off .is-cinema) */
+
+
+/* ============================================================
+   THE MISFIT — too small an island: off the edge and into the sea
+   (js/square-landing.js, THE MISFIT). Its overlay is .cine.sql.sqc:
+   the same frame, island, jets and lens as the fit; everything wet
+   is drawn here, parked by left/top and moved only by transform and
+   opacity (the timeline's, or the frame's).
+   ============================================================ */
+
+.sqc__layer,
+.sqc__onland,
+.sqc__wshade { inset: 0; }
+
+.sqc__layer > i {
+  position: absolute;
+  display: block;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* the craft over the water, and its drowned copy under it: posed
+   together by one matrix, each clipped to its side of the sea's line */
+.sqc__body {
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.sqc__body > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.sqc__body .sql__craft,
+.sqc__ghost {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  user-select: none;
+}
+.sqc__body .sql__rig {
+  width: 100%;
+  height: 100%;
+}
+
+/* seen through the water: dimmer, bluer, a little soft */
+.sqc__wet { opacity: 0; }
+.sqc__ghost {
+  filter: brightness(.7) saturate(.4) blur(1.4px);
+}
+.sqc__tint {
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(16, 120, 220, .78), rgba(6, 60, 170, .95));
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+
+/* the craft's shadow on the sea, under the overhang */
+.sqc__wshade {
+  filter: blur(16px);
+  opacity: 0;
+}
+.sqc__wshade i {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 34, 70, .6);
+}
+
+/* ---------------------------------------------------------- the splash */
+
+/* a sheet of the crown: a tongue of water up out of the sea, clear
+   blue at its root to white at its lip, standing on its root */
+.sqc__layer > .sqc__sheet {
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) * -1) 0 0 calc(var(--w) / -2);
+  transform-origin: 50% 100%;
+  border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%;
+  background: linear-gradient(to top,
+    rgba(10, 86, 210, 0) 0,
+    rgba(18, 118, 232, .88) 14%,
+    rgba(46, 178, 252, .92) 46%,
+    rgba(150, 234, 255, .96) 76%,
+    #fff 100%);
+}
+
+.sqc__layer > .sqc__drop {
+  width: var(--s);
+  height: calc(var(--s) * 1.15);
+  margin: calc(var(--s) * -.575) 0 0 calc(var(--s) / -2);
+  border-radius: 50% 50% 50% 50% / 58% 58% 42% 42%;
+  background: radial-gradient(circle at 36% 32%, #fff 0 22%, #c8f3ff 48%,
+    rgba(70, 180, 240, .92) 80%, rgba(40, 140, 220, .6));
+}
+
+/* spray and mist; dust off the rock; steam off a drowned jet */
+.sqc__layer > .sqc__mist {
+  width: var(--s);
+  height: calc(var(--s) * .7);
+  margin: calc(var(--s) * -.35) 0 0 calc(var(--s) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .88),
+    rgba(226, 246, 255, .5) 45%, rgba(210, 240, 255, 0));
+}
+.sqc__layer > .sqc__mist.is-dust {
+  background: radial-gradient(closest-side, rgba(255, 236, 214, .8),
+    rgba(240, 200, 160, .4) 45%, rgba(230, 190, 150, 0));
+}
+.sqc__layer > .sqc__mist.is-steam {
+  background: radial-gradient(closest-side, rgba(236, 240, 244, .85),
+    rgba(214, 222, 230, .5) 45%, rgba(200, 210, 220, 0));
+}
+
+.sqc__layer > .sqc__flash {
+  width: 380px;
+  height: 212px;
+  margin: -106px 0 0 -190px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .95),
+    rgba(190, 240, 255, .6) 40%, rgba(120, 210, 255, 0));
+}
+
+/* ---------------------------------------------------------- on the sea */
+
+/* a ring across the water, flat as the sea is seen from here: a
+   bright crest round a darker trough, soft both sides -- no line */
+.sqc__layer > .sqc__ring {
+  width: var(--w);
+  height: calc(var(--w) * .56);
+  margin: calc(var(--w) * -.28) 0 0 calc(var(--w) / -2);
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(255, 255, 255, 0) 62%,
+    rgba(0, 52, 150, .3) 74%,
+    rgba(110, 226, 255, .7) 84%,
+    rgba(235, 252, 255, .55) 89%,
+    rgba(255, 255, 255, 0) 100%);
+}
+
+/* white water: lacy blotches round an open ring */
+.sqc__layer > .sqc__foam {
+  width: var(--w);
+  height: calc(var(--w) * .56);
+  margin: calc(var(--w) * -.28) 0 0 calc(var(--w) / -2);
+  background:
+    radial-gradient(18% 22% at 30% 40%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0)),
+    radial-gradient(14% 18% at 62% 32%, rgba(255, 255, 255, .9), rgba(255, 255, 255, 0)),
+    radial-gradient(20% 24% at 72% 62%, rgba(240, 252, 255, .9), rgba(255, 255, 255, 0)),
+    radial-gradient(12% 16% at 42% 72%, rgba(255, 255, 255, .85), rgba(255, 255, 255, 0)),
+    radial-gradient(10% 14% at 18% 64%, rgba(255, 255, 255, .8), rgba(255, 255, 255, 0)),
+    radial-gradient(closest-side, rgba(255, 255, 255, 0) 40%, rgba(232, 250, 255, .6) 70%, rgba(255, 255, 255, 0));
+}
+.sqc__layer > .sqc__foam.is-hot {
+  background: radial-gradient(closest-side, rgba(255, 255, 255, .95) 0 35%,
+    rgba(232, 250, 255, .7) 62%, rgba(255, 255, 255, 0));
+}
+
+/* a boil of white water as air bursts up out of it */
+.sqc__layer > .sqc__boil {
+  width: var(--w);
+  height: calc(var(--w) * .5);
+  margin: calc(var(--w) * -.4) 0 0 calc(var(--w) / -2);
+  transform-origin: 50% 80%;
+  border-radius: 50% 50% 46% 46% / 70% 70% 30% 30%;
+  background: radial-gradient(closest-side at 50% 60%, rgba(255, 255, 255, .92),
+    rgba(200, 245, 255, .6) 50%, rgba(120, 210, 255, 0));
+}
+
+.sqc__layer > .sqc__bubble {
+  width: var(--s);
+  height: var(--s);
+  margin: calc(var(--s) / -2) 0 0 calc(var(--s) / -2);
+  border-radius: 50%;
+  /* glossy and blue, as the reference's: a white glint, a cyan rim */
+  background:
+    radial-gradient(circle at 32% 28%, #fff 0 13%, rgba(255, 255, 255, 0) 26%),
+    radial-gradient(closest-side, rgba(40, 160, 255, .38) 0, rgba(60, 196, 255, .5) 55%,
+      rgba(206, 250, 255, .95) 82%, rgba(120, 230, 255, 0) 100%);
+  box-shadow: 0 0 6px rgba(90, 220, 255, .65);
+}
+
+/* the churn round where it went in (moved by the frame): swells of
+   light and troughs of shadow wheeling round, and the heave of it */
+.sqc__layer > .sqc__swell {
+  width: 210px;
+  height: 118px;
+  margin: -59px 0 0 -105px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(196, 246, 255, .5),
+    rgba(150, 230, 255, .18) 55%, rgba(150, 230, 255, 0));
+}
+.sqc__layer > .sqc__swell.is-dark {
+  background: radial-gradient(closest-side, rgba(0, 38, 80, .4),
+    rgba(0, 38, 80, .14) 55%, rgba(0, 38, 80, 0));
+}
+.sqc__layer > .sqc__heave {
+  width: 440px;
+  height: 246px;
+  margin: -123px 0 0 -220px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side,
+    rgba(0, 40, 84, .26) 0 40%, rgba(170, 236, 255, .3) 66%, rgba(170, 236, 255, 0));
+}
+
+/* foam lapping at the hull, along the sea's line on it */
+.sqc__layer > .sqc__lap {
+  width: 66px;
+  height: 26px;
+  margin: -13px 0 0 -33px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #fff 0 30%,
+    rgba(235, 252, 255, .75) 60%, rgba(255, 255, 255, 0));
+}
+
+/* the crown's wall: the far half of a ring of water, standing up */
+.sqc__layer > .sqc__skirt {
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) * -1) 0 0 calc(var(--w) / -2);
+  transform-origin: 50% 100%;
+  background: radial-gradient(50% 100% at 50% 100%,
+    rgba(120, 210, 255, 0) 52%,
+    rgba(90, 190, 245, .55) 66%,
+    rgba(196, 240, 255, .85) 82%,
+    rgba(255, 255, 255, .95) 92%,
+    rgba(255, 255, 255, 0) 100%);
+}
+
+
+/* ---------------------------------------------------------- the heap
+   Redrawn every frame by js/square-landing.js (heap): deep blue water
+   heaped up round the craft, a ring of white foam breaking on its rim
+   over a cyan glow, curls of foam inside; and its near side over the
+   hull, clear enough to see the hull through. */
+.sqc__pool,
+.sqc__lip {
+  left: 0;
+  top: 0;
+  width: 1600px;
+  height: 900px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+}
+.sqc__pool path,
+.sqc__lip path {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.sqc__pool-glow {
+  fill: none;
+  stroke: rgba(120, 240, 255, .62);
+  stroke-width: 30;
+}
+/* broken foam, never an even line: long and short dashes, uneven gaps */
+.sqc__pool-rim,
+.sqc__lip-crest {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-dasharray: 44 6 9 12 26 5 14 9;
+}
+.sqc__pool-curl {
+  fill: none;
+  stroke: rgba(255, 255, 255, .85);
+  stroke-width: 3.5;
+  stroke-dasharray: 30 6 12 8;
+}
+.sqc__lip-crest { stroke-width: 4; stroke-dasharray: 26 8 12 6; }
+
+/* the jets still glowing red under the water, a moment */
+.sqc__ember {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 96, 44, .85),
+    rgba(255, 44, 24, .45) 50%, rgba(255, 30, 20, 0));
+  opacity: 0;
+}
+
+/* ---------------------------------------------------------- red fire
+   The misfit's jets burn redder than the fit's, as in the reference:
+   a white-hot root, orange, then red to the tip, in a red glow. */
+.sqc .sql__fire::before {
+  background: linear-gradient(to bottom,
+    #fff2b8 0%,
+    #ffb04a 16%,
+    #ff6a2a 40%,
+    rgba(240, 40, 24, .92) 70%,
+    rgba(200, 20, 20, 0) 100%);
+}
+.sqc .sql__fire::after {
+  background: linear-gradient(to bottom, #fff 0%, #fff4c0 35%,
+    rgba(255, 200, 120, .6) 70%, rgba(255, 160, 90, 0) 100%);
+}
+.sqc .sql__jet::before {
+  background: radial-gradient(closest-side at 50% 38%,
+    rgba(255, 82, 40, .95), rgba(255, 40, 30, .55) 60%, rgba(255, 30, 30, 0));
+}
+.sqc .sql__aura {
+  background: radial-gradient(closest-side at 50% 34%,
+    rgba(255, 90, 50, .55), rgba(255, 50, 30, .28) 55%, rgba(255, 40, 30, 0));
+}
+.sqc .sql__lit polyline { stroke: rgba(255, 92, 50, .95); }
+
+/* fire meeting the sea: flattened out over it, white-hot in the
+   middle, orange, then red at its edge */
+.sqc__layer > .sqc__hit {
+  width: 150px;
+  height: 46px;
+  margin: -23px 0 0 -75px;
+  border-radius: 50%;
+  /* soft all the way out: no rim, no edge */
+  background: radial-gradient(closest-side, rgba(255, 246, 208, .95) 0, rgba(255, 192, 74, .85) 20%,
+    rgba(255, 106, 40, .6) 44%, rgba(240, 40, 24, .25) 70%, rgba(220, 30, 20, 0) 100%);
+}

@@ -124,6 +124,8 @@ window.GeoManifest = {
   "assets/images/s1-bg.webp": 24494,
   "assets/images/s1-cockpit-2.webp": 132544,
   "assets/images/s2-bg (2).webp": 223966,
+  "assets/images/square-landing/craft.webp": 120052,
+  "assets/images/square-landing/land.webp": 124418,
   "assets/images/welcome-screen-ship.webp": 26536,
   "assets/images/welcome-screen.webp": 65634,
   "assets/new3/dynamic-water-guide/asset_manifest.example.json": 2333,
@@ -139,5 +141,7 @@ window.GeoManifest = {
   "assets/new4/craft distory in water.png": 2035078,
   "assets/new4/distroy-on large land.png": 826570,
   "assets/new4/landing successfully.png": 1929872,
-  "assets/new4/square land from angle view.png": 1050142
+  "assets/new4/square land from angle view.png": 1050142,
+  "assets/new4/square-craft.png": 1005757,
+  "assets/new4/square-land.png": 917346
 };

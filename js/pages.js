@@ -468,6 +468,7 @@
       area: 36,                       /* 6 x 6 */
       say: 'The spaceship is a square. Select all the square landing zones.',
       areaKey: 'calcArea',
+      askExact: false,                /* no "choose the landing zone with the exact area" here */
       row: [54, 24, 36],              /* 24 is the perimeter */
       decoyPool: ['triangle', 'rectangle', 'parallelogram', 'trapezium', 'rhombus']
     },
@@ -1139,6 +1140,7 @@
       shape: round.shape,
       area: round.area,
       geo: round.geo,
+      askExact: round.askExact !== false,
       el: {
         pads: node.querySelector('.pads'),
         all: all,
@@ -1525,7 +1527,7 @@
       '<div class="confetti" aria-hidden="true"></div>' +
 
       /* the flown landing's hearts (top left) and controller (bottom
-         right, over the nav) -- see js/pilot.js */
+         right) -- see js/pilot.js */
       (round.pilot ? LIVES + STICK : '') +
 
       /* the landing screen's bar stays up while each sentence is

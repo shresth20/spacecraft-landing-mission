@@ -949,11 +949,12 @@ button { font: inherit; color: inherit; }
    Bottom left, which is open water on every draw -- the islands
    are strewn inside BAND (js/pages.js), the narration bar has the
    top of the frame, and the bezel has already retired by the time
-   this comes up. Gone again before the shape task starts.     */
+   this comes up. Gone again before the shape task starts. Held
+   above the screen nav, which shares the corner.               */
 .alt {
   position: absolute;
   left: 4%;
-  bottom: 7%;
+  bottom: max(7%, calc(max(14px, 2.6%) + 64px));
   z-index: 6;
   display: flex;
   align-items: stretch;
@@ -1773,12 +1774,12 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   SCREEN NAV  (bottom-right)
+   SCREEN NAV  (bottom-left, clear of the joystick's corner)
    ============================================================ */
 .nav {
   position: absolute;
   /* percentages alone left only ~9px of margin on a phone */
-  right: max(14px, 2.2%);
+  left: max(14px, 2.2%);
   bottom: max(14px, 2.6%);
   z-index: 30;             /* over both screens, under the veil */
   display: flex;
@@ -1834,6 +1835,61 @@ button { font: inherit; color: inherit; }
 .nav__btn:disabled {
   opacity: .3;
   cursor: default;
+}
+
+/* ---------- debug: jump to any screen (js/script.js, buildDebug);
+   the list hangs off the nav, which is already positioned */
+.nav__btn--debug { opacity: .55; }
+.nav__btn--debug.is-open,
+.nav__btn--debug:hover { opacity: 1; }
+
+.debug {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + clamp(6px, .7vw, 12px));
+  display: grid;
+  gap: 2px;
+  min-width: 9.5em;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: clamp(5px, .55vw, 9px);
+  background: rgba(6, 18, 36, .86);
+  box-shadow: inset 0 0 0 1px rgba(120, 205, 255, .32), 0 8px 24px rgba(0, 0, 0, .45);
+  backdrop-filter: blur(6px);
+  font: 600 13px/1.2 system-ui, sans-serif;
+}
+.debug[hidden] { display: none; }
+
+.debug__item {
+  display: flex;
+  align-items: center;
+  gap: .7em;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 5px;
+  color: rgba(200, 240, 255, .92);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  text-transform: capitalize;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.debug__item b {
+  min-width: 1.2em;
+  color: rgba(120, 220, 255, .75);
+  font-variant-numeric: tabular-nums;
+}
+.debug__item:hover:not(:disabled) { background: rgba(16, 44, 78, .9); color: #eafaff; }
+.debug__item.is-current { background: rgba(28, 66, 108, .85); color: #eafaff; }
+.debug__item:disabled { opacity: .4; cursor: default; }
+
+/* "Replay" heads the list, ruled off from the screens below it */
+.debug__item--replay {
+  margin-bottom: 4px;
+  text-transform: none;
+  box-shadow: 0 5px 0 -4px rgba(120, 205, 255, .28);
 }
 
 .nav__btn:focus-visible {

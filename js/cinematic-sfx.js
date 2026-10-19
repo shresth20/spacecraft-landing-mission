@@ -14,6 +14,7 @@
      pulse(v)      one thruster pulse over the hum
      clank(v)      metal set down on rock: a touchdown at weight v
      sparkle()     the bright little arpeggio over the success burst
+     vent(v)       gas let go round a landed base, at weight v
      sputter()     jets choking: short, ragged bursts
      splash()      a hull hitting the water
      crash(v)      metal smashed on rock
@@ -256,6 +257,20 @@
     });
   }
 
+  /* Gas let go round the base: a soft breath of noise, its band
+     falling as it spreads out and thins */
+  function vent(v) {
+    if (!prepare()) return;
+    v = v == null ? 1 : v;
+    var t = c.currentTime;
+    var g = gain(0);
+    strike(g, t, 0.14 * v, 0.06, 0.9);
+    var band = filter('bandpass', 2400, 0.8, g);
+    band.frequency.setValueAtTime(2400, t);
+    band.frequency.exponentialRampToValueAtTime(480, t + 0.95);
+    hiss(t, 1.0, band);
+  }
+
   /* Jets choking as they are lit to save it: ragged bursts with gaps,
      each with a burble of the engine under it */
   function sputter() {
@@ -339,6 +354,7 @@
     pulse: pulse,
     clank: clank,
     sparkle: sparkle,
+    vent: vent,
     sputter: sputter,
     splash: splash,
     crash: crash,

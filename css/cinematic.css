@@ -45,8 +45,10 @@
 .cine.is-cut,
 .cine.is-cut .cine__bar { transition: none; }
 
-/* the stick steps aside while the shot plays; the hearts stay */
-.screen.is-cinema .stick.is-on {
+/* the stick steps aside while the shot plays, and while the lens is
+   down on the island for it (js/close-up.js); the hearts stay */
+.screen.is-cinema .stick.is-on,
+.screen.is-close .stick.is-on {
   opacity: 0;
   visibility: hidden;
   transform: translateY(12%) scale(.9);

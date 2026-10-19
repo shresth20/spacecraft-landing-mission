@@ -36,6 +36,10 @@
   <!-- and its landings as a cut-scene, played over the screen once GO is
        pressed: the letterbox, the shot's layers and its particles -->
   <link rel="stylesheet" href="css/cinematic.css" />
+  <!-- and its successful landing, close up: the craft and the island,
+       their jets and smoke -->
+  <link rel="stylesheet" href="css/square-landing.css" />
+  <link rel="stylesheet" href="css/square-crash.css" />
 
   <!-- the one face in the game, and the gate's title is the first
        type on screen -->
@@ -269,6 +273,14 @@
     <button class="nav__btn" id="navNext" type="button" aria-label="Next screen">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
     </button>
+
+    <!-- debug: replay the current screen, or jump straight to any screen. The list is filled in by
+         buildDebug() in js/script.js once every screen is known. -->
+    <button class="nav__btn nav__btn--debug" id="navDebug" type="button"
+            aria-label="Debug: jump to a screen" aria-expanded="false" aria-controls="navDebugMenu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg>
+    </button>
+    <div class="debug" id="navDebugMenu" role="menu" hidden></div>
   </nav>
 
 
@@ -385,6 +397,16 @@
 <script src="js/cinematic-assets.js"></script>
 <script src="js/cinematic-sfx.js"></script>
 <script src="js/cinematic.js"></script>
+<!-- the square's successful landing, played from just its two pictures
+     (measured by tools/build_square_landing.py); the fit's cut-scene -->
+<script src="js/square-landing-assets.js"></script>
+<script src="js/square-landing.js"></script>
+<!-- the crash on the island too big for it, from the same two
+     pictures; a third kind of shot for that player -->
+<script src="js/square-crash.js"></script>
+<!-- the overhead lens down onto the island before the shot, and back
+     up to where it was once the shot has finished -->
+<script src="js/close-up.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

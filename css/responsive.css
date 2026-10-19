@@ -30,7 +30,7 @@
 
   /* and the instrument comes in off the corner with everything
      else, at a size that still reads at arm's length */
-  .alt { left: 5%; bottom: 5.5%; gap: 7px; }
+  .alt { left: 5%; bottom: max(5.5%, calc(max(14px, 2.6%) + clamp(38px, 9vw, 52px) + 14px)); gap: 7px; }
   .alt__track { min-height: clamp(38px, 7.5vh, 60px); }
 
   /* the bar is the instruction, so it gets the width it needs; the

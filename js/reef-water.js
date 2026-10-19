@@ -584,6 +584,13 @@
       !s.screen.classList.contains('is-cinema') &&
       !(global.GeoLife && global.GeoLife.isPaused && global.GeoLife.isPaused());
   }
+  // A camera move driven from its own frame loop (js/close-up.js) has the
+  // sea drawn again straight after it moves the plates: whichever loop
+  // runs first in a frame, the water shown is drawn off that frame's land.
+  function redraw(screen) {
+    var s = states.get(screen);
+    if (s && running(s)) draw(s);
+  }
   function schedule(s) {
     if (s.raf || s.timer || !running(s)) return;
     s.raf = global.requestAnimationFrame(function (now) { frame(s, now); });
@@ -655,7 +662,7 @@
     global.GeoLife.on('resume', function () { each(update); });
   }
 
-  global.GeoReefWater = { init: init, config: CONFIG,
+  global.GeoReefWater = { init: init, config: CONFIG, redraw: redraw,
     inspect: function (screen) {
       var s = states.get(screen); if (!s) return null;
       return { live: s.live, time: s.time, quality: s.quality, width: s.canvas.width, height: s.canvas.height, fieldMs: s.fieldMs,
