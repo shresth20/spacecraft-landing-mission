@@ -23,6 +23,9 @@
 .env-object, .env-submerged { position: absolute; }
 .env-world [hidden], .env-satellites [hidden] { display: none; }
 .env-image { display: block; width: 100%; height: auto; max-width: none; user-select: none; }
+/* an edge fragment, mirrored about its straight side: off screen at
+   rest, it is the land the camera's follow reveals (js/reef.js) */
+.env-mirror { position: absolute; top: 0; transform: scaleX(-1); }
 
 /* ---------------------------------------------------------- under the water */
 .env-submerged { z-index: 0; opacity: var(--env-deep-alpha); }
@@ -35,6 +38,18 @@
    It also draws the shore round every piece of land: shallows, lapping
    foam and swell, from the land's own silhouettes. */
 .reef-water { z-index: 1; visibility: hidden; background: none; }
+
+/* The piloted camera gives the world a small follow offset. Keep a
+   gutter round the ocean plate and the live water pass so that
+   translation never brings an edge into the frame. The plate is
+   oversized too, not just the canvas: the shader covers the canvas
+   with the painting at the plate's own box, so a frame-sized plate
+   left the gutter smeared from the painting's last row of pixels. */
+.screen[data-reef][data-pilot] :is(.s3-bg, .reef-water) {
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+}
 .screen[data-sea-water] .reef-water { visibility: visible; }
 .screen[data-sea-water] .env-submerged { visibility: hidden; }
 

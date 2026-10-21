@@ -77,6 +77,24 @@
                                 up -- the last of the drift, which the
                                 grip has out of it a beat later       */
 
+  /* A little of the craft's travel is handed to the camera. The
+     world moves the other way, so islands ahead ease towards the
+     craft instead of the whole flight reading as a token sliding
+     over a still picture. This is visual only: the craft, hull and
+     islands keep their original layout coordinates, which leaves
+     every landing and collision calculation below untouched.
+
+     The live water canvas is moved with the world so its underwater
+     rocks and shores stay registered with the dry land. The cap is
+     well inside the ocean plate's and that canvas's 8% overscan
+     (css/reef.css), and the edge fragments carry a mirrored
+     continuation past their straight side (js/reef.js), so no edge of
+     anything can enter the frame. Kept slow and small on purpose: the
+     world drifts behind the craft rather than chasing it. */
+  var CAMERA_FOLLOW = 0.1;
+  var CAMERA_RESPONSE = 2.6; /* per second: soft follow, no hard lock */
+  var CAMERA_LIMIT = 0.045;  /* no more than 4.5% of either frame axis */
+
   /* How much of the island the hull has to cover before it will
      land on it -- the hull as drawn, its corners off `data-hull`, so
      a triangle is measured as a triangle and not as its box.
@@ -239,6 +257,8 @@
     h.throwPx = THROW * (h.stick.offsetWidth || 1);
 
     h.geo = {
+      W: W,
+      H: H,
       S: Math.min(W, H),
       hx: hx,
       hy: hy,
@@ -619,6 +639,61 @@
     }
   }
 
+  /* The existing camera flight owns `transform`; individual
+     `translate` is deliberately used here so the two motions compose
+     rather than overwrite each other. The same is true of the sea's
+     own swell animations. */
+  function cameraPlates(h) {
+    var screen = h.site.node.closest('.screen');
+    if (!screen) return [];
+    h.cameraScreen = screen;
+    h.cameraWaiting = screen.hasAttribute('data-reef') && !screen.querySelector('.reef-water');
+    var list = [screen.querySelector('.cam')];
+    Array.prototype.forEach.call(
+      screen.querySelectorAll('.s2-bg, .s3-bg, .sea__deep, .sea__swell, .reef-water'),
+      function (el) { list.push(el); }
+    );
+    return list.filter(function (el, i) { return el && list.indexOf(el) === i; });
+  }
+
+  function paintCamera(h) {
+    var t = h.cameraX.toFixed(1) + 'px ' + h.cameraY.toFixed(1) + 'px';
+    if (t === h.cameraAt) return;
+    h.cameraPlates.forEach(function (el) { el.style.translate = t; });
+    h.cameraAt = t;
+  }
+
+  function stepCamera(h, dt, snap) {
+    if (!h.cameraPlates.length) h.cameraPlates = cameraPlates(h);
+    /* The live-water pass is mounted after its images decode. A fast
+       debug jump can hand over the helm first; adopt that late canvas
+       on the first frame it exists. */
+    if (h.cameraWaiting) {
+      var water = h.cameraScreen && h.cameraScreen.querySelector('.reef-water');
+      if (water) {
+        h.cameraPlates.push(water);
+        water.style.translate = h.cameraX.toFixed(1) + 'px ' + h.cameraY.toFixed(1) + 'px';
+        h.cameraWaiting = false;
+      }
+    }
+    var g = h.geo || measure(h);
+    var tx = reduced() ? 0 : clamp(-g.W * CAMERA_LIMIT, -h.x * CAMERA_FOLLOW, g.W * CAMERA_LIMIT);
+    var ty = reduced() ? 0 : clamp(-g.H * CAMERA_LIMIT, -h.y * CAMERA_FOLLOW, g.H * CAMERA_LIMIT);
+    var k = snap ? 1 : 1 - Math.exp(-CAMERA_RESPONSE * dt);
+    h.cameraX += (tx - h.cameraX) * k;
+    h.cameraY += (ty - h.cameraY) * k;
+    if (Math.abs(h.cameraX) < 0.02) h.cameraX = 0;
+    if (Math.abs(h.cameraY) < 0.02) h.cameraY = 0;
+    paintCamera(h);
+  }
+
+  function resetCamera(h) {
+    h.cameraPlates = cameraPlates(h);
+    h.cameraPlates.forEach(function (el) { el.style.removeProperty('translate'); });
+    h.cameraX = h.cameraY = 0;
+    h.cameraAt = null;
+  }
+
   /* Returns whether there is anything left to animate. */
   function frame(h, dt, now) {
     var g = h.geo || measure(h);
@@ -678,6 +753,7 @@
     if (h.y > g.maxY) { h.y = g.maxY; if (h.vy > 0) h.vy *= -0.2; }
 
     place(h);
+    stepCamera(h, dt, false);
 
     /* --- what it is over, and whether GO is up: the stick let go,
        the craft settled, and covering enough of it. Once up, it
@@ -733,6 +809,7 @@
     h.x = a.sx + a.dx * e;
     h.y = a.sy + a.dy * e;
     place(h);
+    stepCamera(h, dt, u >= 1);
     setUnder(h, padUnder(h));
 
     var want = {};
@@ -849,6 +926,7 @@
     if (live && live !== h) disarm(live.site);
 
     measure(h);
+    h.cameraPlates = cameraPlates(h);
     h.onLand = onLand;
     h.armed = true;
     live = h;
@@ -893,6 +971,7 @@
     h.placed = null;
     h.geo = null;
     place(h);
+    resetCamera(h);
   }
 
   function show(site) {
@@ -974,6 +1053,8 @@
       auto: null,
       raf: 0, last: 0,
       geo: null,
+      cameraPlates: [], cameraScreen: null, cameraWaiting: false,
+      cameraX: 0, cameraY: 0, cameraAt: null,
       under: null, lockPad: null, go: null,
       onLand: null,
       hearts: 3,
@@ -1111,6 +1192,7 @@
     live.x = clamp(g.minX, live.x, g.maxX);
     live.y = clamp(g.minY, live.y, g.maxY);
     place(live);
+    stepCamera(live, 0, true);
   });
 
 

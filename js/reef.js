@@ -25,6 +25,9 @@
        screen's shorter side, how much of it may hang off the top or bottom
        of the screen, and how many places are tried for each */
     edgeSize: [.18, .28], edgeOverhang: .5, edgeAttempts: 160,
+    /* how deep the dark rim along a fragment's straight side is, in its
+       artwork's px: its mirrored continuation folds that far inside */
+    edgeRim: 9,
     deepSize: [.11, .2],
     riseMs: 1400, risePx: 14, deepOpacity: .62
   };
@@ -198,6 +201,22 @@
     el.style[f.side] = r(-inset) + 'vmin'; el.style.top = r(y / H * 100) + '%';
     el.style.width = r(width) + 'vmin';
   }
+  // ...and carries on past it, mirrored about that side, so when the
+  // piloted camera (js/pilot.js) slides the world inwards the screen
+  // edge shows more of the same land rather than its cut. The cut is
+  // drawn with a dark rim some 8px deep, so the fold is taken that far
+  // inside it, and the copy's own rim is clipped off: the land runs on
+  // from its body, with no seam.
+  function mirror(el, meta) {
+    var w = meta.size[0], right = meta.flat.side === 'right';
+    var fold = meta.flat.x + (right ? -CONFIG.edgeRim : CONFIG.edgeRim);
+    var img = image(meta, el.querySelector('.env-art'));
+    img.classList.add('env-mirror');
+    img.style.left = r((2 * fold / w - 1) * 100) + '%';
+    // clip-path is in the copy's own, unflipped box: cut the rim's side
+    img.style.clipPath = right ? 'inset(0 ' + r((w - fold) / w * 100) + '% 0 0)'
+      : 'inset(0 0 0 ' + r(fold / w * 100) + '%)';
+  }
   // Reserve a corridor from spawn to each approved target. The decoration
   // sampler never changes targets, hit areas or the ship's movement limits.
   function corridorHits(b, a, z, hull) {
@@ -257,7 +276,7 @@
         var eb = grow(rect(ex, ey, ew, eh), 12);
         if (!safe(eb, true)) continue;
         var edge = dryObject(em, 'env-edge', false, s.seed + index);
-        flush(edge, em, ey, ew, H); s.edges.appendChild(edge); occupied.push(eb); break;
+        flush(edge, em, ey, ew, H); mirror(edge, em); s.edges.appendChild(edge); occupied.push(eb); break;
       }
     });
     s.clusters.forEach(function (c) {

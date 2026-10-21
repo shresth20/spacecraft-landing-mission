@@ -17,9 +17,10 @@
    canvas, so it stays perfectly still.
 
    Round every piece of dry land it draws the shore, from the land's own
-   silhouettes (a distance field over site B): shallows glowing turquoise
-   against it, swell rolling in that only bends the water, and broken foam
-   washing up and drawing back. No outline is drawn.
+   silhouettes (a distance field over site B and a margin round it):
+   shallows glowing turquoise against it, swell rolling in that only bends
+   the water, and broken foam washing up and drawing back. No outline is
+   drawn.
 
    When land comes up (`.pad.is-up`) the water answers it, in real time
    rather than on the slow sea clock: a boil of bubbles and a swell over
@@ -47,6 +48,10 @@
     // the shore: how far out from land it reaches (site px), and when a
     // surfacing island's shore comes in (s after it starts up, and over)
     shoreReach: 64, shoreIn: .35, shoreFade: 1.3,
+    // the shore map runs this share of site B past each of its sides, as
+    // the plates' overscan does (css/reef.css): the piloted camera slides
+    // an edge fragment's mirrored continuation into the frame
+    fieldMargin: .08,
     // how strongly the shallows glow, the foam shows and the swell bends
     shoreGlow: .75, shoreFoam: 1, shoreSwell: 1.6,
     // backing pixels never exceed the painting's resolution (times this),
@@ -344,7 +349,7 @@
     s.site.querySelectorAll('.env-platform, .env-satellite, .env-edge').forEach(function (el) {
       var img = el.querySelector('.env-image');
       if (out.length >= MAX_LANDS - 1 || !img || el.closest('[hidden]') || el.querySelector('.is-missing')) return;
-      out.push({ el: el, img: img, edge: el.classList.contains('env-edge') });
+      out.push({ el: el, img: img, imgs: el.querySelectorAll('.env-image'), edge: el.classList.contains('env-edge') });
     });
     return out;
   }
@@ -368,22 +373,34 @@
     var site = s.site, W = site.clientWidth, H = site.clientHeight, sr = site.getBoundingClientRect();
     if (!W || !H || !sr.width) return false;
     var lands = landsOf(s);
-    if (lands.some(function (l) { return !l.img.complete || !l.img.naturalWidth; })) return false;
-    var cell = Math.max(2, W / 512), gw = Math.ceil(W / cell), gh = Math.ceil(H / cell), n = gw * gh;
+    if (lands.some(function (l) {
+      return Array.prototype.some.call(l.imgs, function (img) { return !img.complete || !img.naturalWidth; });
+    })) return false;
+    var mx = Math.round(W * CONFIG.fieldMargin), my = Math.round(H * CONFIG.fieldMargin);
+    var cell = Math.max(2, W / 512), gw = Math.ceil((W + 2 * mx) / cell), gh = Math.ceil((H + 2 * my) / cell), n = gw * gh;
     var c = s.fieldCanvas || (s.fieldCanvas = doc.createElement('canvas'));
     c.width = gw; c.height = gh;
     var cx = c.getContext('2d', { willReadFrequently: true }), toCell = W / sr.width / cell;
-    var boxes = lands.map(function (l) {
+    var boxes = [];
+    lands.forEach(function (l, i) {
       // the object's own box: its artwork may be mid-rise, but it never moves
       var b = l.el.getBoundingClientRect();
-      var x = (b.left - sr.left) * toCell, y = (b.top - sr.top) * toCell, w = b.width * toCell, h = b.height * toCell;
-      cx.drawImage(l.img, x, y, w, h);
-      return [Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)), Math.min(gw, Math.ceil(x + w)), Math.min(gh, Math.ceil(y + h))];
+      var x = (b.left - sr.left) * toCell + mx / cell, y = (b.top - sr.top) * toCell + my / cell;
+      var w = b.width * toCell, h = b.height * toCell;
+      Array.prototype.forEach.call(l.imgs, function (img) {
+        // an edge fragment's mirrored continuation sits beside the object
+        var ix = x + (img.offsetLeft - l.img.offsetLeft) / cell;
+        if (img.classList.contains('env-mirror')) {
+          cx.save(); cx.translate(ix + w, y); cx.scale(-1, 1); cx.drawImage(img, 0, 0, w, h); cx.restore();
+        } else cx.drawImage(img, ix, y, w, h);
+        boxes.push([i, Math.max(0, Math.floor(ix)), Math.max(0, Math.floor(y)),
+          Math.min(gw, Math.ceil(ix + w)), Math.min(gh, Math.ceil(y + h))]);
+      });
     });
     var alpha = cx.getImageData(0, 0, gw, gh).data, owner = new Uint8Array(n), INF = 1e10;
-    boxes.forEach(function (b, i) {
-      for (var y = b[1]; y < b[3]; y++) for (var x = b[0]; x < b[2]; x++) {
-        if (alpha[(y * gw + x) * 4 + 3] > 127) owner[y * gw + x] = i + 1;
+    boxes.forEach(function (b) {
+      for (var y = b[2]; y < b[4]; y++) for (var x = b[1]; x < b[3]; x++) {
+        if (alpha[(y * gw + x) * 4 + 3] > 127) owner[y * gw + x] = b[0] + 1;
       }
     });
     var m = Math.max(gw, gh), f = new Float64Array(m), d = new Float64Array(m), arg = new Int32Array(m);
@@ -413,7 +430,7 @@
     var gl = s.gl;
     upload(gl, s.fieldTex, gl.RGBA, gw, gh, px);
     upload(gl, s.idTex, gl.LUMINANCE, gw, gh, ids);
-    s.field = { w: gw * cell, h: gh * cell, lands: lands };
+    s.field = { w: gw * cell, h: gh * cell, mx: mx, my: my, lands: lands };
     s.landBytes.fill(0); s.landSent = null;
     return true;
   }
@@ -542,8 +559,9 @@
     if (s.field) {
       landStates(s);
       var sr = s.site.getBoundingClientRect(), world = sr.width / s.site.clientWidth * kx;
-      gl.uniform4f(s.u.uSite, (sr.left - cr.left) * kx, (sr.top - cr.top) * ky,
-        s.field.w * world, s.field.h * sr.height / s.site.clientHeight * ky);
+      var worldY = sr.height / s.site.clientHeight * ky;
+      gl.uniform4f(s.u.uSite, (sr.left - cr.left) * kx - s.field.mx * world, (sr.top - cr.top) * ky - s.field.my * worldY,
+        s.field.w * world, s.field.h * worldY);
       gl.uniform1f(s.u.uWorld, world);
     }
     gl.uniform1f(s.u.uShore, s.field ? 1 : 0);
