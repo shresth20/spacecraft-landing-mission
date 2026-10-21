@@ -1,12 +1,12 @@
 /* ============================================================
-   Geo Drone — THE SQUARE'S CRASH ON THE BIG ISLAND, close up
+   Geo Drone — THE CRASH ON THE BIG ISLAND, close up
 
-   When the craft is set down on an island too BIG for it (screen 3,
-   GO), the screen cuts to the angle and plays the crash: the same two
-   pictures as the successful landing (js/square-landing.js), the
-   craft and the island, on the screen's own sea. Every jet, cloud of
-   dust, puff of gas, rock, crack, fireball and wisp of smoke is made
-   here and in css/square-crash.css.
+   When the craft is set down on an island too BIG for it (GO, on any
+   landing), the screen cuts to the angle and plays the crash: the
+   same two pictures as the successful landing (js/square-landing.js),
+   the shape's own craft and island, on the screen's own sea. Every
+   jet, cloud of dust, puff of gas, rock, crack, fireball and wisp of
+   smoke is made here and in css/square-crash.css.
 
    ── WHY IT CRASHES ────────────────────────────────────────────
    The island is laid in exactly as for the fit, then scaled up about
@@ -50,8 +50,7 @@
   var L = global.GeoSquareLanding;
   if (!L || !L.register || !L.kit) return;
   var kit = L.kit;
-  var ART = kit.ART;
-    var doc = document;
+  var doc = document;
 
   var AT = kit.AT;
   var JET = kit.JET;
@@ -177,14 +176,14 @@
   }
 
   function size(st, s) {
-    var g = st.geo, m = g.mid;
+    var g = st.geo, m = g.mid, land = g.art.land;
     st.big = s;
     var h = grown(g.fitLand, m, s);
     g.land = h;
     var f = g.fitFlat;
     g.landFlat = [f[0] * s, f[1] * s, f[2] * s, f[3] * s, m[0] + (f[4] - m[0]) * s, m[1] + (f[5] - m[1]) * s];
-    g.top = KEYS.map(function (key) { return project(h, ART.land.top[key]); });
-    g.base = KEYS.map(function (key) { return project(h, ART.land.base[key]); });
+    g.top = KEYS.map(function (key) { return project(h, land.top[key]); });
+    g.base = KEYS.map(function (key) { return project(h, land.base[key]); });
     st.land.style.transform = kit.matrix3d(h);
     st.seat.style.clipPath = polygon(g.base);
     var topClip = polygon(g.top);
@@ -206,7 +205,9 @@
      ============================================================ */
 
   function dress(screen) {
-    var geo = kit.layout();
+    var art = kit.artOf(screen);
+    if (!art) return null;
+    var geo = kit.layout(art);
     geo.fitLand = geo.land;
     geo.fitFlat = geo.landFlat;
 
@@ -215,9 +216,9 @@
 
     var seat = node('div', 'sql__seat', stage);
     node('i', '', seat);
-    var land = image(ART.land.src, 'sql__land', stage);
-    land.style.width = px(ART.land.size[0]);
-    land.style.height = px(ART.land.size[1]);
+    var land = image(art.land.src, 'sql__land', stage);
+    land.style.width = px(art.land.size[0]);
+    land.style.height = px(art.land.size[1]);
 
     var scorch = node('div', 'sqx__scorch', stage);
     var sc = node('i', '', scorch);
@@ -254,7 +255,7 @@
     var rear = node('div', 'sqx__layer', stage);
 
     var jets = kit.rigOf(stage, geo);
-    var craft = image(ART.craft.src, 'sql__craft', stage);
+    var craft = image(art.craft.src, 'sql__craft', stage);
     var hull = hullOf(stage, geo);
     var lit = kit.litOf(stage, geo);
 
@@ -308,7 +309,7 @@
      there are only ever the four fires, in the air and on the rock. */
   function underOf(parent, geo, jets) {
     var box = node('div', 'sqx__under', parent);
-    var E = geo.edge, c = [(E.l[0] + E.r[0]) / 2, Math.min(E.l[1], E.r[1]) - 40];
+    var E = geo.edge, c = [(E.x0 + E.x1) / 2, E.yTop - 40];
     var tongues = jets.map(function (jt, i) {
       var at = jt.at;
       var d = [at[0] - c[0], at[1] - c[1]];
@@ -330,15 +331,16 @@
      to its own picture; and the points on its top the soot rises from. */
   function hullOf(parent, geo) {
     var box = node('div', 'sqx__hull', parent);
-    var mask = 'url("' + ART.craft.src + '")';
+    var craft = geo.art.craft;
+    var mask = 'url("' + craft.src + '")';
     var char = node('i', 'sqx__char', box);
     var heat = node('i', 'sqx__heat', box);
     [char, heat].forEach(function (el) {
       el.style.webkitMaskImage = el.style.maskImage = mask;
     });
-    var K = geo.craft.w / ART.craft.size[0];
+    var K = geo.craft.w / craft.size[0];
     var vents = [[.32, .72], [.7, .58], [.52, .3], [.86, .9]].map(function (a) {
-      var p = across(ART.craft.top, a[0], a[1]);
+      var p = across(craft.top, a[0], a[1]);
       return [p[0] * K, p[1] * K];
     });
     return { box: box, char: char, heat: heat, vents: vents };
@@ -503,7 +505,7 @@
       jt.el.style.opacity = wild > 0 && cut < -.55 ? '.25' : '';
     });
     var E = st.geo.edge;
-    st.aura.style.height = px(E.f[1] - Math.min(E.l[1], E.r[1]) + 30 + len * 1.15);
+    st.aura.style.height = px(E.yBot - E.yTop + 30 + len * 1.15);
     st.aura.style.opacity = clamp(0, burn * 1.5, 1).toFixed(3);
 
     /* the edge lit by the jets, and red-hot after the blast */
@@ -696,7 +698,7 @@
     });
 
     /* the shocks: a dusty ring at the blow, a hot one at the blast */
-    var fw = geo.face.r[0] - geo.face.l[0];
+    var fw = kit.faceWidth(geo.quad);
     [[TOUCH, 'sqx__ring', 2.2, 700], [BLAST, 'sqx__ring sqx__ring--hot', 1.6, 480]].forEach(function (s) {
       var ring = node('i', s[1], st.fx.rear);
       ring.style.left = px(geo.mid[0]);
@@ -745,7 +747,7 @@
     });
 
     /* the blast: fireballs off the hull, each rolling into soot */
-    var c = ART.craft, K = geo.craft.w / c.size[0];
+    var c = geo.art.craft, K = geo.craft.w / c.size[0];
     var onHull = function (u, v, face) {
       var p = across(c[face], u, v);
       return [geo.craft.left + p[0] * K, geo.craft.top + p[1] * K + 4];
@@ -782,10 +784,10 @@
        dust and smoke hugging the base on both front sides and round its
        side corners, churning up in waves from the blow to the end and
        never quite gone -- warm-lit while the fire burns under it */
-    var faces = [['l', 'f'], ['f', 'r']];
+    var faces = geo.view.faces;
     var bankAt = function (born, n, o) {
       for (var b = 0; b < n; b++) {
-        var side = faces[b % 2], u = rand(.05, .95);
+        var side = faces[b % faces.length], u = rand(.05, .95);
         var a = geo.face[side[0]], e = geo.face[side[1]];
         var p0 = [mix(a[0], e[0], u), mix(a[1], e[1], u)];
         var d = [p0[0] - geo.mid[0], (p0[1] - geo.mid[1]) / .58];
@@ -802,9 +804,10 @@
                                           { value: 0, duration: o.life * .7, easing: 'easeInQuad' }] }, born);
       }
       /* and one behind each side corner, so the bank wraps the hull */
-      ['l', 'r'].forEach(function (k) {
+      var ends = geo.view.chain;
+      [ends[0], ends[ends.length - 1]].forEach(function (k, i) {
         var q = geo.face[k];
-        cloud('sqx__dust', st.fx.rear, [q[0] + (k === 'l' ? -30 : 30), q[1] - 10], [(k === 'l' ? -1 : 1) * rand(20, 50), -rand(30, 70)],
+        cloud('sqx__dust', st.fx.rear, [q[0] + (i ? 30 : -30), q[1] - 10], [(i ? 1 : -1) * rand(20, 50), -rand(30, 70)],
               born + rand(0, o.spread), { size: rand(o.size[0], o.size[1]) * 1.1, life: o.life, peak: o.peak * .9,
                                            tint: pick(DUST), from: .55, to: 1.35, ease: 'easeOutSine', rise: .16, hold: .92 });
       });
@@ -830,7 +833,7 @@
 
     /* hot gas venting from under the edges, thinner and thinner */
     for (i = 0; i < 14; i++) {
-      var side = faces[i % 2], gu = rand(.1, .9);
+      var side = faces[i % faces.length], gu = rand(.1, .9);
       var ga = geo.face[side[0]], gb = geo.face[side[1]];
       var gp = [mix(ga[0], gb[0], gu), mix(ga[1], gb[1], gu) - 6];
       cloud('sqx__gas', st.fx.front, gp, [(gp[0] - geo.mid[0]) * .25, -rand(60, 120)], TOUCH + 200 + i * 150 + rand(0, 80),

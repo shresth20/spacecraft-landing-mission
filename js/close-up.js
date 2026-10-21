@@ -331,10 +331,6 @@
     }
   }
 
-  function isDown(site) {
-    return lenses.has(screenOf(site));
-  }
-
   /* a resized frame: the same point, as a share of the new one */
   global.addEventListener('resize', function () {
     lenses.forEach(function (lens) {
@@ -347,8 +343,6 @@
     zoomIn: zoomIn,
     zoomOut: zoomOut,
     bare: bare,
-    stop: stop,
-    isDown: isDown,
-    timing: { zoomIn: IN_MS, hold: HOLD_MS, zoomOut: OUT_MS }
+    stop: stop
   };
 })(window);

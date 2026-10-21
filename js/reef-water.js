@@ -50,7 +50,7 @@
     shoreReach: 64, shoreIn: .35, shoreFade: 1.3,
     // the shore map runs this share of site B past each of its sides, as
     // the plates' overscan does (css/reef.css): the piloted camera slides
-    // an edge fragment's mirrored continuation into the frame
+    // the part of a big rock that hangs off the frame into it
     fieldMargin: .08,
     // how strongly the shallows glow, the foam shows and the swell bends
     shoreGlow: .75, shoreFoam: 1, shoreSwell: 1.6,
@@ -346,10 +346,10 @@
      decoration being hidden, never per frame. */
   function landsOf(s) {
     var out = [];
-    s.site.querySelectorAll('.env-platform, .env-satellite, .env-edge').forEach(function (el) {
+    s.site.querySelectorAll('.env-platform, .env-satellite, .env-big').forEach(function (el) {
       var img = el.querySelector('.env-image');
       if (out.length >= MAX_LANDS - 1 || !img || el.closest('[hidden]') || el.querySelector('.is-missing')) return;
-      out.push({ el: el, img: img, imgs: el.querySelectorAll('.env-image'), edge: el.classList.contains('env-edge') });
+      out.push({ el: el, img: img, imgs: el.querySelectorAll('.env-image'), edge: el.classList.contains('env-big') });
     });
     return out;
   }
@@ -388,11 +388,8 @@
       var x = (b.left - sr.left) * toCell + mx / cell, y = (b.top - sr.top) * toCell + my / cell;
       var w = b.width * toCell, h = b.height * toCell;
       Array.prototype.forEach.call(l.imgs, function (img) {
-        // an edge fragment's mirrored continuation sits beside the object
         var ix = x + (img.offsetLeft - l.img.offsetLeft) / cell;
-        if (img.classList.contains('env-mirror')) {
-          cx.save(); cx.translate(ix + w, y); cx.scale(-1, 1); cx.drawImage(img, 0, 0, w, h); cx.restore();
-        } else cx.drawImage(img, ix, y, w, h);
+        cx.drawImage(img, ix, y, w, h);
         boxes.push([i, Math.max(0, Math.floor(ix)), Math.max(0, Math.floor(y)),
           Math.min(gw, Math.ceil(ix + w)), Math.min(gh, Math.ceil(y + h))]);
       });
@@ -434,8 +431,8 @@
     s.landBytes.fill(0); s.landSent = null;
     return true;
   }
-  // How much shore each land has now: the edge fragments always, an
-  // island from its breach on (css/reef.css times the same rise).
+  // How much shore each land has now: the big rocks always, an island
+  // from its breach on (css/reef.css times the same rise).
   function landStates(s) {
     var bytes = s.landBytes, changed = !s.landSent;
     s.field.lands.forEach(function (l, i) {
@@ -470,7 +467,7 @@
     new MutationObserver(function (records) {
       if (records.some(function (rec) {
         return rec.target.nodeType === 1 && rec.target.matches(
-          rec.type === 'childList' ? '.env-satellites, .env-edges' : '.env-object');
+          rec.type === 'childList' ? '.env-satellites, .env-bigs' : '.env-object');
       })) s.fieldDirty = true;
     }).observe(s.site, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
     new ResizeObserver(function () { s.fieldDirty = true; }).observe(s.site);
@@ -554,8 +551,7 @@
     gl.uniform4fv(s.u.uEv, s.ev);
     gl.uniform4fv(s.u.uEvT, s.evT);
     // the shores: the field rides site B through the camera
-    var t0 = global.performance.now();
-    if (s.fieldDirty && buildField(s)) { s.fieldDirty = false; s.fieldMs = global.performance.now() - t0; }
+    if (s.fieldDirty && buildField(s)) s.fieldDirty = false;
     if (s.field) {
       landStates(s);
       var sr = s.site.getBoundingClientRect(), world = sr.width / s.site.clientWidth * kx;
@@ -680,13 +676,5 @@
     global.GeoLife.on('resume', function () { each(update); });
   }
 
-  global.GeoReefWater = { init: init, config: CONFIG, redraw: redraw,
-    inspect: function (screen) {
-      var s = states.get(screen); if (!s) return null;
-      return { live: s.live, time: s.time, quality: s.quality, width: s.canvas.width, height: s.canvas.height, fieldMs: s.fieldMs,
-        lands: s.field && s.field.lands.map(function (l, i) {
-          return (l.edge ? 'edge' : l.el.className.split(' ')[0]) + ':' + s.landBytes[i + 1];
-        }) };
-    }
-  };
+  global.GeoReefWater = { init: init, redraw: redraw };
 })(window);

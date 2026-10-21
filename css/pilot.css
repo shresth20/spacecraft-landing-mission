@@ -85,7 +85,7 @@
   position: absolute;
   z-index: 0;
   width: var(--nz-w);
-  aspect-ratio: 2.6;                 /* Nozzle.webp is 320 x 123 */
+  aspect-ratio: 2.6;                 /* nozzle.webp is 320 x 123 */
   margin-left: calc(var(--nz-w) / -2);
   transform-origin: 50% 0;
   pointer-events: none;

@@ -650,7 +650,7 @@
     h.cameraWaiting = screen.hasAttribute('data-reef') && !screen.querySelector('.reef-water');
     var list = [screen.querySelector('.cam')];
     Array.prototype.forEach.call(
-      screen.querySelectorAll('.s2-bg, .s3-bg, .sea__deep, .sea__swell, .reef-water'),
+      screen.querySelectorAll('.s3-bg, .sea__deep, .sea__swell, .reef-water'),
       function (el) { list.push(el); }
     );
     return list.filter(function (el, i) { return el && list.indexOf(el) === i; });
@@ -770,6 +770,7 @@
                Math.hypot(h.vx, h.vy) < SETTLE * S && cover(h, rec) >= COVER) {
       showGo(h, pad);
     }
+
 
     /* keep going while anything can still change: the controls are
        live, a jet is lit, or the craft is still moving */

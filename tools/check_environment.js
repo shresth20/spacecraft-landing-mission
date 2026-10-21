@@ -50,7 +50,7 @@ async (page) => {
         const sats=[...s.querySelectorAll('.env-satellite')].map(e=>e.getBoundingClientRect());
         if(sats.some(a=>pads.some(b=>overlap(a,b)))) issues.push({layout,seed,kind:'rock over pad'});
         const controls=[r.el.stick,r.el.lives,document.getElementById('nav')].map(e=>e.getBoundingClientRect());
-        const dec=[...s.querySelectorAll('.env-satellite,.env-edge,.env-submerged')].map(e=>e.getBoundingClientRect());
+        const dec=[...s.querySelectorAll('.env-satellite,.env-big,.env-submerged')].map(e=>e.getBoundingClientRect());
         if(dec.some(a=>controls.some(b=>overlap(a,b)))) issues.push({layout,seed,kind:'over control'});
       }
     }
@@ -74,7 +74,7 @@ async (page) => {
     const clear=await page.evaluate(()=>{
       const r=GeoPages.rounds[0],s=r.node;
       const keep=[r.el.stick,r.el.lives,document.getElementById('nav'),...s.querySelectorAll('.env-platform')].map(e=>e.getBoundingClientRect());
-      return [...s.querySelectorAll('.env-satellite,.env-submerged,.env-edge')].filter(e=>!e.hidden).every(e=>{
+      return [...s.querySelectorAll('.env-satellite,.env-submerged,.env-big')].filter(e=>!e.hidden).every(e=>{
         const a=e.getBoundingClientRect();
         return !keep.some(b=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top);
       });

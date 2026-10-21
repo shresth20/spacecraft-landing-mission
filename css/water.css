@@ -93,7 +93,7 @@
 
    ── colour ────────────────────────────────────────────────────
 
-   Read off s2-bg (2).webp rather than invented: the deep blue in
+   Read off s2-bg.webp rather than invented: the deep blue in
    its corners, the mid turquoise of its open water, the pale band
    in its shallows, its foam, and the orange of the island tiles.
    Held as bare channel triples so every layer below can take the
@@ -108,7 +108,7 @@
   --sea-foam:     238, 253, 255;
   --shore-warm:   255, 172, 108;
 
-  /* The sun. s2-bg (2).webp has its specular glitter in the TOP
+  /* The sun. s2-bg.webp has its specular glitter in the TOP
      LEFT corner, so every shadow in this file falls down and to
      the right, and all of them by the same amount.
 
@@ -303,47 +303,13 @@
   50%      { transform: translate3d(6%, 2%, 0); }
 }
 
-/* ---------------------------------------------------------- the surface itself
-   The sea artwork is a still, and a still sea under a moving shore
-   is the whole problem restated. A one-per-cent breath on the
-   background is enough: the thirteen islets painted into it drift
-   with the swell, so the water becomes a body of water and
-   everything standing in it belongs to the same one.
-
-   Three stops rather than two, and a tenth of a degree of roll on
-   it: a two-stop breath is a ping-pong, and a ping-pong at 23s is
-   the one motion in the file the eye can predict. With THE SWELL
-   below travelling over the top of it, the artwork's own painted
-   crests now lift and settle with the train instead of holding
-   still underneath it.
-
-   The scale is what buys the room for the rest. The layer is
-   stretched to exactly 100% x 100%, so scale(1.016) is the only
-   reason a .30% drift and a .09deg roll do not walk the edge of
-   the artwork into frame — at 16:9 those two together move a
-   corner by under .4% against a .8% margin. Raise either, or drop
-   the floor back towards 1.0, and the first thing you will see is
-   a hairline of empty stage along the top edge. */
-.s2-bg,
-.s3-bg {
-  transform-origin: 50% 50%;
-  animation: seaBreathe 23s ease-in-out infinite;
-}
-
-@keyframes seaBreathe {
-  0%, 100% { transform: scale(1.016) rotate(-.08deg) translate3d(.18%, -.14%, 0); }
-  34%      { transform: scale(1.026) rotate(.05deg)  translate3d(-.30%, .22%, 0); }
-  67%      { transform: scale(1.020) rotate(.09deg)  translate3d(.10%, .30%, 0); }
-}
-
-/* Not on a playing screen. There the sea's plate belongs to the
+/* No CSS animation on the sea's plate. It belongs to the
    CAMERA (THE CAMERA, js/animation.js): it is scaled up for
    altitude and moved a fraction of the way with every pan, and
    between flights it is PINNED as an inline style. A CSS animation
-   outranks an inline style, so left running this one would snap
-   the photograph back to scale 1.02 the moment a flight landed. The
-   lens's own loiter is those screens' breathing. */
-.screen--drone .s2-bg,
+   outranks an inline style, so one running here would snap the
+   photograph back the moment a flight landed. The lens's own
+   loiter is those screens' breathing. */
 .screen--round .s3-bg { animation: none; }
 
 
@@ -354,7 +320,7 @@
    churns, the glint sweeps, the body of it breathes. None of it
    travels. Light moving over a surface that is itself standing
    still is a lit still, and on a frame this wide that is the one
-   thing left saying the sea is a photograph — s2-bg (2).webp has
+   thing left saying the sea is a photograph — s2-bg.webp has
    its own crests painted into it, and painted crests that never
    move are the giveaway.
 
@@ -937,21 +903,13 @@
    sway takes the element on, so nothing has to be switched over
    from JS and there is no seam between them.
    ============================================================ */
-.zone.is-up .shore,
-.zone.is-up .surf,
 .pad.is-up .shore,
 .pad.is-up .surf { opacity: 1; }
 
-.zone.is-up .wash,
 .pad.is-up .wash { opacity: 1; }
 
-/* zoneRise runs 1.5s, padRise 1.15s — the water's surge is timed
-   to the land it is being pushed aside by */
-.zone.is-up .shore { animation: shoreWell 1.6s cubic-bezier(.2, .9, .3, 1),
-                                shoreSway 13s ease-in-out 1.6s infinite; }
-.zone.is-up .surf  { animation: surfWell 1.6s cubic-bezier(.2, .9, .3, 1),
-                                surfWobble 8.5s ease-in-out 1.6s infinite; }
-
+/* padRise runs 1.15s — the water's surge is timed to the land it
+   is being pushed aside by */
 .pad.is-up .shore { animation: shoreWell 1.25s cubic-bezier(.2, .9, .3, 1),
                                shoreSway 13s ease-in-out 1.25s infinite; }
 .pad.is-up .surf  { animation: surfWell 1.25s cubic-bezier(.2, .9, .3, 1),
@@ -959,16 +917,12 @@
 
 /* the ripple train starts once the island is standing, and the
    three copies are phased so one is always leaving */
-.zone.is-up .lap,
 .pad.is-up .lap { animation: lapOut 5.2s ease-out 1.2s infinite; }
 
-.zone.is-up .lap--b,
 .pad.is-up .lap--b { animation-delay: 2.9s; }
 
-.zone.is-up .lap--c,
 .pad.is-up .lap--c { animation-delay: 4.6s; }
 
-.zone.is-up .spray i,
 .pad.is-up .spray i {
   animation: bubble var(--bt, 3.4s) ease-out var(--bd, 0s) infinite;
 }
@@ -1011,19 +965,14 @@
    out with it. `forwards`, and keyed off `.is-sunk` — which stays
    on the island for exactly as long as the island is gone.
    ============================================================ */
-.zone.is-up.is-sunk .shore,
 .pad.is-up.is-sunk .shore { animation: shoreClose 1.5s cubic-bezier(.42, 0, .72, .58) forwards; }
 
-.zone.is-up.is-sunk .surf,
 .pad.is-up.is-sunk .surf { animation: surfClose 1.35s cubic-bezier(.42, 0, .72, .58) forwards; }
 
-.zone.is-up.is-sunk .lap,
 .pad.is-up.is-sunk .lap { animation: lapOut 2.4s ease-out; }
 
-.zone.is-up.is-sunk .wash,
 .pad.is-up.is-sunk .wash { opacity: 0; }
 
-.zone.is-up.is-sunk .spray i,
 .pad.is-up.is-sunk .spray i { animation: bubble 1.1s ease-out; }
 
 @keyframes shoreClose {
@@ -1048,13 +997,11 @@
    which is the whole difference between a scene of separate
    objects and one body of water with things standing in it.
    ============================================================ */
-.zone.is-rocked .surf,
 .pad.is-rocked .surf { animation: surfRock 1.1s cubic-bezier(.25, .9, .3, 1); }
 
 /* on the lace, which is OUTSIDE .surf__warp: this one animates a
    stroke, and a stroke animating inside the filter re-rasterises
    the turbulence on every frame of it */
-.zone.is-rocked .surf__d1,
 .pad.is-rocked .surf__d1 { animation: crestFlare 1.1s ease-out; }
 
 @keyframes surfRock {
@@ -1092,22 +1039,18 @@
    Same cue, same job, and now it is the shape of the thing being
    offered.
    ============================================================ */
-.zones.is-picking .zone.is-up:not(.is-picked) .lap,
 .pads.is-picking  .pad.is-up:not(.is-picked) .lap,
 .pads.is-choosing .pad.is-up .lap { animation-duration: 2.8s; }
 
 /* the delays have to be restated: they lose to the duration rule
    above on document order otherwise, and three fronts leaving
    together is a pulse, not a train */
-.zones.is-picking .zone.is-up:not(.is-picked) .lap--b,
 .pads.is-picking  .pad.is-up:not(.is-picked) .lap--b,
 .pads.is-choosing .pad.is-up .lap--b { animation-delay: .93s; }
 
-.zones.is-picking .zone.is-up:not(.is-picked) .lap--c,
 .pads.is-picking  .pad.is-up:not(.is-picked) .lap--c,
 .pads.is-choosing .pad.is-up .lap--c { animation-delay: 1.87s; }
 
-.zones.is-picking .zone.is-up:not(.is-picked) .lap path,
 .pads.is-picking  .pad.is-up:not(.is-picked) .lap path,
 .pads.is-choosing .pad.is-up .lap path { stroke: rgba(var(--sea-lit), .5); }
 
@@ -1119,7 +1062,6 @@
    brightness costs one re-raster when the task arms, and the
    MOVEMENT in the invitation comes from the ripple train, which is
    three <svg> elements and composites. */
-.zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
 .pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
 .pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .20); }
 
@@ -1127,15 +1069,12 @@
    answer to "can I tap THIS one" than another glow on the rock,
    and it costs two property changes on elements already there. */
 @media (hover: hover) {
-  .zones.is-picking .zone.is-up:not(.is-picked):hover .surf__d1,
   .pads.is-picking  .pad.is-up:not(.is-picked):hover .surf__d1,
   .pads.is-choosing .pad.is-up:hover .surf__d1 { animation-duration: 3.4s; }
 
-  .zones.is-picking .zone.is-up:not(.is-picked):hover .surf__d2,
   .pads.is-picking  .pad.is-up:not(.is-picked):hover .surf__d2,
   .pads.is-choosing .pad.is-up:hover .surf__d2 { stroke: rgba(var(--sea-foam), .26); }
 
-  .zones.is-picking .zone.is-up:not(.is-picked):hover .lap,
   .pads.is-picking  .pad.is-up:not(.is-picked):hover .lap,
   .pads.is-choosing .pad.is-up:hover .lap { animation-duration: 2.1s; }
 }
@@ -1280,10 +1219,8 @@
    island by its state and every stroke below reads them, so there
    is no green copy of any of this.
    ============================================================ */
-.zone.is-picked,
 .pad.is-picked  { --ink: var(--ok); --lit: var(--ok-lit); }
 
-.zone.is-wrong,
 .pad.is-wrong   { --ink: var(--no); --lit: var(--no-lit); }
 
 
@@ -1312,13 +1249,10 @@
 .shock__line { stroke: rgba(var(--lit, 134, 239, 172), .95); stroke-width: 1.4; }
 
 /* the refusal's halo and rim, at the alphas red needs to stay red */
-.zone.is-wrong .shock__halo,
 .pad.is-wrong .shock__halo { stroke: rgba(var(--no), .40); }
 
-.zone.is-wrong .shock__rim,
 .pad.is-wrong .shock__rim { stroke: rgba(var(--no), .82); }
 
-.zone.is-wrong .shock__line,
 .pad.is-wrong .shock__line { stroke: rgb(var(--no-lit)); }
 
 
@@ -1333,10 +1267,8 @@
    player is choosing three and an island that looked untouched
    would invite a second tap. Wrong does not: `.is-wrong` comes off
    after 620ms, and with no `forwards` the border goes with it. */
-.zone.is-picked .shock,
 .pad.is-picked .shock { opacity: 1; animation: shockIn .52s cubic-bezier(.16, .9, .3, 1); }
 
-.zone.is-wrong .shock,
 .pad.is-wrong .shock { animation: shockFlash .6s cubic-bezier(.2, .85, .3, 1); }
 
 @keyframes shockIn {
@@ -1391,29 +1323,23 @@
    green: opaque on the leading edge and 85% on the one behind it,
    both a shade wider. See the note over --no in the palette — a
    red front at green's alphas is an orange front. */
-.zone.is-wrong .blast path,
 .pad.is-wrong .blast path {
   stroke: rgb(var(--no-lit));
   stroke-width: 2.6;
 }
 
-.zone.is-wrong .blast--b path,
 .pad.is-wrong .blast--b path {
   stroke: rgba(var(--no), .85);
   stroke-width: 4;
 }
 
-.zone.is-picked .blast,
 .pad.is-picked .blast { animation: blastOut .95s cubic-bezier(.14, .82, .28, 1); }
 
-.zone.is-picked .blast--b,
 .pad.is-picked .blast--b { animation-delay: .14s; }
 
 /* half the clock on a refusal, so it is over before the next tap */
-.zone.is-wrong .blast,
 .pad.is-wrong .blast { animation: blastOut .5s cubic-bezier(.14, .82, .28, 1); }
 
-.zone.is-wrong .blast--b,
 .pad.is-wrong .blast--b { animation-delay: .09s; }
 
 @keyframes blastOut {
@@ -1427,7 +1353,7 @@
    the area question: nothing that answered the shape question
    should follow the islands into the one about area. Same moment
    `padUnpick` fires in css/rounds.css, and for the same reason. */
-:is(.screen--round, .screen--drone) .pads.is-cleared .pad.is-picked .shock {
+.screen--round .pads.is-cleared .pad.is-picked .shock {
   opacity: 0;
   animation: none;
   transition: opacity .45s ease;
@@ -1534,10 +1460,6 @@
   border-color: rgba(var(--ok-lit), .5);
   box-shadow: 0 0 18px rgba(var(--ok), .4);
 }
-.wave--good .wave__foam {
-  background: radial-gradient(closest-side,
-    rgba(150, 255, 230, .5), rgba(70, 240, 210, 0) 72%);
-}
 .wave--good .wave__warp {
   background: radial-gradient(closest-side,
     rgba(var(--ok), 0) 44%,
@@ -1557,10 +1479,6 @@
   border-width: max(2.5px, .2vw);
   border-color: rgba(var(--no-lit), .8);
   box-shadow: 0 0 18px rgba(var(--no), .6);
-}
-.wave--bad .wave__foam {
-  background: radial-gradient(closest-side,
-    rgba(255, 140, 118, .44), rgba(255, 70, 50, 0) 72%);
 }
 .wave--bad .wave__warp {
   background: radial-gradient(closest-side,
@@ -1618,7 +1536,6 @@
 .wave--bad.is-on .wave__warp     { animation-duration: .72s; }
 .wave--bad.is-on .wave__crest    { animation-duration: .82s; }
 .wave--bad.is-on .wave__crest--b { animation-duration: .95s; animation-delay: .12s; }
-.wave--bad.is-on .wave__foam     { animation-duration: .5s; }
 
 @keyframes waveFront {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(.12); }
@@ -1671,27 +1588,7 @@
 .screen:not(.is-active) .wash i,
 .screen:not(.is-active) .shock,
 .screen:not(.is-active) .ship__wash i,
-.screen:not(.is-active) .s2-bg,
 .screen:not(.is-active) .s3-bg { animation-play-state: paused; }
-
-/* `.zone__wake` predates all of this, and it is the last circle
-   left anywhere near an island. It survives where `.zone__ring`
-   and `.pad__ring` did not because it is not a ring: it is a
-   diffuse radial wash with no edge to it, so it reads as water
-   welling up rather than as a mark drawn round a shape.
-
-   That is now its only job. It used to be the one thing under a
-   zone saying "there is more of this below the surface", and
-   `.shore__l1`/`l2` with the shelf over them say that in the
-   island's OWN outline — and say it BRIGHTER than the sea instead
-   of darker, which is what shallow water actually does. So most of
-   the wash's weight comes off here: at its old alpha it lay over
-   the pale shallows and muted the very band that ties the rock to
-   the sea. */
-.zone__wake {
-  background: radial-gradient(closest-side,
-    rgba(var(--sea-deep), .30), rgba(var(--sea-deep), 0) 74%);
-}
 
 
 /* ---------------------------------------------------------- reduced motion
@@ -1720,17 +1617,13 @@
   .sea__glint,
   .sea__swell,
   .sea__glare,
-  .s2-bg,
   .s3-bg,
   .surf__d1,
   .surf__d2,
   .wash i,
   .ship__wash i,
-  .zone.is-up .shore,
-  .zone.is-up .surf,
   .pad.is-up .shore,
   .pad.is-up .surf,
-  .zone.is-up .spray i,
   .pad.is-up .spray i { animation: none; }
 
 
@@ -1746,10 +1639,8 @@
      js/script.js holds it for. */
   .blast { display: none; }
 
-  .zone.is-picked .shock,
   .pad.is-picked .shock { animation: none; }
 
-  .zone.is-wrong .shock,
   .pad.is-wrong .shock { animation: none; opacity: 1; }
 
   /* The ripple train goes entirely, and this is the one place the
@@ -1764,15 +1655,12 @@
      both in the island's own outline. */
   .lap { display: none; }
 
-  .zones.is-picking .zone.is-up:not(.is-picked) .shore__s5,
   .pads.is-picking  .pad.is-up:not(.is-picked) .shore__s5,
   .pads.is-choosing .pad.is-up .shore__s5 { stroke: rgba(var(--sea-lit), .5); }
 
-  .zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
   .pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
   .pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .36); }
 
-  .zone.is-up .spray i,
   .pad.is-up .spray i { opacity: .55; }
 }
 
@@ -1782,38 +1670,29 @@
 .is-reduced .sea__glint,
 .is-reduced .sea__swell,
 .is-reduced .sea__glare,
-.is-reduced .s2-bg,
 .is-reduced .s3-bg,
 .is-reduced .surf__d1,
 .is-reduced .surf__d2,
 .is-reduced .wash i,
 .is-reduced .ship__wash i,
-.is-reduced .zone.is-up .shore,
-.is-reduced .zone.is-up .surf,
 .is-reduced .pad.is-up .shore,
 .is-reduced .pad.is-up .surf,
-.is-reduced .zone.is-up .spray i,
 .is-reduced .pad.is-up .spray i { animation: none; }
 
 .is-reduced .blast { display: none; }
 
-.is-reduced .zone.is-picked .shock,
 .is-reduced .pad.is-picked .shock { animation: none; }
 
-.is-reduced .zone.is-wrong .shock,
 .is-reduced .pad.is-wrong .shock { animation: none; opacity: 1; }
 
 .is-reduced .lap { display: none; }
 
-.is-reduced .zones.is-picking .zone.is-up:not(.is-picked) .shore__s5,
 .is-reduced .pads.is-picking  .pad.is-up:not(.is-picked) .shore__s5,
 .is-reduced .pads.is-choosing .pad.is-up .shore__s5 { stroke: rgba(var(--sea-lit), .5); }
 
-.is-reduced .zones.is-picking .zone.is-up:not(.is-picked) .surf__edge,
 .is-reduced .pads.is-picking  .pad.is-up:not(.is-picked) .surf__edge,
 .is-reduced .pads.is-choosing .pad.is-up .surf__edge { stroke: rgba(var(--sea-foam), .36); }
 
-.is-reduced .zone.is-up .spray i,
 .is-reduced .pad.is-up .spray i { opacity: .55; }
 
 

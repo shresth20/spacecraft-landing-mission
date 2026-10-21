@@ -246,7 +246,7 @@
                    with the origin at the corner: the one transform
                    the state describes.
 
-       the water   the screen's sea photograph (.s2-bg or .s3-bg),
+       the water   the screen's sea photograph (.s3-bg),
                    .sea__deep and .sea__swell -- the sea sheets with
                    no transform of their own. The
                    sea is one photograph stretched to the frame, so
@@ -346,7 +346,7 @@
     var world = screen.querySelector('.cam');
     if (world) out.push({ el: world, kind: 'world' });
     Array.prototype.forEach.call(
-      screen.querySelectorAll('.s2-bg, .s3-bg, .sea__deep, .sea__swell'),
+      screen.querySelectorAll('.s3-bg, .sea__deep, .sea__swell'),
       function (el) { out.push({ el: el, kind: 'water' }); }
     );
     var haze = screen.querySelector('.aerial');
@@ -665,15 +665,6 @@
 
     return wait((list.length - 1) * gap + settle);
   }
-
-  /* ---------------------------------------------------------- the landing
-     Moved out. Screens 3 to 8 fly the craft down, wreck it on the
-     rock and sink it in the sea through js/failure.js, which owns
-     the centre-of-area arithmetic, the phase classes and the
-     bursts. What used to be here — padPlan, shipDescend,
-     shipTopple, shipCrash, shipSink and shipReset — has no callers
-     left; GeoFail.plan() and GeoFail.resetSpaceship() are the two
-     that replaced them. */
 
   /* ---------------------------------------------------------- confetti
 

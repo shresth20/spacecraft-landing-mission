@@ -211,19 +211,6 @@
   }
 }
 
-@keyframes wakeClose {
-  0%   { opacity: .5;  transform: translate(-50%, -50%) scale(1.08); }
-  40%  { opacity: .95; transform: translate(-50%, -50%) scale(1.16); }
-  100% { opacity: 0;   transform: translate(-50%, -50%) scale(.5); }
-}
-
-/* foam thrown up as the surface closes over the shape */
-@keyframes splashClose {
-  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
-  26%  { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.62); }
-}
-
 
 /* ---------------------------------------------------------- narration bar */
 @keyframes caretBlink {

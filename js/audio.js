@@ -43,7 +43,6 @@
     startScan:'Start the scanner to search the area.ogg',
     foundZones:'Great! The scanner found several landing zones..ogg',
     lookShapes:'Look at the shapes of the landing zones.ogg',
-    pickTriangles:'The spaceship is a triangle. Select all the triangular landing zones.ogg',
     shapeMatch:'Correct! These landing zones have the same shape as the spaceship.ogg',
     tryAgain: 'Try again.ogg',
     spaceNeeded:'Next, we need to find how much space the spaceship needs.ogg',
@@ -761,7 +760,6 @@
     context: ensureContext,
     stopVoice: stopVoice,
     stopAll: stopAll,
-    isSpeaking: isSpeaking,
     startAmbience: startAmbience,
     duckAmbience: duckAmbience,
     fillSpectrum: fillSpectrum

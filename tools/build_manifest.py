@@ -21,10 +21,17 @@ OUT = os.path.join(ROOT, "js", "manifest.js")
 # licence texts and the like are never fetched by the page
 SKIP_EXT = {".txt", ".md"}
 
+# source art the build tools cut the shipped files from; never fetched
+SKIP_DIRS = {"assets/images/new"}
+
 
 def main():
     sizes = {}
-    for dirpath, _dirs, files in os.walk(ASSETS):
+    for dirpath, dirs, files in os.walk(ASSETS):
+        rel_dir = os.path.relpath(dirpath, ROOT).replace(os.sep, "/")
+        if any(rel_dir == d or rel_dir.startswith(d + "/") for d in SKIP_DIRS):
+            dirs[:] = []
+            continue
         for name in sorted(files):
             if os.path.splitext(name)[1].lower() in SKIP_EXT:
                 continue

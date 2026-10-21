@@ -53,7 +53,7 @@
      and crosses and comes down on site B, where the player flies the
      craft onto the island whose area it needs, exactly as on screen
      3 -- hearts, autopilot and all. Rectangle, parallelogram,
-     trapezium, rhombus, and the triangle last. See runRound().
+     trapezium, rhombus. See runRound().
 
    The "<" / ">" nav can cut in at any point, so each screen is
    described as a list of steps run under a generation id. Jumping
@@ -98,14 +98,16 @@
      round screens' own sea. */
   var REEF = global.GeoReef || { init: function () {}, strew: function () {}, prepare: function () { return Promise.resolve(); } };
 
-  /* js/cinematic.js -- the square's landing, played as a cut-scene
-     once GO is pressed. Every other screen, or this one without it,
-     lands the way it always has: from straight overhead. */
+  /* js/cinematic.js -- the square's landing from its sprite sheets:
+     the fallback cut-scene on that one screen, when the shots below
+     cannot play. A screen with neither lands the way it always has:
+     from straight overhead. */
   var CINEMA = global.GeoCinema || null;
 
-  /* js/square-landing.js -- the fit, close up: the craft and the
-     island alone, every jet and puff of smoke drawn live. It stands in
-     for the cut-scene's own fit shot wherever its art is in. */
+  /* js/square-landing.js (+ js/square-crash.js) -- every landing's
+     cut-scenes, close up: the shape's own craft and island, every jet
+     and puff of smoke drawn live, on every screen whose two pictures
+     are in (js/landing-assets.js). */
   var SQUARE = global.GeoSquareLanding || null;
 
   /* js/close-up.js -- the overhead lens down onto the island before
@@ -131,9 +133,7 @@
     startScan:  'Start the scanner to search the area.',
     foundZones: 'Great! The scanner found several landing zones.',
     lookShapes: 'Look at the shapes of the landing zones.',
-    pickTriangles: 'The spaceship is a triangle. Select all the triangular landing zones.',
     shapeMatch: 'Correct! These landing zones have the same shape as the spaceship.',
-    tryAgain: 'Try again.',
     spaceNeeded: 'Next, we need to find how much space the spaceship needs.',
     calcArea: 'Calculate the area of spaceship, and select the land with required area.',
     chooseExact: 'Choose the landing zone with the exact area.',
@@ -157,13 +157,9 @@
 
   function grab() {
     [
-      'stage', 'screenCockpit', 'screenDrone', 'starfield',
+      'stage', 'screenCockpit', 'starfield',
       'flyDrone', 'flyTrail', 'dash', 'waveCanvas', 'cockpitCaption',
-      'launchSlot', 'launchBtn', 'oceanBg', 'blackout', 'scanner',
-      'droneHud', 'cam',
-      'altHud', 'altNum', 'altState',
-      'topbar', 'topbarText',
-      'confetti', 'advanceBtn',
+      'launchSlot', 'launchBtn',
       'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
       'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext',
       'navDebug', 'navDebugMenu'
@@ -486,9 +482,6 @@
      the bracket stay away */
   var airborne = false;
 
-  /* screen 2's round, from GeoPages.buildSurvey() at boot */
-  var survey = null;
-
   /* the lens down on a site: scale 1, the site's centre under the
      middle of the frame -- which is that site laid out exactly as a
      screen of its own would lay it out */
@@ -511,12 +504,13 @@
     var b = round.sites.b;
     var P = global.GeoPages;
 
+
     /* the lens first: back to the ground state before anything is
        measured, so the layout below is read off the layout itself */
     M.camReset(round.node);
     altReset(round);
 
-    /* the survey's opening: the dark, the bezel and the scanner */
+    /* the first round's opening: the dark, the bezel and the scanner */
     if (round.intro) {
       e.bg.classList.remove('is-lit');
       e.bezel.classList.remove('is-retired');
@@ -602,7 +596,7 @@
     var steps = [];
 
     if (round.intro) {
-      /* ── the survey's opening: the dark, and the scan ── */
+      /* ── the first round's opening: the dark, and the scan ── */
       steps.push(
         /* the bar drops in empty and then carries every line on this
            screen -- it has to be up before the first voice clip */
@@ -704,9 +698,9 @@
       /* a beat to look at the water before the line names the shape */
       function () { return M.wait(560); },
 
-      /* the triangle's line has a clip; every other names a shape no
-         clip was recorded for, and is typed at reading rate (see
-         narrate) */
+      /* no shape's line has a recorded clip, so each is typed at
+         reading rate (see narrate); `sayKey` is honoured should one
+         be added */
       function () { return narrate(e.topbarText, round.sayKey || round.shape, round.say); },
 
       /* --- over to the player, until all three are found --- */
@@ -1418,12 +1412,19 @@
     return !!(PILOT && site && site.helm);
   }
 
-  /* Is this landing played as the cut-scene? Only on a screen built
-     for it (the square's), and never under reduced motion: a shot with
-     a camera shake in it is just what that setting asks to be spared,
-     and the top-down landing says the same thing without one. */
-  function cinema(site) {
-    return !!(CINEMA && CINEMA.has(site) && !M.reduced());
+  /* The player that plays this landing's `kind` of shot ('fit',
+     'tight' or 'loose') as a cut-scene, or null for the landing from
+     overhead: the live two-picture shots where the screen's shape has
+     its pictures in (js/square-landing.js), else the square's sheets on
+     its own screen (js/cinematic.js). Never under reduced motion: a
+     shot with a camera shake in it is just what that setting asks to
+     be spared, and the top-down landing says the same thing without
+     one. */
+  function cinema(site, kind) {
+    if (M.reduced()) return null;
+    if (SQUARE && SQUARE.has(site, kind)) return SQUARE;
+    if (CINEMA && CINEMA.has(site)) return CINEMA;
+    return null;
   }
 
   /* Around the cut-scene, the overhead lens (js/close-up.js): down onto
@@ -1527,7 +1528,8 @@
     round.solved = true;
     armAdvanceWatchdog(round, id);
 
-    if (cinema(round)) return plantCinema(round, pad, ref, id, auto);
+    var player = cinema(round, 'fit');
+    if (player) return plantCinema(round, pad, ref, id, auto, player);
 
     return F.successfulLanding(e.ship, pad, {
       refPad: ref,
@@ -1574,7 +1576,7 @@
      on the rock; "landing successful" once it has handed back. The
      lens comes down onto the island before the shot and goes back up
      after it (closeIn, closeOut). */
-  function plantCinema(round, pad, ref, id, auto) {
+  function plantCinema(round, pad, ref, id, auto, player) {
     var e = round.el;
     var said = null;
     var alive = function () { return live(id); };
@@ -1598,7 +1600,7 @@
         });
       });
 
-      var shot = (SQUARE && SQUARE.has(round) ? SQUARE : CINEMA).play(round, 'fit', {
+      var shot = player.play(round, 'fit', {
         alive: alive,
         onTouchdown: function () {
           if (flown(round)) PILOT.stow(round);
@@ -1665,7 +1667,8 @@
                   within reach to go over — so it wrecks ON the rock
                   and never reaches the sea                         */
   function failRound(round, pad, ref, tight, id) {
-    if (cinema(round)) return failCinema(round, ref, tight, id, pad);
+    var player = cinema(round, tight ? 'tight' : 'loose');
+    if (player) return failCinema(round, ref, tight, id, pad, player);
 
     var e = round.el;
 
@@ -1718,7 +1721,7 @@
      of the frame (shipArrive), as after a miss seen from overhead. The
      heart goes on the frame the craft hits the water or the rock, with
      its sound, and the verdict is spoken over the struggle. */
-  function failCinema(round, ref, tight, id, pad) {
+  function failCinema(round, ref, tight, id, pad, player) {
     var e = round.el;
     var helm = flown(round);
     var said = null;
@@ -1727,10 +1730,7 @@
        impact -- see failFlight() */
     var bang = A.prime(tight ? 'sink' : 'crash');
 
-    /* too small, played live from the two pictures where their art is
-       in (js/square-landing.js); otherwise the cut-scene's sheets */
     var kind = tight ? 'tight' : 'loose';
-    var player = SQUARE && SQUARE.has(round, kind) ? SQUARE : CINEMA;
     var alive = function () { return live(id); };
 
     /* the lens down onto the island first, and the shot once it has
@@ -1844,47 +1844,26 @@
      SCREENS + NAV
      ============================================================ */
   var SCREENS = [
-    { label: 'cockpit', node: function () { return el.screenCockpit; }, reset: resetCockpit, run: runCockpit },
-    { label: 'survey',  node: function () { return el.screenDrone; },   reset: resetSurvey,  run: runSurvey }
+    { label: 'cockpit', node: function () { return el.screenCockpit; }, reset: resetCockpit, run: runCockpit }
   ];
 
-  /* Screen 2 is a round like the others once js/pages.js has built
-     its islands (wireSurvey); until then -- or without pages.js at
-     all -- it is dark water and a scan that finds nothing, which is
-     the most the screen can honestly play. */
-  function resetSurvey() {
-    if (survey) return resetRound(survey);
-    el.topbar.classList.remove('is-on');
-    T.clear(el.topbarText);
-  }
-
-  function runSurvey() {
-    if (survey) return runRound(survey);
-    return sequence([
-      function () { el.topbar.classList.add('is-on'); return M.wait(720); },
-      function () { return narrate(el.topbarText, 'tooDark'); },
-      function () { return narrate(el.topbarText, 'startScan'); }
-    ]);
-  }
-
-  /* Screens 3 to 8 are built from js/pages.js at boot and appended
+  /* Screens 2 to 6 are built from js/pages.js at boot and appended
      here, so the nav, the veil, the NEXT button and goTo() pick them
      up with no special case: as far as everything below is
-     concerned they are six more entries in this list.
+     concerned they are five more entries in this list.
 
-     Built rather than written out in index.html because the six are
-     one screen six times over — the same markup with a different
-     shape's artwork and measurements in it. Six copies in the
-     document would be six copies to keep in step, and none of them
+     Built rather than written out in index.html because the five are
+     one screen five times over — the same markup with a different
+     shape's artwork and measurements in it. Five copies in the
+     document would be five copies to keep in step, and none of them
      could own an id. */
   function addRoundScreens() {
-    /* Loudly, because the mission still runs without it: screens 1-2
-       play as normal and then simply stop, which looks like a broken
-       NEXT button rather than a missing file. */
+    /* Loudly, because the mission still runs without it: the cockpit
+       plays as normal and then simply stops, which looks like a broken
+       LAUNCH button rather than a missing file. */
     if (!global.GeoPages) {
       if (global.console) {
-        console.warn('GeoDrone: js/pages.js did not load — the survey has ' +
-                     'no islands and screens 3 to 8 are missing.');
+        console.warn('GeoDrone: js/pages.js did not load — screens 2 to 6 are missing.');
       }
       return;
     }
@@ -2002,11 +1981,10 @@
      arrow answers by going disabled — a screen must never offer a
      button the nav has already given up on.
 
-     This matters most when js/pages.js has not arrived: screens 3-8
-     are built from it at boot, so without it the survey IS the
-     last screen, and a NEXT there would appear and then refuse to
-     go anywhere. That is a stale cache or a bad deploy rather than
-     a state the flow can fix, so the button simply stays away. */
+     This matters most when js/pages.js has not arrived: screens 2-6
+     are built from it at boot, so without it the cockpit IS the last
+     screen. That is a stale cache or a bad deploy rather than a
+     state the flow can fix, so the button simply stays away. */
   function canAdvance() {
     return current < SCREENS.length - 1;
   }
@@ -2369,16 +2347,6 @@
     A.sfx('click', { volume: 0.4, keep: true });
   }
 
-  /* Screen 2's islands, built into its markup and wired like a
-     round's. Before SEA.init(), so every island gets its shoreline
-     with the rest, and before runGate(), so its artwork is counted
-     by the loading bar. */
-  function wireSurvey() {
-    if (!global.GeoPages || !global.GeoPages.buildSurvey) return;
-    survey = global.GeoPages.buildSurvey(el.screenDrone);
-    if (survey) wireSites(survey);
-  }
-
   function boot() {
     grab();
 
@@ -2390,22 +2358,23 @@
     M.starfield(el.starfield, 150);
     W.init(el.waveCanvas);
 
-    /* before runGate(), so the islands and craft on screens 4-8 are
+    /* before runGate(), so the islands and craft on screens 2-6 are
        already in document.images when the loading bar works out what
        it has to fetch */
     addRoundScreens();
-    wireSurvey();
     buildDebug();
 
     /* and after both, because every island on every screen needs a
        shoreline built from its own silhouette */
     SEA.init(el.stage);
-    /* The square's environment replaces the shared water on that screen. */
+    /* The reef's environment replaces the shared water on every
+       landing's site. */
     REEF.init(el.stage);
     /* and draws its sea through moving water (js/reef-water.js) */
     if (global.GeoReefWater) global.GeoReefWater.init(el.stage);
-    /* and plays its landings as a cut-scene (js/cinematic.js): built
-       here, before runGate(), so the shot's art is fetched with the rest */
+    /* and plays the landings as cut-scenes (js/cinematic.js,
+       js/square-landing.js): built here, before runGate(), so the shots'
+       art is fetched with the rest */
     if (CINEMA) CINEMA.init(el.stage);
     if (SQUARE) SQUARE.init(el.stage);
 
@@ -2425,11 +2394,8 @@
     el.navPrev.addEventListener('click', function () { goTo(current - 1); });
     el.navNext.addEventListener('click', function () { goTo(current + 1); });
 
-    /* The reward button takes the same road as the ">" arrow, which
-       is what makes it carry straight on from the survey's shape
-       question to the square's landing. Screens 3-8 wire the same
-       handler, in addRoundScreens(). */
-    el.advanceBtn.addEventListener('click', onAdvance);
+    /* every round's NEXT button takes the same road as the ">" arrow:
+       onAdvance, wired in addRoundScreens() */
     syncNav();
 
     document.body.classList.add('is-ready');

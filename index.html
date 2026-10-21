@@ -31,13 +31,13 @@
        the round screens; the one rule it needs inside the landing
        chain lives in css/failure.css, where its place is the point. -->
   <link rel="stylesheet" href="css/pilot.css" />
-  <!-- The square landing's supplied artwork: ocean, underwater rocks, land. -->
+  <!-- Every landing's supplied artwork: ocean, underwater rocks, land. -->
   <link rel="stylesheet" href="css/reef.css" />
-  <!-- and its landings as a cut-scene, played over the screen once GO is
+  <!-- and the landings as a cut-scene, played over the screen once GO is
        pressed: the letterbox, the shot's layers and its particles -->
   <link rel="stylesheet" href="css/cinematic.css" />
-  <!-- and its successful landing, close up: the craft and the island,
-       their jets and smoke -->
+  <!-- and the successful landing and the two crashes, close up: the
+       craft and the island, their jets, water and smoke -->
   <link rel="stylesheet" href="css/square-landing.css" />
   <link rel="stylesheet" href="css/square-crash.css" />
 
@@ -65,7 +65,7 @@
     <div class="starfield" id="starfield" aria-hidden="true"></div>
 
     <!-- the drone flies out through the canopy: sits BELOW the cockpit frame -->
-    <div class="flyout" id="flyout" aria-hidden="true">
+    <div class="flyout" aria-hidden="true">
       <div class="flyout__drone" id="flyDrone">
         <span class="flyout__wash"></span>
         <img src="assets/images/drone.webp" alt="" />
@@ -93,7 +93,7 @@
         <span class="launch__body">
           <!-- decorative: the cap carries no type of its own, and
                the button's name is on the <button> itself -->
-          <img class="launch__plate" src="assets/images/Launch%20button.webp"
+          <img class="launch__plate" src="assets/images/launch-button.webp"
                alt="" draggable="false">
           <span class="launch__flash" aria-hidden="true"></span>
         </span>
@@ -103,161 +103,9 @@
   </section>
 
 
-  <!-- ══════════════════════════ SCREEN 2 — THE SURVEY ══════════════════════════
-
-       One screen, one continuous shot, the first half of the lesson.
-
-       The drone's lens opens on the whole archipelago from survey
-       height — twenty-odd small islands of every shape in the
-       mission, breaking the surface across a sea several frames
-       wide — and comes down on SITE A: three squares of three
-       sizes and two other shapes. The SHAPE question: "select all
-       the square landing zones." Once all three are found, NEXT
-       opens screen 3, the square's landing (built by js/pages.js).
-       See THE CAMERA in js/animation.js and runRound() in
-       js/script.js.
-
-       ── the world ──
-
-       `.cam` is the camera plate and everything inside it is in
-       WORLD coordinates: per cent of one frame, with site A's frame
-       at (0..100, 0..100) and site B's a frame to the right and
-       half a frame down (see .site--b in css/style.css). The
-       islets are strewn over the water between and around the two.
-       The camera's ground state at either site is a translate and
-       a scale of exactly 1, so the layout each task is measured on
-       is the layout itself.
-       ══════════════════════════════════════════════════════════════════════ -->
-  <section class="screen screen--drone" id="screenDrone">
-
-    <!-- ocean, faded up once the scan completes -->
-    <div class="layer layer--bg s2-bg" id="oceanBg" aria-hidden="true"></div>
-
-    <!-- the dark: sits over the ocean until the scan lands -->
-    <div class="blackout" id="blackout" aria-hidden="true"></div>
-
-    <!-- ░░ THE CAMERA ░░
-
-         The lens, and everything it actually flies over. The bezel,
-         the scanner, the haze, the altimeter, the narration bar,
-         the HUD lines and the NEXT button are all OUTSIDE it — they
-         are on the lens, not under it, so they hold still while the
-         water moves.
-
-         js/water.js mounts the wave fronts in here too: they are
-         placed from layout positions, which cannot see a transform,
-         so they have to be on this side of it. See the .cam block
-         in css/style.css. -->
-    <div class="cam" id="cam">
-
-      <!-- the wider sea: small islands of every shape, strewn over
-           the water around and between the two sites by
-           GeoPages.buildSurvey(). Scenery, not controls. -->
-      <div class="islets" id="islets" aria-hidden="true"></div>
-
-      <!-- ░░ SITE A — the shape question ░░
-           Five islands, filled in by js/pages.js: three squares of
-           three sizes and two shapes drawn from the other five, a
-           different pair every visit. Strewn across the five
-           stations on every entry, exactly as a round screen is. -->
-      <div class="site site--a" id="siteA">
-        <div class="pads" id="padsA"></div>
-      </div>
-
-      <!-- ░░ SITE B ░░
-           Empty on this screen. The landing is the next screen now
-           (screen 3, built by js/pages.js), so the survey only plays
-           site A; site B is kept so the camera and every helper see
-           the same two sites on every screen, and the islets are
-           strewn over its water instead. -->
-      <div class="site site--b" id="siteB">
-        <div class="pads" id="padsB"></div>
-      </div>
-
-    </div>
-
-    <!-- the air between a camera at survey height and the water
-         under it: full while the lens is high, gone by the time it
-         is down. Plain alpha rather than a blend mode, for the same
-         reason .sea__glare is — it has to read over rock as well as
-         over sea. -->
-    <div class="aerial" aria-hidden="true"></div>
-
-    <!-- the acquisition bracket. Drawn at FRAME scale rather than
-         inside the camera, so its corners are placed on where the
-         wide lens is showing a site (see siteBox() in js/script.js)
-         and its line weight does not shrink with it. Released
-         partway down each descent. -->
-    <div class="fix" aria-hidden="true">
-      <div class="fix__box">
-        <span class="fix__ring"></span>
-        <i class="fix__c fix__c--tl"></i>
-        <i class="fix__c fix__c--tr"></i>
-        <i class="fix__c fix__c--bl"></i>
-        <i class="fix__c fix__c--br"></i>
-      </div>
-    </div>
-
-    <!-- ░░ altimeter ░░ the one instrument on the feed, and it is
-         here to say that what is changing is the CAMERA and not the
-         islands. It follows the lens itself — see altFollow() in
-         js/script.js — so it climbs, holds and descends with it. -->
-    <div class="alt" id="altHud" aria-hidden="true">
-      <span class="alt__track"><i class="alt__mark"></i></span>
-      <span class="alt__read">
-        <span class="alt__row">
-          <b class="alt__num" id="altNum">4200</b><i class="alt__unit">m</i>
-        </span>
-        <em class="alt__state" id="altState">STANDBY</em>
-      </span>
-    </div>
-
-    <!-- green neon scanner sweep -->
-    <div class="scanner" id="scanner" aria-hidden="true">
-      <div class="scanner__wash"></div>
-      <div class="scanner__bar">
-        <span class="scanner__core"></span>
-        <span class="scanner__glow"></span>
-      </div>
-    </div>
-
-    <!-- HUD frame, stretched to fill — retired once the scan lands -->
-    <div class="layer layer--hud drone-hud" id="droneHud" aria-hidden="true"></div>
-
-    <!-- ░░ celebration ░░
-         Paper falls from the top of the frame the moment the craft
-         is planted. Built by JS (see M.confetti) so the count
-         follows the viewport and the shower can be torn down if the
-         player jumps away mid-cheer. -->
-    <div class="confetti" id="confetti" aria-hidden="true"></div>
-
-    <!-- ░░ narration bar — typed in step with the voice-over ░░ -->
-    <header class="topbar" id="topbar">
-      <div class="topbar__frame">
-        <span class="topbar__badge" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 2.2c2.7 2.8 4.1 6.3 4.1 9.8v3.4H7.9V12c0-3.5 1.4-7 4.1-9.8z" />
-            <path d="M7.9 12.4 5.1 15.3v3.4l2.8-2M16.1 12.4l2.8 2.9v3.4l-2.8-2" />
-            <path d="M10.2 15.8c0 2.2.7 4.1 1.8 5.4 1.1-1.3 1.8-3.2 1.8-5.4z" />
-            <circle cx="12" cy="9.2" r="1.7" />
-          </svg>
-        </span>
-        <p class="topbar__text" id="topbarText" role="status" aria-live="polite"></p>
-      </div>
-    </header>
-
-    <!-- ░░ on to the next screen ░░
-         Hidden until the craft is planted: it is the reward for the
-         right answer, not a way past the question. -->
-    <div class="advance" aria-hidden="false">
-      <button class="advance__btn" id="advanceBtn" type="button" hidden>
-        <span class="advance__label">NEXT</span>
-        <svg class="advance__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
-      </button>
-    </div>
-
-  </section>
-
+  <!-- Screens 2 to 6 -- the five rounds, the square's first with the
+       drone's dark-and-scan opening in front of it -- are built here by
+       js/pages.js at boot, one screen per shape. -->
 
   <!-- ══════════════════════════ TRANSITION VEIL ══════════════════════════ -->
   <div class="veil" id="veil" aria-hidden="true">
@@ -373,14 +221,14 @@
      the same GeoLife-backed wait) and before script.js, which calls
      GeoFail from every one of screens 3 to 8. -->
 <script src="js/failure.js"></script>
-<!-- screens 4-8: the shape data and the markup built from it. Before
+<!-- screens 2-6: the shape data and the markup built from it. Before
      script.js, which asks it for the rounds while it is booting. -->
 <script src="js/pages.js"></script>
 <!-- the water. After pages.js, whose measured silhouettes every
      shoreline is built from, and before script.js, which calls
      GeoWater.init() from boot() once the round screens exist. -->
 <script src="js/water.js"></script>
-<!-- Measured sprite metadata, then the square screen's environment. -->
+<!-- Measured sprite metadata, then every landing's environment. -->
 <script src="js/environment-assets.js"></script>
 <script src="js/reef.js"></script>
 <!-- and its sea drawn through moving water: refraction and caustics -->
@@ -388,18 +236,19 @@
 <!-- the helm: flying the square's craft by hand. Before script.js,
      which hands it the landing screen's site at boot. -->
 <script src="js/pilot.js"></script>
-<!-- the square's landing as a cut-scene: its art, cut from the new4
-     sheets by tools/build_cinematic.py, then the player. Before
-     script.js, which builds it at boot and plays it from GO. Its
-     effects are tweened by anime.js (vendored, v3.2.2, MIT) and its
-     sounds synthesised by js/cinematic-sfx.js. -->
+<!-- the square's landing as a cut-scene from its sprite sheets (cut by
+     tools/build_cinematic.py): the fallback on that screen when the live
+     shots below cannot play. Before script.js, which builds it at boot
+     and plays it from GO. Its effects are tweened by anime.js (vendored,
+     v3.2.2, MIT) and its sounds synthesised by js/cinematic-sfx.js. -->
 <script src="js/vendor/anime.min.js"></script>
 <script src="js/cinematic-assets.js"></script>
 <script src="js/cinematic-sfx.js"></script>
 <script src="js/cinematic.js"></script>
-<!-- the square's successful landing, played from just its two pictures
-     (measured by tools/build_square_landing.py); the fit's cut-scene -->
-<script src="js/square-landing-assets.js"></script>
+<!-- every landing's successful landing and its slide into the sea, played
+     from just the shape's two pictures (cut and measured by
+     tools/build_landings.py); the cut-scenes -->
+<script src="js/landing-assets.js"></script>
 <script src="js/square-landing.js"></script>
 <!-- the crash on the island too big for it, from the same two
      pictures; a third kind of shot for that player -->

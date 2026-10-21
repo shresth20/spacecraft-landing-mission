@@ -1,25 +1,37 @@
 /* ============================================================
-   Geo Drone — THE SQUARE'S SUCCESSFUL LANDING, close up
+   Geo Drone — THE SUCCESSFUL LANDING, close up
 
-   When the craft is set down on the island that fits it (screen 3,
-   GO), the screen cuts to the same moment seen from the angle: the
-   island standing in the sea, the craft hovering over it on its jets,
-   coming down, and settling on it edge for edge.
+   When the craft is set down on the island that fits it (GO, on any
+   landing), the screen cuts to the same moment seen from the angle:
+   the island standing in the sea, the craft hovering over it on its
+   jets, coming down, and settling on it edge for edge.
+
+   Written for the square's landing, and since 2026-10-21 played on
+   every round's: each shape brings its own two pictures, and
+   everything below is worked out from their corners.
 
    ── THE ART ───────────────────────────────────────────────────
-   Two pictures and nothing else: the square craft and the square
-   island (assets/new4, cropped by tools/build_square_landing.py), on
-   the screen's own sea. Neither is redrawn, resized or turned while
-   the shot plays. The jets, the light they throw, the shadow and all
-   of the smoke are made here and in css/square-landing.css.
+   Two pictures per shape and nothing else: the craft and the island
+   seen from the angle (assets/images/landing, cut and measured by
+   tools/build_landings.py into js/landing-assets.js), on the screen's
+   own sea. Neither is redrawn, resized or turned while the shot
+   plays. The jets, the light they throw, the shadow and all of the
+   smoke are made here and in css/square-landing.css.
 
-   The touchdown is set from the SQUARES, not the images: the build
-   tool measures the corners of the craft's underside and of the
+   The touchdown is set from the SLABS, not the images: the build
+   tool measures the four corners of the craft's underside and of the
    island's top face off their silhouettes, and the island is laid
    into the stage by the homography that takes its top face's four
-   corners onto the four corners of the craft's underside at rest. The
-   two were drawn from very nearly the same camera, so that is a
-   correction of a few px; but it is exact, corner for corner.
+   corners onto the four corners of the craft's underside at rest.
+   Exact, corner for corner, whatever the view.
+
+   The corners are named l, b, r, f -- the leftmost first, then
+   clockwise -- which on a diamond view (the square, the rhombus) is
+   left, back, right, front, and on a view from the front is
+   front-left, back-left, back-right, front-right. Which of the four
+   walls under them face the camera (and so where the jets hang, where
+   the smoke banks up, where the sea's line runs on a sinking hull) is
+   read off the corners themselves: viewOf(), below.
 
    ── THE CINEMATIC ─────────────────────────────────────────────
    Shot exactly as the other landings' cut-scene is (js/cinematic.js):
@@ -80,8 +92,17 @@
   'use strict';
 
   var doc = document;
-  var ART = global.GeoSquareLandingAssets;
+  /* every shape's two pictures, by shape (js/landing-assets.js); the
+     file this one grew out of held the square's alone */
+  var ART = global.GeoLandingAssets || global.GeoSquareLandingAssets || null;
+  if (ART && ART.craft && ART.land) ART = { square: ART };
   var SEA = global.GeoEnvironmentAssets && global.GeoEnvironmentAssets.ocean;
+
+  /* a screen's own art: the shape it is the round of */
+  function artOf(screen) {
+    var a = ART && screen && ART[screen.dataset.shape];
+    return a && a.craft && a.land ? a : null;
+  }
 
   var STAGE_W = 1600;
   var STAGE_H = 900;
@@ -92,7 +113,10 @@
   var SAFE_Y = 494;             /* its middle */
   var BAR = 0.085;              /* each letterbox bar, a share of the height */
 
-  var K = 0.48;                 /* stage px per craft px: the craft's one size */
+  var K = 0.48;                 /* stage px per craft px: the square's craft's one size */
+  /* every craft's underside is drawn to the same area on stage as the
+     square's, so one shape's shot is the size of another's */
+  var FOOT = 103800;            /* that area, stage px squared; set from the square's below */
   var AT = [800, 612];          /* the centre of the island's top face, on stage */
   var HOVER = 240;              /* how high it hangs over the rock at first */
   var JET = 200;                /* a jet's full length, stage px */
@@ -115,11 +139,10 @@
     inOut: function (u) { return u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
   };
 
-  /* The jets: four big ones, two under each of the two front faces
-     (all that is seen of the underside), at these shares of the
-     face's length. */
-  var FACES = [['l', 'f'], ['f', 'r']];
-  var STREAKS = [.27, .73];
+  /* The jets: four big ones, under the walls that face the camera --
+     two under each of a diamond view's two front walls, four along a
+     front view's one -- at these shares of the wall's length. */
+  var STREAKS = { 2: [.27, .73], 1: [.12, .37, .63, .88] };
 
   var shots = new Map();        /* screen -> { fit, tight }: its overlays */
 
@@ -272,10 +295,98 @@
 
   var KEYS = ['l', 'b', 'r', 'f'];
 
+  function quadArea(q) {
+    var a = 0, pts = KEYS.map(function (k) { return q[k]; });
+    for (var i = 0, j = 3; i < 4; j = i++) a += (pts[j][0] + pts[i][0]) * (pts[j][1] - pts[i][1]);
+    return Math.abs(a) / 2;
+  }
+
+  if (ART && ART.square) FOOT = K * K * quadArea(ART.square.craft.base);
+
+  /* stage px per craft px, for this craft: its underside the same area
+     on stage as the square's */
+  function kOf(art) {
+    return Math.sqrt(FOOT / (quadArea(art.craft.base) || 1));
+  }
+
+  /* the convex hull of some points (Andrew's monotone chain), clockwise
+     on screen */
+  function hull(points) {
+    var pts = points.slice().sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+    if (pts.length < 3) return pts;
+    var cross = function (o, a, b) { return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]); };
+    var lower = [], upper = [], i;
+    for (i = 0; i < pts.length; i++) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pts[i]) <= 0) lower.pop();
+      lower.push(pts[i]);
+    }
+    for (i = pts.length - 1; i >= 0; i--) {
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) upper.pop();
+      upper.push(pts[i]);
+    }
+    upper.pop(); lower.pop();
+    return lower.concat(upper);
+  }
+
+  /* Which of a slab's four walls face the camera, read off its four
+     corners (an underside or a top face, l b r f): a wall whose outward
+     side points down the screen is seen.
+
+       faces   those walls, left to right, each [left corner, right corner]
+       chain   the corners along them, in x order
+       rear    the other walls, each [corner, next corner] in cycle order
+       apex    the corner nearest the camera on the chain: where the sea's
+               line on a sinking hull has its vertex
+       hug     the corner the misfit's small island is tucked up against
+               (the chain's right end), and tip the wall the craft goes
+               off over -- the left front wall, or on a front view the
+               left side */
+  function viewOf(q) {
+    var mid = across(q, .5, .5), faces = [], rear = [];
+    KEYS.forEach(function (k, i) {
+      var j = KEYS[(i + 1) % 4], a = q[k], b = q[j];
+      var ox = (a[0] + b[0]) / 2 - mid[0], oy = (a[1] + b[1]) / 2 - mid[1];
+      if (oy / (Math.hypot(ox, oy) || 1) > .3) faces.push(a[0] <= b[0] ? [k, j] : [j, k]);
+      else rear.push([k, j]);
+    });
+    faces.sort(function (p, s) { return q[p[0]][0] + q[p[1]][0] - q[s[0]][0] - q[s[1]][0]; });
+    if (!faces.length) faces.push(['l', 'f']);
+    var chain = [];
+    faces.forEach(function (f) {
+      f.forEach(function (k) { if (chain.indexOf(k) < 0) chain.push(k); });
+    });
+    chain.sort(function (a, b) { return q[a][0] - q[b][0]; });
+    var two = faces.length >= 2;
+    var first = chain[0], last = chain[chain.length - 1];
+    var side = rear.filter(function (e) { return e.indexOf(first) >= 0; })[0];
+    return {
+      faces: faces, chain: chain, rear: rear,
+      streaks: STREAKS[two ? 2 : 1],
+      apex: two ? faces[0][1] : first,
+      hug: last,
+      tip: two ? faces[0] : (side || faces[0]),
+      pivots: [first, last]
+    };
+  }
+
+  /* the underside's seen edges, in the craft's own box (stage px): the
+     corners along the front walls, and the box round them */
+  function edgeOf(c, K, view) {
+    var chain = view.chain.map(function (k) { return [c.base[k][0] * K, c.base[k][1] * K]; });
+    var xs = chain.map(function (p) { return p[0]; }), ys = chain.map(function (p) { return p[1]; });
+    return {
+      chain: chain,
+      x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs),
+      yTop: Math.min.apply(null, ys), yBot: Math.max.apply(null, ys)
+    };
+  }
+
   /* Where everything is, in stage px, with the craft at rest. Fixed
      for the art, so worked out once. */
-  function layout() {
-    var c = ART.craft, l = ART.land;
+  function layout(art) {
+    var c = art.craft, l = art.land;
+    var K = kOf(art);
+    var view = viewOf(c.base);
     var mid = across(c.base, .5, .5);
     var onStage = function (p) { return [AT[0] + (p[0] - mid[0]) * K, AT[1] + (p[1] - mid[1]) * K]; };
 
@@ -287,6 +398,7 @@
     var base = KEYS.map(function (key) { return project(h, l.base[key]); });
 
     return {
+      art: art, K: K, view: view,
       craft: { left: AT[0] - mid[0] * K, top: AT[1] - mid[1] * K, w: c.size[0] * K, h: c.size[1] * K,
                origin: [mid[0] * K, mid[1] * K] },
       land: h,
@@ -297,8 +409,7 @@
       base: base,
       mid: onStage(mid),
       /* the underside's front edges, in the craft's own box (stage px) */
-      edge: { l: [c.base.l[0] * K, c.base.l[1] * K], f: [c.base.f[0] * K, c.base.f[1] * K],
-              r: [c.base.r[0] * K, c.base.r[1] * K] }
+      edge: edgeOf(c, K, view)
     };
   }
 
@@ -313,8 +424,9 @@
      ============================================================ */
 
   function dress(screen) {
-    if (shotsOf(screen).fit || !ART) return;
-    var geo = layout();
+    var art = artOf(screen);
+    if (shotsOf(screen).fit || !art) return;
+    var geo = layout(art);
 
     /* .cine: the cut-scene's own overlay, letterbox and lens */
     var root = node('div', 'cine sql');
@@ -327,9 +439,9 @@
     var seat = node('div', 'sql__seat', stage);
     node('i', '', seat).style.clipPath = polygon(geo.base);
 
-    var land = image(ART.land.src, 'sql__land', stage);
-    land.style.width = px(ART.land.size[0]);
-    land.style.height = px(ART.land.size[1]);
+    var land = image(art.land.src, 'sql__land', stage);
+    land.style.width = px(art.land.size[0]);
+    land.style.height = px(art.land.size[1]);
     land.style.transform = matrix3d(geo.land);
 
     var faceClip = polygon(geo.quad);
@@ -359,7 +471,7 @@
     var jets = rigOf(stage, geo);
     var rig = jets.rig, aura = jets.aura, bands = jets.bands;
 
-    var craft = image(ART.craft.src, 'sql__craft', stage);
+    var craft = image(art.craft.src, 'sql__craft', stage);
 
     var lit = litOf(stage, geo);
 
@@ -368,7 +480,7 @@
 
     /* the seam where hull meets rock, and the match drawn round it once
        it is down: far edges as hidden lines, a bracket on every corner */
-    var seam = svgOf(stage, 'cine__seam', 'polyline', 2);
+    var seam = svgOf(stage, 'cine__seam', 'polyline', Math.max(1, geo.view.chain.length - 1));
     var match = svgOf(stage, 'cine__match is-ok', 'polygon', 2);
     for (var m = 0; m < 5; m++) match.appendChild(doc.createElementNS(NS, 'polyline'));
     ['m-foot', 'm-face', 'm-corner', 'm-corner', 'm-corner', 'm-corner', 'm-far'].forEach(function (cls, i) {
@@ -423,20 +535,21 @@
      own box, stage px. */
   function rigOf(parent, geo) {
     var rig = node('div', 'sql__rig', parent);
-    var E = geo.edge;
+    var E = geo.edge, c = geo.art.craft, K = geo.K, view = geo.view;
     var aura = node('i', 'sql__aura', rig);
-    aura.style.left = px(E.l[0] - 40);
-    aura.style.width = px(E.r[0] - E.l[0] + 80);
-    aura.style.top = px(Math.min(E.l[1], E.r[1]) - 30);
+    aura.style.left = px(E.x0 - 40);
+    aura.style.width = px(E.x1 - E.x0 + 80);
+    aura.style.top = px(E.yTop - 30);
     var n = 0, all = [];
-    var bands = FACES.map(function (pair) {
-      var a = E[pair[0]], b = E[pair[1]];
+    var bands = view.faces.map(function (pair, fi) {
+      var a = [c.base[pair[0]][0] * K, c.base[pair[0]][1] * K];
+      var b = [c.base[pair[1]][0] * K, c.base[pair[1]][1] * K];
       var band = node('div', 'sql__band', rig);
       band.style.left = px(a[0]);
       band.style.top = px(a[1] - 6);
       band.style.width = px(b[0] - a[0]);
       band.style.transform = 'skewY(' + Math.atan2(b[1] - a[1], b[0] - a[0]).toFixed(4) + 'rad)';
-      STREAKS.forEach(function (u) {
+      view.streaks.forEach(function (u) {
         var j = node('i', 'sql__jet', band);
         j.style.left = (u * 100).toFixed(1) + '%';
         j.style.setProperty('--k', rand(.86, 1.06).toFixed(3));
@@ -444,7 +557,7 @@
         j.style.setProperty('--r', (.09 + (n % 3) * .022).toFixed(3) + 's');
         node('b', 'sql__fire', j);
         /* where it leaves the hull, in the craft's box */
-        all.push({ el: j, at: [mix(a[0], b[0], u), mix(a[1], b[1], u)], side: all.length < STREAKS.length ? 0 : 1 });
+        all.push({ el: j, at: [mix(a[0], b[0], u), mix(a[1], b[1], u)], side: fi });
         n++;
       });
       return band;
@@ -459,7 +572,7 @@
     var svg = doc.createElementNS(NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + geo.craft.w.toFixed(1) + ' ' + geo.craft.h.toFixed(1));
     var rim = doc.createElementNS(NS, 'polyline');
-    rim.setAttribute('points', pts([E.l, E.f, E.r].map(function (p) { return [p[0], p[1] - 4]; })));
+    rim.setAttribute('points', pts(E.chain.map(function (p) { return [p[0], p[1] - 4]; })));
     svg.appendChild(rim);
     lit.appendChild(svg);
     return lit;
@@ -555,7 +668,7 @@
       band.classList.toggle('is-hit', len >= gap && burn > .05);
     });
     var E = st.geo.edge;
-    st.aura.style.height = px(E.f[1] - Math.min(E.l[1], E.r[1]) + 30 + len * 1.15);
+    st.aura.style.height = px(E.yBot - E.yTop + 30 + len * 1.15);
     st.aura.style.opacity = clamp(0, burn * 1.5, 1).toFixed(3);
     /* the edge stays warm a moment after the jets are out */
     st.lit.style.opacity = clamp(0, burn * 1.8 + .5 * (1 - seg(t, TOUCH, STILL + 300)) * seg(t, 0, 160), 1).toFixed(3);
@@ -721,7 +834,7 @@
       x.scale(st.scale, st.scale);
       x.save();
       x.transform.apply(x, geo.landFlat);
-      x.drawImage(st.land, 0, 0, ART.land.size[0], ART.land.size[1]);
+      x.drawImage(st.land, 0, 0, st.geo.art.land.size[0], st.geo.art.land.size[1]);
       x.restore();
       var so = st.from || [0, 0];
       x.drawImage(st.craft, g.left + so[0], g.top - st.hover + so[1], g.w, g.h);
@@ -907,14 +1020,21 @@
   /* The base of the hull, where it meets the rock: lit out from the
      front corner to the left and right ones, a glint on each corner */
   function lightSeam(st) {
-    var f = st.geo.face.f, l = st.geo.face.l, r = st.geo.face.r;
+    var face = st.geo.face, chain = st.geo.view.chain;
+    var apex = face[st.geo.view.apex];
     var lines = st.seam.querySelectorAll('polyline');
-    lines[0].setAttribute('points', f.join(',') + ' ' + l.join(','));
-    lines[1].setAttribute('points', f.join(',') + ' ' + r.join(','));
+    /* each seen edge, lit out from the corner nearest the camera */
+    chain.forEach(function (k, i) {
+      if (i + 1 >= chain.length || !lines[i]) return;
+      var a = face[k], b = face[chain[i + 1]];
+      var from = a === apex ? a : b, to = from === a ? b : a;
+      lines[i].setAttribute('points', from.join(',') + ' ' + to.join(','));
+    });
     st.seam.classList.remove('is-lit');
     void st.seam.getBoundingClientRect();
     st.seam.classList.add('is-lit');
-    [l, f, r].forEach(function (p, i) {
+    chain.forEach(function (k, i) {
+      var p = face[k];
       emit(st, 'front', 'cine-glint', p[0], p[1], { '--delay': ms(260 + i * 120) });
     });
   }
@@ -931,16 +1051,20 @@
      last breath of gas pushes out round the base, a little further.
      ============================================================ */
 
-  var EDGES = { lf: ['l', 'f', 'front'], fr: ['f', 'r', 'front'], lb: ['l', 'b', 'rear'], br: ['b', 'r', 'rear'] };
-
   function strew(st, run) {
     var A = global.anime;
     if (!A) return null;
-    var geo = st.geo;
+    var geo = st.geo, view = geo.view;
     var tl = A.timeline({ autoplay: false, easing: 'linear' });
 
+    /* the island's edges, as seen: the front ones (the walls facing
+       the camera) and the rest, behind */
+    var edges = {};
+    view.faces.forEach(function (f, i) { edges['f' + i] = [f[0], f[1], 'front']; });
+    view.rear.forEach(function (f, i) { edges['r' + i] = [f[0], f[1], 'rear']; });
+
     var puff = function (edge, s, born, burst) {
-      var e = EDGES[edge];
+      var e = edges[edge];
       var a = geo.face[e[0]], b = geo.face[e[1]];
       var p = [mix(a[0], b[0], s), mix(a[1], b[1], s)];
       var out = [p[0] - geo.mid[0], p[1] - geo.mid[1]];
@@ -980,21 +1104,41 @@
       }, born);
     };
 
+    /* a spot `u` (0..1) of the way along the front edges together, as
+       [edge, share along it], the edges taken by their length */
+    var lens = view.faces.map(function (f) {
+      return Math.hypot(geo.face[f[1]][0] - geo.face[f[0]][0], geo.face[f[1]][1] - geo.face[f[0]][1]);
+    });
+    var total = lens.reduce(function (a, b) { return a + b; }, 0) || 1;
+    var alongFront = function (u) {
+      var d = u * total;
+      for (var i = 0; i < lens.length; i++) {
+        if (d <= lens[i] || i === lens.length - 1) return ['f' + i, clamp(0, d / lens[i], 1)];
+        d -= lens[i];
+      }
+      return ['f0', 0];
+    };
+    /* the rear edge behind each end of the front, at that corner */
+    var behind = [];
+    [view.chain[0], view.chain[view.chain.length - 1]].forEach(function (k) {
+      view.rear.forEach(function (f, i) {
+        if (f[0] === k) behind.push(['r' + i, rand(0, .1)]);
+        else if (f[1] === k) behind.push(['r' + i, rand(.9, 1)]);
+      });
+    });
+
     /* the bank, building as the jets reach the rock: eleven along the
        front edges, overlapping, and one behind each side corner */
     var bank = [];
-    for (var i = 0; i < 11; i++) {
-      var u = (i + rand(.25, .75)) / 11;
-      bank.push(u < .5 ? ['lf', u * 2] : ['fr', (u - .5) * 2]);
-    }
-    bank.push(['lb', rand(0, .1)], ['br', rand(.9, 1)]);
+    for (var i = 0; i < 11; i++) bank.push(alongFront((i + rand(.25, .75)) / 11));
+    bank = bank.concat(behind);
     bank.forEach(function (slot, k) {
       puff(slot[0], slot[1], SMOKE - 80 + rand(0, 480) + (k > 10 ? 120 : 0), false);
     });
     /* and the last breath of gas round the base at touchdown */
     for (i = 0; i < 5; i++) {
-      u = (i + rand(.2, .8)) / 5;
-      puff(u < .5 ? 'lf' : 'fr', u < .5 ? u * 2 : (u - .5) * 2, TOUCH + 20 + rand(0, 140), true);
+      var g = alongFront((i + rand(.2, .8)) / 5);
+      puff(g[0], g[1], TOUCH + 20 + rand(0, 140), true);
     }
 
     cut(run, tl);
@@ -1035,7 +1179,7 @@
   function success(st, run, tl) {
     var A = global.anime, geo = st.geo, q = geo.quad;
     var mk = st.match.children;
-    var fw = geo.face.r[0] - geo.face.l[0];
+    var fw = faceWidth(q);
 
     var ring = emit(st, 'back', 'cine-shock', geo.mid[0], geo.mid[1], { '--sz': px(fw * 1.4) }, true);
     tl.add({ targets: ring, scale: [.3, 1.9], duration: 620, easing: 'easeOutCubic' }, TOUCH)
@@ -1089,6 +1233,12 @@
   function sfx(name, v) {
     var S = global.GeoCinemaSFX;
     if (S && S[name]) S[name](v);
+  }
+
+  /* how wide a face is on screen, corner to corner */
+  function faceWidth(quad) {
+    var xs = quad.map(function (p) { return p[0]; });
+    return Math.max.apply(null, xs) - Math.min.apply(null, xs);
   }
 
   /* the burner's roar (js/audio.js), by how many jets are lit */
@@ -1194,12 +1344,6 @@
   var FLAT = .56;               /* a circle on the sea, seen from here: its height over its width */
   var DEG = Math.PI / 180;
 
-  /* What the areas make of a landing: the footprint has to be the
-     land's, no more and no less. Bigger than the land: it hangs off. */
-  function verdict(craft, land) {
-    return craft > land ? 'tight' : (craft < land ? 'loose' : 'fit');
-  }
-
   /* a steady stand-in for noise: the same n, the same 0..1 */
   function noise(n) {
     var x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -1235,7 +1379,7 @@
   /* the sea's line on the hull: its vertex under the front corner, at
      the sea's height there -- which the slide carries toward us */
   function seaAt(g, q) {
-    return [place(q, g.foot.f)[0], g.sea + g.n[1] * q.slide];
+    return [place(q, g.foot[g.apex])[0], g.sea + g.n[1] * q.slide];
   }
 
   /* and the line itself, at x: up each arm as the front edges run */
@@ -1257,19 +1401,26 @@
   }
 
   /* Where everything is, for a land this share of the craft's area */
-  function misfitGeo(ratio) {
-    var c = ART.craft, l = ART.land;
+  function misfitGeo(ratio, art) {
+    var c = art.craft, l = art.land;
+    var K = kOf(art);
+    var view = viewOf(c.base);
     var s = clamp(.45, Math.sqrt(ratio > 0 ? ratio : 24 / 36) * C_SHOW, .88);
     var mid = across(c.base, .5, .5);
     var onStage = function (p) { return [C_AT[0] + (p[0] - mid[0]) * K, C_AT[1] + (p[1] - mid[1]) * K]; };
     var foot = {}, top = {};
     KEYS.forEach(function (k) { foot[k] = onStage(c.base[k]); top[k] = onStage(c.top[k]); });
 
-    /* the island's top face, across the craft's underside (u toward
-       its right corner, v toward its left): inside it, C_INSET in from
-       its back-right edges, so all of its overhang is to the front left */
-    var u1 = 1 - C_INSET, v0 = C_INSET;
-    var uv = { b: [u1 - s, v0], r: [u1, v0], f: [u1, v0 + s], l: [u1 - s, v0 + s] };
+    /* the island's top face, across the craft's underside (u from its
+       back corner toward its right, v toward its left): inside it,
+       C_INSET in from the two edges that meet at the corner it is
+       tucked up against (the right end of the front: view.hug), so all
+       of its overhang is away from that -- to the front left on a
+       diamond view, to the left on a front one */
+    var UV = { b: [0, 0], r: [1, 0], f: [1, 1], l: [0, 1] };
+    var hug = UV[view.hug];
+    var u0 = hug[0] ? 1 - C_INSET - s : C_INSET, v0 = hug[1] ? 1 - C_INSET - s : C_INSET;
+    var uv = { b: [u0, v0], r: [u0 + s, v0], f: [u0 + s, v0 + s], l: [u0, v0 + s] };
     var face = {};
     KEYS.forEach(function (k) { face[k] = across(foot, uv[k][0], uv[k][1]); });
     var h = homography(KEYS.map(function (k) { return l.top[k]; }),
@@ -1279,10 +1430,23 @@
 
     var box = { left: C_AT[0] - mid[0] * K, top: C_AT[1] - mid[1] * K, w: c.size[0] * K, h: c.size[1] * K };
     var centre = across(face, .5, .5);
-    var lf = [(face.l[0] + face.f[0]) / 2, (face.l[1] + face.f[1]) / 2];
-    var n = [lf[0] - centre[0], lf[1] - centre[1]], nl = Math.hypot(n[0], n[1]) || 1;
+    /* off the edge: out across the island's wall the craft goes over */
+    var tip = view.tip;
+    var te = [(face[tip[0]][0] + face[tip[1]][0]) / 2, (face[tip[0]][1] + face[tip[1]][1]) / 2];
+    var n = [te[0] - centre[0], te[1] - centre[1]], nl = Math.hypot(n[0], n[1]) || 1;
+    /* the sea's line on the hull: a V with its vertex at the corner
+       nearest the camera, each arm as the front edge beside it runs (a
+       front view's one edge: a straight line) */
+    var apex = view.apex, chain = view.chain, ai = chain.indexOf(apex);
+    var slopeTo = function (k) {
+      var a = foot[apex], b = foot[k];
+      return (b[1] - a[1]) / ((b[0] - a[0]) || 1e-6);
+    };
+    var leftK = ai > 0 ? chain[ai - 1] : chain[ai + 1];
+    var rightK = ai + 1 < chain.length ? chain[ai + 1] : chain[ai - 1];
 
     var g = {
+      art: art, K: K, view: view, apex: apex,
       s: s, foot: foot, top: top, face: face, base: base, land: h,
       landFlat: affine(['l', 'b', 'r'].map(function (k) { return l.top[k]; }),
                        ['l', 'b', 'r'].map(function (k) { return face[k]; })),
@@ -1291,20 +1455,17 @@
       faceQuad: KEYS.map(function (k) { return face[k]; }),
       baseQuad: KEYS.map(function (k) { return base[k]; }),
       centre: centre,
-      wall: base.f[1] - face.f[1],
-      /* off the edge: out across the island's front-left edge */
+      wall: base[apex][1] - face[apex][1],
       n: [n[0] / nl, n[1] / nl],
-      slope: [(foot.l[1] - foot.f[1]) / (foot.l[0] - foot.f[0]),
-              (foot.r[1] - foot.f[1]) / (foot.r[0] - foot.f[0])],
+      slope: [slopeTo(leftK), slopeTo(rightK)],
       /* what it rocks on: the island's left corner, or its right */
-      pivot: [face.l, face.r],
-      edge: { l: [c.base.l[0] * K, c.base.l[1] * K], f: [c.base.f[0] * K, c.base.f[1] * K],
-              r: [c.base.r[0] * K, c.base.r[1] * K] }
+      pivot: [face[view.pivots[0]], face[view.pivots[1]]],
+      edge: edgeOf(c, K, view)
     };
-    g.sea = foot.f[1] + g.wall;
-    /* the box's outline, as seen: round the top, down the right, along
-       the base's front edges, up the left */
-    g.outline = [top.l, top.b, top.r, foot.r, foot.f, foot.l];
+    g.sea = foot[apex][1] + g.wall;
+    /* the box's outline, as seen: round the top, down one side, along
+       the base's front edges, up the other */
+    g.outline = hull(KEYS.map(function (k) { return top[k]; }).concat(KEYS.map(function (k) { return foot[k]; })));
     /* and all along it: the sea's line is a V, so an edge can stand
        clear of it between two corners that are both under */
     var all = [];
@@ -1312,14 +1473,14 @@
       var b = g.outline[(i + 1) % g.outline.length];
       for (var u = 0; u < 1; u += 1 / 16) all.push([mix(p[0], b[0], u), mix(p[1], b[1], u)]);
     });
-    var lows = [foot.l, foot.f, foot.r];
+    var lows = chain.map(function (k) { return foot[k]; });
 
     /* how far over it is as it hits: as far as it goes, up to 18
        degrees, and still clear of the sea until the slide has carried
        it off the edge */
     for (var a = 18; a >= 6; a--) {
       g.tilt = -a * DEG;
-      g.fallHit = clearance(g, poseOf(g, g.tilt, face.l, C_SLIDE[0], 0, 0, 0), lows, 'min');
+      g.fallHit = clearance(g, poseOf(g, g.tilt, g.pivot[0], C_SLIDE[0], 0, 0, 0), lows, 'min');
       if (g.fallHit >= 16) break;
     }
     g.fallHit = Math.max(0, g.fallHit);
@@ -1329,15 +1490,15 @@
     g.liftEnd = 0;
     for (var t = C_UNDER; t <= C_END + FADE; t += 50) {
       var qa = 1 - Math.pow(1 - seg(t, C_HIT, C_UNDER + 300), 2);
-      var qu = poseOf(g, mix(g.tilt, C_ROLL * DEG, qa), face.l, mix(C_SLIDE[0], C_SLIDE[1], qa),
+      var qu = poseOf(g, mix(g.tilt, C_ROLL * DEG, qa), g.pivot[0], mix(C_SLIDE[0], C_SLIDE[1], qa),
                       g.fallHit + C_SINK * sinkAt(t), 0, 0);
       g.liftEnd = Math.max(g.liftEnd, clearance(g, qu, all, 'max') + 18);
     }
 
     /* where it goes in: the low side, on the sea */
-    var qh = poseOf(g, g.tilt, face.l, C_SLIDE[0], g.fallHit, 0, 0);
+    var qh = poseOf(g, g.tilt, g.pivot[0], C_SLIDE[0], g.fallHit, 0, 0);
     var Wh = seaAt(g, qh);
-    var ix = mix(place(qh, foot.l)[0], place(qh, foot.f)[0], .38);
+    var ix = mix(place(qh, foot[chain[0]])[0], place(qh, foot[chain[1]])[0], .38);
     g.I = [ix, lineY(g, Wh, ix) + 8];
 
     /* the lens: over the island and the craft at first, then down
@@ -1419,13 +1580,13 @@
     return .85 * (1 - seg(t, C_HIT, C_HIT + 240));
   }
 
-  /* each jet's own: the two over the drop choke and cough, more and
-     more; the two over the rock roar, and push it over */
+  /* each jet's own: the ones over the drop choke and cough, more and
+     more; the ones over the rock roar, and push it over */
   function jetBurn(t, jet, i) {
     var b = misfitBurn(t);
     if (t < C_TOUCH + 60 || t >= C_HIT) return b;
     var r = noise(Math.floor(t / 55) * 7 + i * 13);
-    if (jet.side === 0) {
+    if (!jet.onLand) {
       if (r < .25 + .5 * seg(t, C_TOUCH + 100, C_TIP)) b *= .12 + .3 * r;
     } else {
       b *= 1 + .25 * seg(t, C_TOUCH, C_TIP) + .3 * (r - .5);
@@ -1449,8 +1610,9 @@
 
   function dressMisfit(screen) {
     var o = shotsOf(screen);
-    if (o.tight || !ART) return;
-    var geo = misfitGeo(24 / 36);
+    var art = artOf(screen);
+    if (o.tight || !art) return;
+    var geo = misfitGeo(24 / 36, art);
 
     var shell = shellOf('sqc');
     var root = shell.root, cam = shell.cam, sea = shell.sea, stage = shell.stage;
@@ -1475,22 +1637,22 @@
        red in it a moment, and behind the island, which stands up out
        of it in front */
     var wet = node('div', 'sqc__body sqc__wet', stage);
-    image(ART.craft.src, 'sqc__ghost', wet);
+    image(art.craft.src, 'sqc__ghost', wet);
     var tint = node('i', 'sqc__tint', wet);
-    tint.style.webkitMaskImage = tint.style.maskImage = 'url("' + ART.craft.src + '")';
+    tint.style.webkitMaskImage = tint.style.maskImage = 'url("' + art.craft.src + '")';
     var ember = node('i', 'sqc__ember', wet);
-    ember.style.left = px(geo.edge.l[0] - 30);
-    ember.style.width = px(geo.edge.r[0] - geo.edge.l[0] + 60);
-    ember.style.top = px(Math.min(geo.edge.l[1], geo.edge.r[1]) - 40);
-    ember.style.height = px(geo.edge.f[1] - Math.min(geo.edge.l[1], geo.edge.r[1]) + 120);
+    ember.style.left = px(geo.edge.x0 - 30);
+    ember.style.width = px(geo.edge.x1 - geo.edge.x0 + 60);
+    ember.style.top = px(geo.edge.yTop - 40);
+    ember.style.height = px(geo.edge.yBot - geo.edge.yTop + 120);
     /* and the water's near side over it, where it is in */
     var lip = lipOf(stage);
 
     var waves = node('div', 'sqc__layer', stage);
 
-    var land = image(ART.land.src, 'sql__land', stage);
-    land.style.width = px(ART.land.size[0]);
-    land.style.height = px(ART.land.size[1]);
+    var land = image(art.land.src, 'sql__land', stage);
+    land.style.width = px(art.land.size[0]);
+    land.style.height = px(art.land.size[1]);
 
     var onland = node('div', 'sqc__onland', stage);
     var shade = node('div', 'sql__shade', onland);
@@ -1512,7 +1674,7 @@
     /* the craft over it, with its jets */
     var dry = node('div', 'sqc__body sqc__dry', stage);
     var jets = rigOf(dry, geo);
-    var craft = image(ART.craft.src, 'sql__craft', dry);
+    var craft = image(art.craft.src, 'sql__craft', dry);
     var lit = litOf(dry, geo);
 
     /* fire spreading out over the sea where each jet hits it */
@@ -1528,7 +1690,7 @@
     screen.appendChild(root);
 
     var st = {
-      kind: 'tight', hover: C_HOVER, end: C_END, from: [C_FROM, 0],
+      kind: 'tight', art: art, hover: C_HOVER, end: C_END, from: [C_FROM, 0],
       frame: misfitFrame, strew: misfitStrew, reset: resetMisfit,
       focusAt: function (t) {
         var f = st.geo.focus, u = ease.inOut(seg(t, C_TOUCH, C_HIT + 400));
@@ -1576,7 +1738,7 @@
   function resetMisfit(st, run) {
     var a = run.hooks.areas || {};
     var ratio = a.craft > 0 && a.land > 0 ? a.land / a.craft : 24 / 36;
-    var g = st.geo = misfitGeo(ratio);
+    var g = st.geo = misfitGeo(ratio, st.art);
 
     st.land.style.transform = matrix3d(g.land);
     st.seat.style.clipPath = polygon(g.baseQuad);
@@ -1674,7 +1836,7 @@
       most = Math.max(most, len);
     });
     var E = g.edge;
-    st.aura.style.height = px(E.f[1] - Math.min(E.l[1], E.r[1]) + 30 + most * 1.15);
+    st.aura.style.height = px(E.yBot - E.yTop + 30 + most * 1.15);
     st.aura.style.opacity = clamp(0, burn * 1.5, 1).toFixed(3);
     st.lit.style.opacity = clamp(0, burn * 1.8, 1).toFixed(3);
 
@@ -2124,7 +2286,7 @@
   /* a point on the sea clear of the island (which stands in front of
      the water there), from the picker, tried a few times */
   function offLand(g, pick) {
-    var rock = [g.face.l, g.face.b, g.face.r, g.base.r, g.base.f, g.base.l];
+    var rock = hull(g.faceQuad.concat(g.baseQuad));
     var p = pick();
     for (var i = 0; i < 6 && inside(rock, p); i++) p = pick();
     return inside(rock, p) ? null : p;
@@ -2276,7 +2438,8 @@
     return (o && o[kind || 'fit']) || null;
   }
 
-  /* Can this site's screen play it? Only with its art all in. */
+  /* Can this site's screen play it? Only with its art all in -- and a
+     screen whose shape has no angle art never has a shot at all. */
   function has(site, kind) {
     var st = shotOf(site, kind);
     if (!st) return false;
@@ -2473,7 +2636,9 @@
      root, cam, stage, sea, land, craft, geo.craft, geo.landFlat,
      layers, warp, flash; run, scale, ox, oy, and a ResizeObserver
      calling kit.fit(st)). It is then played by play(site, kind, hooks)
-     like the two here. */
+     like the two here. The screen's own two pictures are
+     kit.artOf(screen); a screen without them gets no shot, and is
+     landed from overhead. */
   var dressers = [['fit', dress], ['tight', dressMisfit]];
   var dressed = null;
 
@@ -2507,6 +2672,7 @@
   var kit = {
     ART: ART, SEA: SEA, STAGE_W: STAGE_W, STAGE_H: STAGE_H, K: K, AT: AT, JET: JET,
     WARP: WARP, FADE: FADE, KEYS: KEYS, ease: ease,
+    artOf: artOf, kOf: kOf, viewOf: viewOf, edgeOf: edgeOf, hull: hull, faceWidth: faceWidth,
     node: node, image: image, px: px, ms: ms, clamp: clamp, seg: seg, mix: mix, rand: rand,
     pick: pick, svgOf: svgOf, svgDefs: svgDefs, pts: pts, across: across,
     homography: homography, project: project, matrix3d: matrix3d, polygon: polygon,
@@ -2521,10 +2687,7 @@
     create: create,
     play: play,
     stop: stop,
-    verdict: verdict,
     register: register,
-    kit: kit,
-    timing: { descend: DESCEND, smoke: SMOKE, touch: TOUCH, still: STILL, end: END },
-    misfit: { descend: C_DESCEND, touch: C_TOUCH, tip: C_TIP, hit: C_HIT, under: C_UNDER, end: C_END }
+    kit: kit
   };
 })(window);

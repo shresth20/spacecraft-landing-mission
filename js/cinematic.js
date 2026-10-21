@@ -484,11 +484,6 @@
     return imgs.every(function (img) { return img.complete && img.naturalWidth > 0; });
   }
 
-  function playing(site) {
-    var st = states.get(screenOf(site));
-    return !!(st && st.run);
-  }
-
   /* The landing's art decoded before the first frame is drawn, so the
      cut never opens on a half-painted island. In memory already (the
      start gate fetched it), so this is a matter of milliseconds -- and
@@ -1954,9 +1949,13 @@
 
   /* ============================================================ */
 
+  /* The sheets are the SQUARE's, so only its screen is dressed: there
+     they are the fallback when its two-picture shots cannot play
+     (js/square-landing.js). Every other round's cut-scene is those
+     shots alone, from its own pictures, or the landing from overhead. */
   function init(stage) {
     if (!ART) return;
-    (stage || doc).querySelectorAll('.screen[data-cinema]').forEach(dress);
+    (stage || doc).querySelectorAll('.screen[data-cinema][data-shape="square"]').forEach(dress);
   }
 
   global.GeoCinema = {
@@ -1964,12 +1963,10 @@
     has: has,
     play: play,
     stop: stop,
-    playing: playing,
     /* silence the shot's synthesised effects (js/cinematic-sfx.js) */
     mute: function (on) {
       var S = global.GeoCinemaSFX;
       return S ? S.mute(on) : false;
-    },
-    shots: SHOTS
+    }
   };
 })(window);

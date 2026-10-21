@@ -1,0 +1,559 @@
+/* ============================================================
+   Mission UX refinement
+
+   Presentation only. The rules, answers, physics and screen order
+   remain owned by the existing modules. This layer makes that state
+   easier to read and keeps the spacecraft at the centre of play.
+   ============================================================ */
+
+:root {
+  --ux-panel: rgba(4, 20, 37, .78);
+  --ux-panel-soft: rgba(8, 39, 61, .64);
+  --ux-line: rgba(170, 231, 248, .34);
+  --ux-ink: #eefbff;
+  --ux-muted: #9fc8d7;
+  --ux-cyan: #67dafa;
+  --ux-warn: #ffc56a;
+  --ux-ok: #7ce4a7;
+}
+
+
+/* ============================================================
+   START GATE — objective before action
+   ============================================================ */
+
+.gate {
+  --title-y: 24%;
+  --ctrl-y: 77%;
+}
+
+.gate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(90deg, rgba(2, 8, 24, .18), transparent 32%, transparent 72%, rgba(2, 8, 24, .12)),
+    linear-gradient(180deg, rgba(2, 7, 20, .08), transparent 55%, rgba(2, 7, 20, .2));
+  pointer-events: none;
+}
+
+.gate__title { z-index: 2; }
+.gate__ship { z-index: 1; }
+.gate__inner { z-index: 4; }
+
+.gate__brief {
+  position: absolute;
+  left: 50%;
+  top: 49%;
+  z-index: 3;
+  width: min(52%, 650px);
+  transform: translate(-50%, -50%);
+  padding: clamp(10px, 1.4vh, 16px) clamp(16px, 2vw, 28px);
+  border: 1px solid var(--ux-line);
+  border-radius: clamp(14px, 1.4vw, 22px);
+  background: linear-gradient(145deg, rgba(6, 25, 48, .8), rgba(3, 14, 30, .68));
+  box-shadow: 0 12px 38px rgba(1, 6, 18, .34), inset 0 1px rgba(255, 255, 255, .08);
+  backdrop-filter: blur(12px) saturate(1.15);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  text-align: center;
+}
+
+.gate__eyebrow,
+.gate__objective,
+.gate__brief h2 { margin: 0; }
+
+.gate__eyebrow {
+  color: var(--ux-cyan);
+  font-size: clamp(8px, .72vw, 11px);
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.gate__brief h2 {
+  margin-top: .18em;
+  color: var(--ux-ink);
+  font-size: clamp(15px, 1.55vw, 24px);
+  line-height: 1.05;
+  font-weight: 800;
+}
+
+.gate__objective {
+  max-width: 58ch;
+  margin: .25em auto 0;
+  color: #c7e0ea;
+  font-size: clamp(10px, .92vw, 14px);
+  line-height: 1.25;
+}
+
+.gate__route {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin: clamp(7px, 1vh, 11px) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gate__route li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .42em;
+  color: var(--ux-muted);
+  font-size: clamp(8px, .76vw, 12px);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.gate__route li + li::before {
+  content: "";
+  position: absolute;
+  left: -10%;
+  width: 20%;
+  height: 1px;
+  background: var(--ux-line);
+}
+
+.gate__route b {
+  display: grid;
+  place-items: center;
+  width: 1.7em;
+  aspect-ratio: 1;
+  border: 1px solid rgba(103, 218, 250, .55);
+  border-radius: 50%;
+  color: #dff8ff;
+  font-size: .86em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gate__btn-label {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + clamp(10px, 1.7vh, 18px));
+  transform: translateX(-50%);
+  color: #ecfaff;
+  font-size: clamp(10px, .9vw, 14px);
+  font-weight: 800;
+  letter-spacing: .16em;
+  white-space: nowrap;
+  text-shadow: 0 2px 10px rgba(2, 7, 20, .8);
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   COCKPIT — one objective, one ready state
+   ============================================================ */
+
+.cockpit-brief {
+  position: absolute;
+  left: 15.5%;
+  top: 6.5%;
+  z-index: 5;
+  display: grid;
+  gap: .08em;
+  min-width: clamp(180px, 18vw, 270px);
+  padding: clamp(8px, 1.1vh, 13px) clamp(12px, 1.25vw, 18px);
+  border-left: 2px solid var(--ux-cyan);
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(90deg, rgba(3, 17, 34, .78), rgba(3, 17, 34, .28));
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .7);
+  pointer-events: none;
+}
+
+.cockpit-brief__kicker {
+  color: var(--ux-cyan);
+  font-size: clamp(8px, .72vw, 11px);
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.cockpit-brief strong {
+  color: var(--ux-ink);
+  font-size: clamp(13px, 1.45vw, 22px);
+  line-height: 1.1;
+}
+
+.cockpit-brief__status {
+  display: flex;
+  align-items: center;
+  gap: .45em;
+  margin-top: .24em;
+  color: #a8d5e2;
+  font-size: clamp(8px, .72vw, 11px);
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+
+.cockpit-brief__status i {
+  width: .58em;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--ux-ok);
+  box-shadow: 0 0 7px rgba(124, 228, 167, .75);
+  animation: uxReady 2s ease-in-out infinite;
+}
+
+
+/* ============================================================
+   ROUND CONTEXT — quiet progress, always in the same place
+   ============================================================ */
+
+.mission-strip {
+  position: absolute;
+  left: 50%;
+  top: max(72px, 14.5%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 14px);
+  min-height: 30px;
+  padding: 5px 11px;
+  border: 1px solid rgba(174, 232, 248, .25);
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(4, 26, 43, .62);
+  box-shadow: 0 8px 20px rgba(2, 22, 38, .18);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  color: var(--ux-muted);
+  pointer-events: none;
+  transition: opacity .35s ease, transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+
+.mission-strip__round,
+.mission-strip__shape {
+  font-size: clamp(8px, .75vw, 11px);
+  font-weight: 800;
+  letter-spacing: .13em;
+  white-space: nowrap;
+}
+
+.mission-strip__round { color: var(--ux-cyan); }
+.mission-strip__shape { color: var(--ux-ink); }
+
+.mission-strip__steps {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mission-strip__steps li {
+  padding: 3px 7px 2px;
+  border-radius: 999px;
+  color: rgba(184, 215, 225, .55);
+  font-size: clamp(7px, .62vw, 9px);
+  font-weight: 800;
+  letter-spacing: .08em;
+  transition: color .25s ease, background .25s ease;
+}
+
+.screen--round[data-ux-phase="survey"] [data-phase="survey"],
+.screen--round[data-ux-phase="identify"] [data-phase="identify"],
+.screen--round[data-ux-phase="pilot"] [data-phase="pilot"],
+.screen--round[data-ux-phase="landing"] [data-phase="pilot"] {
+  color: #062235;
+  background: var(--ux-cyan);
+}
+
+.screen--round[data-ux-phase="success"] .mission-strip {
+  opacity: 0;
+  transform: translate(-50%, -8px);
+}
+
+
+/* ============================================================
+   FLIGHT HUD — values from the existing physics loop
+   ============================================================ */
+
+.flight-hud {
+  position: absolute;
+  left: 50%;
+  bottom: max(12px, 2.6%);
+  z-index: 11;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(74px, 1fr)) minmax(124px, 1.45fr);
+  width: clamp(300px, 36vw, 480px);
+  min-height: 50px;
+  transform: translate(-50%, 18px);
+  border: 1px solid var(--ux-line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(5, 27, 45, .86), rgba(3, 17, 31, .82));
+  box-shadow: 0 10px 28px rgba(1, 13, 25, .34), inset 0 1px rgba(255, 255, 255, .07);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .5s cubic-bezier(.22, 1, .36, 1), visibility 0s linear .5s;
+}
+
+.flight-hud.is-on {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition-delay: 0s;
+}
+
+.flight-hud__cell {
+  display: grid;
+  align-content: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 7px 11px;
+}
+
+.flight-hud__cell + .flight-hud__cell { border-left: 1px solid rgba(170, 231, 248, .16); }
+
+.flight-hud__cell span {
+  color: var(--ux-muted);
+  font-size: clamp(7px, .66vw, 9px);
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.flight-hud__cell b {
+  overflow: hidden;
+  color: var(--ux-ink);
+  font-size: clamp(12px, 1.25vw, 17px);
+  line-height: 1.05;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flight-hud__cell--wide b {
+  color: var(--ux-cyan);
+  font-size: clamp(10px, 1vw, 14px);
+  letter-spacing: .04em;
+}
+
+.flight-hud__alert {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 7px);
+  transform: translate(-50%, 5px);
+  padding: 4px 10px 3px;
+  border: 1px solid rgba(255, 197, 106, .48);
+  border-radius: 999px;
+  background: rgba(48, 28, 5, .84);
+  color: var(--ux-warn);
+  font-size: clamp(8px, .7vw, 10px);
+  font-weight: 800;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .2s ease, transform .25s ease;
+}
+
+.flight-hud.is-warning .flight-hud__alert {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.flight-hud.is-locked {
+  border-color: rgba(124, 228, 167, .58);
+}
+
+.flight-hud.is-locked [data-flight-align] { color: var(--ux-ok); }
+
+
+/* First-action onboarding. It leaves as soon as the player steers. */
+.flight-help {
+  position: absolute;
+  left: max(14px, 2.2%);
+  bottom: max(74px, 12%);
+  z-index: 11;
+  width: clamp(220px, 24vw, 330px);
+  padding: 9px 12px 10px;
+  border-left: 2px solid var(--ux-cyan);
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(90deg, rgba(3, 22, 39, .85), rgba(3, 22, 39, .52));
+  box-shadow: 0 8px 24px rgba(2, 18, 34, .24);
+  opacity: 0;
+  transform: translateX(-14px);
+  pointer-events: none;
+  transition: opacity .35s ease, transform .45s cubic-bezier(.22, 1, .36, 1);
+}
+
+.flight-help.is-on:not(.is-used) {
+  opacity: 1;
+  transform: none;
+}
+
+.flight-help__tag {
+  color: var(--ux-cyan);
+  font-size: clamp(7px, .62vw, 9px);
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.flight-help p {
+  margin: 2px 0 0;
+  color: #c5dce5;
+  font-size: clamp(9px, .86vw, 12px);
+  line-height: 1.3;
+}
+
+.flight-help b { color: var(--ux-ink); }
+
+
+/* ============================================================
+   SUCCESS — concise performance summary
+   ============================================================ */
+
+.landing-result {
+  position: absolute;
+  left: 50%;
+  top: max(72px, 14.5%);
+  z-index: 11;
+  min-width: clamp(235px, 25vw, 340px);
+  padding: 10px 16px;
+  transform: translate(-50%, -12px) scale(.96);
+  border: 1px solid rgba(124, 228, 167, .52);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(5, 46, 43, .9), rgba(3, 24, 35, .86));
+  box-shadow: 0 12px 32px rgba(2, 26, 27, .32), inset 0 1px rgba(255, 255, 255, .09);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .5s cubic-bezier(.22, 1, .36, 1), visibility 0s linear .5s;
+}
+
+.screen--round[data-ux-phase="success"] .landing-result {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0) scale(1);
+  transition-delay: 0s;
+}
+
+.landing-result__eyebrow {
+  display: block;
+  color: var(--ux-ok);
+  font-size: clamp(7px, .65vw, 10px);
+  font-weight: 800;
+  letter-spacing: .15em;
+}
+
+.landing-result > strong {
+  display: block;
+  margin-top: 1px;
+  color: var(--ux-ink);
+  font-size: clamp(14px, 1.35vw, 20px);
+  line-height: 1.1;
+}
+
+.landing-result p {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 5px 0 0;
+  padding-top: 5px;
+  border-top: 1px solid rgba(170, 231, 248, .16);
+  color: var(--ux-muted);
+  font-size: clamp(9px, .82vw, 12px);
+}
+
+.landing-result p b { color: var(--ux-ink); }
+
+
+/* ============================================================
+   RESPONSIVE + MOTION
+   ============================================================ */
+
+@media (max-height: 560px) {
+  .gate { --title-y: 20%; --ctrl-y: 79%; }
+  .gate__brief { top: 48%; padding-block: 8px; }
+  .gate__objective { line-height: 1.15; }
+  .cockpit-brief { top: 4%; }
+  .mission-strip,
+  .landing-result { top: 13.5%; }
+  .flight-help { bottom: 14%; }
+}
+
+@media (max-height: 460px) {
+  .gate { --title-y: 18%; --ctrl-y: 80%; }
+  .gate__brief { top: 47%; width: min(56%, 620px); padding: 6px 14px 7px; }
+  .gate__brief h2 { font-size: clamp(13px, 4vh, 20px); }
+  .gate__objective { font-size: clamp(8px, 2.4vh, 11px); }
+  .gate__route { margin-top: 5px; }
+  .gate__route li { font-size: clamp(7px, 2vh, 9px); }
+  .gate__btn-label { top: calc(100% + 8px); }
+
+  .mission-strip { top: 12.5%; min-height: 24px; padding-block: 3px; }
+  .flight-hud { min-height: 42px; }
+  .flight-hud__cell { padding-block: 5px; }
+  .flight-help { bottom: 15%; padding-block: 6px; }
+}
+
+@media (max-width: 620px) {
+  .gate { --title-y: 39%; --ctrl-y: 82%; }
+  .gate__brief {
+    top: 61%;
+    width: 90%;
+    padding: 10px 14px;
+  }
+  .gate__objective { font-size: 11px; }
+  .gate__route li { gap: .25em; font-size: 8px; }
+  .gate__route li + li::before { display: none; }
+
+  .cockpit-brief {
+    left: 8%;
+    top: 6%;
+    min-width: 0;
+    max-width: 46%;
+    padding: 7px 10px;
+  }
+  .cockpit-brief strong { font-size: 12px; }
+
+  .mission-strip {
+    top: max(66px, 13.5%);
+    max-width: 94%;
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .mission-strip__shape { display: none; }
+  .mission-strip__steps li { padding-inline: 5px; }
+
+  .flight-hud {
+    left: 3%;
+    right: auto;
+    bottom: calc(var(--stick-gap) + var(--stick) + 10px);
+    grid-template-columns: repeat(2, minmax(64px, 1fr));
+    width: min(58%, 230px);
+    transform: translate(0, 14px);
+  }
+  .flight-hud.is-on { transform: none; }
+  .flight-hud__cell--wide { grid-column: 1 / -1; border-left: 0 !important; border-top: 1px solid rgba(170, 231, 248, .16); }
+
+  .flight-help {
+    left: 3%;
+    bottom: calc(var(--stick-gap) + var(--stick) + 10px);
+    width: min(58%, 230px);
+  }
+  .flight-help.is-on:not(.is-used) + .landing-result { pointer-events: none; }
+
+  .landing-result { top: max(66px, 13.5%); width: min(86%, 320px); }
+}
+
+@media (max-aspect-ratio: 3/4) {
+  .gate { --title-y: 40%; --ctrl-y: 84%; }
+  .gate__brief { top: 62%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cockpit-brief__status i { animation: none; }
+}
+
+@keyframes uxReady {
+  0%, 100% { opacity: .7; }
+  50% { opacity: 1; }
+}

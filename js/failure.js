@@ -845,12 +845,6 @@
 
     /* housekeeping */
     resetSpaceship: resetSpaceship,
-    isAnimating: isAnimating,
-
-    /* exposed for anything that wants the measurements without the
-       motion — the geometry is the same one the whole mission uses */
-    plan: plan,
-    sceneOf: sceneOf,
-    TRI_GEO: TRI_GEO
+    isAnimating: isAnimating
   };
 })(window);

@@ -25,7 +25,6 @@
      390px frame, so .32 of that is a speck. .44 shows both sites
      and a good part of the archipelago between and around them,
      and still leaves a shape readable AS a shape. */
-  .screen--drone,
   .screen--round { --cam-wide: .44; }
 
   /* and the instrument comes in off the corner with everything
@@ -51,13 +50,9 @@
 
 /* ---------------------------------------------------------- short / landscape phone */
 @media (max-height: 460px) {
-  /* lift the plate so its shadow is not clipped by the stage edge */
-  .stage { --btn-cy: 89.5%; }
-
   /* the feed's two ranks close up on each other, exactly as
      css/rounds.css does it for a round screen — and the shot opens
      less wide, for the same reason the phone block does it */
-  .screen--drone { --far-y: 40%; --land-y: 68%; --cam-wide: .42; }
   .screen--round { --cam-wide: .42; }
 
   /* barely any height: the scale loses its travel and the readout
@@ -124,12 +119,7 @@
      is still the one that binds. */
   .gate__title { font-size: clamp(26px, min(15vw, 15vh), 150px); }
 
-  /* In portrait the survey's islands are bound by width, not
-     height: the round screens' portrait unit (css/rounds.css), so
-     site A's squares are the size the landing screen shows them. */
-  .screen--drone { --pu: min(1.42vw, 1.74vh); }
-
-  /* no room for tracking on a 50px-wide triangle */
+  /* no room for tracking on a 50px-wide island */
   .pad__area i { letter-spacing: .02em; }
 
   /* portrait has the height to spread the two ranks, and the same
@@ -137,7 +127,6 @@
      phone block's: portrait has the height for it, and the
      archipelago is spread down the frame rather than across it, so
      the same figure covers less of the width. */
-  .screen--drone { --far-y: 46%; --land-y: 70%; --cam-wide: .44; }
   .screen--round { --cam-wide: .44; }
 
   /* portrait stretches the feed tall: the bar can afford to wrap to

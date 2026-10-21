@@ -348,7 +348,6 @@
   global.GeoCinemaSFX = {
     prepare: prepare,
     mute: mute,
-    isMuted: function () { return muted; },
     warp: warp,
     engine: engine,
     pulse: pulse,

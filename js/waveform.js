@@ -145,5 +145,5 @@
 
   function stop() { running = false; }
 
-  global.GeoWave = { init: init, start: start, stop: stop, resize: resize };
+  global.GeoWave = { init: init, start: start, stop: stop };
 })(window);

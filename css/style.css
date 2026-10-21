@@ -5,7 +5,7 @@
 
    Every anchored element is positioned in PERCENT of the stage,
    because both artwork layers are stretched to 100% x 100%.
-   The percentages below were measured off s1-cockpit-2.webp
+   The percentages below were measured off s1-cockpit.webp
    (1672 x 941) so the readout and the button land exactly on
    the painted panels.
    ============================================================ */
@@ -161,8 +161,7 @@ button { font: inherit; color: inherit; }
 }
 
 .s1-bg      { background-image: url("../assets/images/s1-bg.webp"); }
-.s1-cockpit { background-image: url("../assets/images/s1-cockpit-2.webp"); }
-.s2-bg      { background-image: url("../assets/images/s2-bg (2).webp"); }
+.s1-cockpit { background-image: url("../assets/images/s1-cockpit.webp"); }
 .drone-hud  { background-image: url("../assets/images/drone-screen.webp"); }
 
 /* The drone bezel is only there to say "you are looking through a
@@ -345,7 +344,7 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   LAUNCH BUTTON — assets/images/Launch button.webp
+   LAUNCH BUTTON — assets/images/launch-button.webp
 
    The cap is painted art now, not CSS: a glass dome in a white rim,
    turned toward the player. What is left here is only what the art
@@ -519,13 +518,14 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   SCREEN 2 — DRONE FEED
+   THE DRONE'S OPENING — the first round's (data-intro, js/pages.js)
    ============================================================ */
-.s2-bg {
+/* the sea, lit up once the scan lands */
+.screen[data-intro] .s3-bg {
   opacity: 0;
   transition: opacity 1.6s cubic-bezier(.4, 0, .2, 1);
 }
-.s2-bg.is-lit { opacity: 1; }
+.screen[data-intro] .s3-bg.is-lit { opacity: 1; }
 
 /* the dark over the water */
 .blackout {
@@ -606,28 +606,13 @@ button { font: inherit; color: inherit; }
 
 /* ---------------------------------------------------------- landing zones
 
-   The feed's own two rows, and they are deliberately the same
-   figures css/rounds.css gives a round screen: the survey asks the
-   same question of the same five shapes, so its archipelago should
-   not be laid out in a tighter band than the five screens that ask
-   it again. GeoPages.strewZones() reads both off this rule.       */
-.screen--drone {
-  --land-y: 71%;
-  --far-y: 36%;
-
-  /* the round screens' unit, so site A's islands come out the size
-     they will be on the landing screen: whichever axis is scarcer
-     sets it. (The survey has no craft any more -- the landing is
-     screen 3, and its figures are on .screen--round.) */
-  --pu: min(1vw, 1.74vh);
-
-  --advance-h: clamp(32px, 2.5vw, 42px);
-}
+   The rows and the unit every round screen is laid out to are in
+   css/rounds.css. */
 
 /* ---------------------------------------------------------- the shot
 
    Every playing screen flies the same shot, so its figures are set
-   once, for the survey and the five rounds together.
+   once, for the five rounds together.
 
    --cam-wide        the world's scale at survey height. The islands
                      are laid out at 1 and each descent ends at 1,
@@ -651,7 +636,6 @@ button { font: inherit; color: inherit; }
    Read by js/animation.js (camVars) as well as used here, so a
    media query can retune the shot for a frame with less room in it
    and the script follows without being told.                     */
-.screen--drone,
 .screen--round {
   --cam-wide: .32;
   --cam-water-wide: 1.14;
@@ -698,7 +682,7 @@ button { font: inherit; color: inherit; }
 
    The rest of the archipelago: small islands of every shape the
    mission has, strewn over the water around the two sites by
-   GeoPages.buildSurvey(). They are what the wide shot is OF -- a
+   GeoPages.build(). They are what the wide shot is OF -- a
    survey of a sea with land in it, out of which the lens picks two
    places -- and they are scenery: no tap target, no shoreline, no
    number. Kept out of both sites' frames (see strewIslets in
@@ -1040,7 +1024,7 @@ button { font: inherit; color: inherit; }
 
 /* The five .zone islands that used to be laid out here are gone:
    the survey's islands are .pad elements now, built by
-   GeoPages.buildSurvey() and laid out by the same rules as a round
+   GeoPages.build() and laid out by the same rules as a round
    screen's (see .pad below, and css/rounds.css), so the shape task
    and the landing are played on one kind of island. The zoneRise /
    zoneSink / zoneBeckon keyframes in css/animation.css stay: the
@@ -1239,7 +1223,7 @@ button { font: inherit; color: inherit; }
 
    The two figures, measured off the alpha channel:
 
-     Triangle.webp            fills 36.623% of its canvas,
+     triangle.webp            fills 36.623% of its canvas,
                              centre of area (49.94%, 63.45%)
      Triangle spaceship.webp  hull fills 31.407% of its canvas,
                              centre of area (49.92%, 47.72%)
@@ -1247,7 +1231,7 @@ button { font: inherit; color: inherit; }
    Everything below, and TRI_GEO in js/failure.js, is those four
    numbers.
    ============================================================ */
-.s3-bg { background-image: url("../assets/images/s2-bg (2).webp"); }
+.s3-bg { background-image: url("../assets/images/environment/ocean.webp"); }
 
 
 /* ---------------------------------------------------------- the spaceship
@@ -1657,8 +1641,7 @@ button { font: inherit; color: inherit; }
 
    The height is a variable because the button's entry has to know
    it, not because anything is being made room for. */
-/* --advance-h is set per screen: on .screen--drone above and on
-   .screen--round in css/rounds.css */
+/* --advance-h is set per screen: on .screen--round in css/rounds.css */
 
 /* the slot spans the footer and centres its one child; the button's
    own transform is spoken for by the entry animation and the press */

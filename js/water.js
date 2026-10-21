@@ -302,21 +302,14 @@
 
   /* An island's centre of area, in the screen's own coordinates —
      the frame `.wave` and the landing's `.fx-layer`s are parked in.
-
-     A `.zone` is placed by its MIDDLE (left/top plus a
-     translate(-50%,-50%)) while a `.pad` is placed by its box, so
-     the half-box has to come back off the zones: the transform is
-     invisible to offsetLeft. */
+     A `.pad` is placed by its box. */
   function centreOf(el) {
     var o = originOf(el);
-    var w = el.offsetWidth;
-    var h = el.offsetHeight;
-    var centred = el.classList.contains('zone');
     var g = geoOf(el);
 
     return {
-      x: o.x + (centred ? -w / 2 : 0) + w * g.cx,
-      y: o.y + (centred ? -h / 2 : 0) + h * g.cy
+      x: o.x + el.offsetWidth * g.cx,
+      y: o.y + el.offsetHeight * g.cy
     };
   }
 
@@ -331,7 +324,7 @@
   function landOf(el) {
     var table = global.GeoPages && global.GeoPages.land;
     if (!table) return null;
-    return table[el.dataset.shape] || table.triangle || null;
+    return table[el.dataset.shape] || null;
   }
 
 
@@ -620,13 +613,17 @@
      already been fitted out leaves it alone, so init() can be
      called again if screens are ever added after boot. */
   function attach(el) {
-    if (el.closest('.screen[data-reef]')) return; // Dedicated, asset-traced environment.
+    // Site B of a reef screen is the asset-traced environment's
+    // (js/reef.js): its islands stand in the sea as slabs of rock, with
+    // their own shores. Site A's islands, over the same ocean, keep the
+    // shoreline drawn here.
+    if (el.closest('.screen[data-reef] .site--b')) return;
     if (el.dataset.wtr) return;
 
     var land = landOf(el);
     if (!land) return;
 
-    var img = el.querySelector('.zone__img, .pad__img');
+    var img = el.querySelector('.pad__img');
     if (!img) return;
 
     var pts = vertices(land);
@@ -680,17 +677,20 @@
 
   /* Every screen painted on water gets a sea under it, a sheet of
      glare over it, and its waves. Which screens those are is asked
-     of the artwork rather than listed: the two backgrounds that
-     ARE the sea are .s2-bg (the survey) and .s3-bg (every round
-     screen). */
+     of the artwork rather than listed: the background that IS the
+     sea is .s3-bg (every round screen). */
   function dress(screen) {
-    if (screen.hasAttribute('data-reef')) return;
     if (screen.dataset.wtr) return;
 
-    var bg = screen.querySelector('.s2-bg, .s3-bg');
+    var bg = screen.querySelector('.s3-bg');
     if (!bg) return;
 
-    bg.insertAdjacentHTML('afterend', seaHTML());
+    /* A reef screen's sea is the reef's own (js/reef.js, js/reef-water.js):
+       no sheets over it, and no landing shadow on it -- the craft's
+       landing there is a cut-scene. Its wave fronts are still mounted,
+       for site A's islands (the ones js/reef.js never dresses). */
+    var reef = screen.hasAttribute('data-reef');
+    if (!reef) bg.insertAdjacentHTML('afterend', seaHTML());
 
     /* The fronts go inside the screen's CAMERA plate where it has
        one (the survey feed does; nothing else on the mission
@@ -717,7 +717,7 @@
        hung off .ship rather than off .ship__craft so the shadow
        follows the FLIGHT and not the idle bob @ a shadow on the
        water does not bob with the thing above it. */
-    var ship = screen.querySelector('.ship');
+    var ship = reef ? null : screen.querySelector('.ship');
     if (ship) ship.insertAdjacentHTML('afterbegin', shipHTML());
 
     screen.dataset.wtr = '1';
@@ -744,7 +744,7 @@
     doc.body.insertAdjacentHTML('beforeend', defsHTML());
 
     Array.prototype.forEach.call(stage.querySelectorAll('.screen'), dress);
-    Array.prototype.forEach.call(stage.querySelectorAll('.zone, .pad'), attach);
+    Array.prototype.forEach.call(stage.querySelectorAll('.pad'), attach);
 
     ready = true;
   }
@@ -777,6 +777,8 @@
 
     var screen = screenOf(el);
     if (!screen) return;
+    /* the reef's water answers its own islands (js/reef-water.js) */
+    if (screen.hasAttribute('data-reef') && el.closest('.site--b')) return;
 
     var waves = screen.querySelectorAll('.wave');
     if (!waves.length) return;
@@ -818,7 +820,7 @@
     if (reach <= 0) return;
 
     Array.prototype.forEach.call(
-      screen.querySelectorAll('.zone.is-up, .pad.is-up'),
+      screen.querySelectorAll('.pad.is-up'),
       function (island) {
         if (island === from || island.classList.contains('is-sunk')) return;
 
@@ -937,7 +939,6 @@
 
   global.GeoWater = {
     init: init,
-    attach: attach,
     breach: breach,
     close: close,
     approve: approve,

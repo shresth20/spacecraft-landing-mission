@@ -1,4 +1,4 @@
-/* Square landing only. Timing/density live in GeoReef.config (js/reef.js).
+/* Every round's sea. Timing/density live in GeoReef.config (js/reef.js).
    All art shares site B's existing uniform camera transform.
 
    Paint order inside the site (no stacking context of its own here):
@@ -12,20 +12,24 @@
   animation: none;
   filter: none;
 }
-/* The square screen never plays site A. Its former survey scenery is absent. */
-.screen[data-reef] :is(.site--a, .islets, .aerial) { display: none; }
-.env-world, .env-deep, .env-edges, .env-satellites {
+/* The square's screen is the landing alone (data-landing, js/pages.js): it
+   never plays site A, so its survey scenery is absent. A full round keeps
+   site A, the islets and the survey haze over the same ocean. */
+.screen[data-reef][data-landing] :is(.site--a, .islets, .aerial) { display: none; }
+.env-world, .env-deep, .env-bigs, .env-satellites {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 .env-world *, .env-platform *, .env-satellites * { pointer-events: none; }
+/* The first round opens in the dark, and its scan is what finds the
+   land: the reef's scenery on site B stays unseen until the lights come
+   up, and fades in with the ocean (.s3-bg.is-lit, css/style.css). */
+.screen[data-intro] .env-world { transition: opacity 1.6s cubic-bezier(.4, 0, .2, 1); }
+.screen[data-intro] .s3-bg:not(.is-lit) ~ .cam .env-world { opacity: 0; }
 .env-object, .env-submerged { position: absolute; }
 .env-world [hidden], .env-satellites [hidden] { display: none; }
 .env-image { display: block; width: 100%; height: auto; max-width: none; user-select: none; }
-/* an edge fragment, mirrored about its straight side: off screen at
-   rest, it is the land the camera's follow reveals (js/reef.js) */
-.env-mirror { position: absolute; top: 0; transform: scaleX(-1); }
 
 /* ---------------------------------------------------------- under the water */
 .env-submerged { z-index: 0; opacity: var(--env-deep-alpha); }
@@ -121,7 +125,7 @@
 /* Loading failure remains legible and never blocks the landing calculation. */
 .env-art.is-missing { aspect-ratio: 1; background: #d87e23; }
 .env-art.is-missing .env-image { visibility: hidden; }
-.env-edge:has(.is-missing), .env-satellite:has(.is-missing), .env-submerged.is-missing { visibility: hidden; }
+.env-big:has(.is-missing), .env-satellite:has(.is-missing), .env-submerged.is-missing { visibility: hidden; }
 
 /* Global lifecycle also freezes WAAPI animations; these rules cover motion
    created while already paused, and keep inactive screens quiet. */

@@ -12,7 +12,7 @@ a black ground, so each one is:
             because only ground connected to the border is keyed
   framed    cropped to the hull and centred on a square canvas, with
             the hull's longer side at FRAME of it -- the same framing
-            "Square craft.webp" was given, so all six crafts hang
+            "square-craft.webp" was given, so all six crafts hang
             their nozzles with the same room round them
   measured  everything the page needs to know about it, off its own
             alpha channel:
@@ -31,15 +31,17 @@ a black ground, so each one is:
 Prints the table the CRAFT entries in js/pages.js are written from.
 
 TWO OF THE SOURCE FILES ARE MISNAMED, the same two as last time:
-"parallelogram craft.png" is drawn as a trapezium (its rows widen
+"parallelogram-craft.png" is drawn as a trapezium (its rows widen
 top to bottom) and "trapezium-craft.png" as a parallelogram (every
 row the same width, sheared sideways). The output is named after
 what each one IS, so nothing downstream has to cross them over.
 
-The square is measured but not written: "Square craft.webp" was cut
+The square is measured but not written: "square-craft.webp" was cut
 from the same drawing before this tool existed, and the page's
 figures for it are that file's. Its row here is the check that this
-tool agrees with it.
+tool agrees with it. The triangle's craft is no longer cut: its round
+was taken out of the mission on 2026-10-21 (its island stays, as a
+decoy on the shape question).
 
     python3 tools/build_crafts.py
     python3 tools/build_manifest.py
@@ -61,11 +63,10 @@ OUT = os.path.join(ROOT, "assets", "images")
 # source file -> (the shape it is drawn as, corners, output file or None)
 CRAFTS = [
     ("square-craft.png", "square", 4, None),
-    ("rectangle craft.png", "rectangle", 4, "Rectangle craft.webp"),
-    ("trapezium-craft.png", "parallelogram", 4, "Parallelogram craft.webp"),
-    ("parallelogram craft.png", "trapezium", 4, "Trapezium craft.webp"),
-    ("rhombus craft.png", "rhombus", 4, "Rhombus craft.webp"),
-    ("triangle-craft.png", "triangle", 3, "Triangle craft.webp"),
+    ("rectangle-craft.png", "rectangle", 4, "rectangle-craft.webp"),
+    ("trapezium-craft.png", "parallelogram", 4, "parallelogram-craft.webp"),
+    ("parallelogram-craft.png", "trapezium", 4, "trapezium-craft.webp"),
+    ("rhombus-craft.png", "rhombus", 4, "rhombus-craft.webp"),
 ]
 
 SIZE = 800           # px, the canvas written out

@@ -1,4 +1,4 @@
-"""Cut the flight joystick out of assets/images/new/contoller.png.
+"""Cut the flight joystick out of assets/images/new/controller.png.
 
 The drawing holds the two pieces side by side -- the ring the stick
 sits in on the left, the knob with its four arrows on the right --
@@ -14,7 +14,7 @@ pieces are round, so each is cut along its own coast:
             1.2px feather), so the rim reads round at any size
   framed    centred on a square canvas and saved as webp
 
-Writes "Joystick base.webp" and "Joystick knob.webp" into
+Writes "joystick-base.webp" and "joystick-knob.webp" into
 assets/images, the two pieces js/pages.js builds the stick from.
 Run tools/build_manifest.py after it.
 
@@ -28,14 +28,14 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "assets", "images", "new", "contoller.png")
+SRC = os.path.join(ROOT, "assets", "images", "new", "controller.png")
 OUT = os.path.join(ROOT, "assets", "images")
 
 # (name, centre x, centre y, rough radius, output px) -- read off the
 # drawing: the centres are the middle of each piece's painted box
 PIECES = [
-    ("Joystick base", 412.0, 369.5, 361, 640),
-    ("Joystick knob", 1140.0, 397.0, 278, 480),
+    ("joystick-base", 412.0, 369.5, 361, 640),
+    ("joystick-knob", 1140.0, 397.0, 278, 480),
 ]
 
 SOLID = 0.55     # saturation above which a pixel is paint

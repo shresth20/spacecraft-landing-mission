@@ -2,21 +2,23 @@
    Geo Drone — the round screens, one per shape
 
    Every playing screen is one continuous camera shot over one sea,
-   and a full round brings the lens down on it twice: on SITE A for
+   and every round brings the lens down on it twice: on SITE A for
    "which of these is the same SHAPE as the craft", and on SITE B
-   for "which of these is the same AREA". The square is split across
-   two screens instead: the survey (screen 2) asks its SHAPE question
-   behind the drone's dark-and-scan opening, and its NEXT button
-   opens the square's landing screen, which is site B and nothing
-   else. Every other shape gets a full round that opens straight
-   onto the water:
+   for "which of these is the same AREA". The square's round is the
+   first, and opens behind the drone's dark-and-scan opening
+   (`intro`); every other opens straight onto the water:
 
-     3  square         area = side x side          (landing only)
-     4  rectangle      area = length x width
-     5  parallelogram  area = base x height
-     6  trapezium      area = 1/2 x (a + b) x height
-     7  rhombus        area = 1/2 x d1 x d2
-     8  triangle       area = 1/2 x base x height
+     2  square         area = side x side          (with the opening)
+     3  rectangle      area = length x width
+     4  parallelogram  area = base x height
+     5  trapezium      area = 1/2 x (a + b) x height
+     6  rhombus        area = 1/2 x d1 x d2
+
+   (the triangle was taken out of the mission on 2026-10-21: its
+   round, and its island from the shape question). Every one of them plays
+   the square's landing: the reef sea, the flown craft, GO, and the
+   landing or the crash as a close-up cut-scene (js/square-landing.js,
+   js/square-crash.js) -- see `reef` and `cinema` on the rounds.
 
    and every one of them runs the same six beats:
 
@@ -25,7 +27,7 @@
      offer  →  pick the exact match  →  land
 
    This file is the DATA and the MARKUP. The flow that plays it is
-   runRound() in js/script.js, which is one function for all six
+   runRound() in js/script.js, which is one function for all five
    screens — the difference between them lives entirely below.
 
    ── why the numbers are here and not in the stylesheet ─────────
@@ -38,12 +40,15 @@
    channel of the PNG it describes:
 
      land          fill %  centre of area      craft            fill %  centre of area
-     Triangle       36.623  (49.94, 63.45)     Triangle craft    16.041  (49.98, 57.84)
      Square         59.110  (50.04, 50.08)     Square craft      37.943  (49.97, 50.02)
-     Rectangle      28.000  (49.97, 49.93)     Rectangle craft   22.469  (50.00, 49.99)
-     Parallelogram  36.281  (50.15, 49.98)     Parallelogram cr  16.233  (50.17, 50.03)
-     Trapezium      38.396  (49.96, 56.36)     Trapezium craft   17.507  (50.03, 52.26)
-     Rhombus        31.797  (50.00, 49.82)     Rhombus craft     17.124  (50.03, 50.35)
+     Rectangle      39.870  (49.90, 50.13)     Rectangle craft   22.469  (50.00, 49.99)
+     Parallelogram  33.706  (49.83, 47.61)     Parallelogram cr  16.233  (50.17, 50.03)
+     Trapezium      41.420  (49.97, 49.29)     Trapezium craft   17.507  (50.03, 52.26)
+     Rhombus        31.226  (49.94, 48.61)     Rhombus craft     17.124  (50.03, 50.35)
+
+   The four shaped tiles were redrawn on 2026-10-21 as slabs of rock
+   seen from above (assets/images/new, cut and measured by
+   tools/build_lands.py); the square's is as it was.
 
    Every craft is the bare hull -- no nozzle and no exhaust painted
    on, since every landing is flown and the nozzles are built round
@@ -53,14 +58,12 @@
    columns at load, so there is one place to correct if a PNG is
    ever redrawn, and no figure is repeated anywhere it could drift.
 
-   ── the "X spaceship.webp" files ─────────────────────────────
+   ── the crafts' names ────────────────────────────────────────
 
-   The crafts with their exhaust painted on are no longer used by
-   any round. Two of them were misnamed (Parallelogram spaceship.webp
-   is a trapezium and the other way round), and so are the same two
-   source drawings of the bare crafts in assets/images/new; the
-   "X craft.webp" files are named after what each one IS, so nothing
-   here is crossed over any more.
+   Two source drawings of the bare crafts in assets/images/new are
+   misnamed (parallelogram is a trapezium and the other way round);
+   the "<shape>-craft.webp" files are named after what each one IS, so
+   nothing here is crossed over any more.
 
    ── where the artwork still does not quite agree ─────────────
 
@@ -78,19 +81,15 @@
    their own boxes:
 
      land           extent        ratio      hull           ratio
-     triangle       93.2 x 78.9   1.18       65.3 x 49.2    1.33
      square         77.5 x 76.8   1.01       64.0 x 59.6    1.07
-     rectangle      70.0 x 40.0   1.75       64.0 x 35.2    1.82
-     parallelogram  96.9 x 57.0   1.70       65.0 x 37.4    1.74
-     trapezium      95.4 x 56.6   1.69       64.7 x 36.9    1.75
-     rhombus        69.2 x 92.6   0.75       53.3 x 64.5    0.83
+     rectangle      80.6 x 50.2   1.61       64.0 x 35.2    1.82
+     parallelogram  90.1 x 57.2   1.58       65.0 x 37.4    1.74
+     trapezium      99.3 x 58.0   1.71       64.7 x 36.9    1.75
+     rhombus        71.6 x 88.0   0.81       53.3 x 64.5    0.83
 
-   Close enough everywhere that the hull covers 95% or more of the
-   island that fits when the two centres are lined up, which is what
-   lets the lock-on in js/pilot.js ask for four-fifths of it. (The
-   rectangle's land read 1.32 here until its tile was squared up:
-   70.0 x 53.2 was two percentages of a 4:3 canvas being divided as
-   though the canvas were square. See the note over LAND.)
+   Close enough everywhere that the hull covers most of the island
+   that fits when the two centres are lined up, which is what lets
+   the lock-on in js/pilot.js ask for four-fifths of it.
    ============================================================ */
 
 (function (global) {
@@ -115,37 +114,28 @@
      at 100% x (h/w) of that box and top-aligns, so its painting ends
      up somewhere its own percentages do not describe: the coast, the
      foam and the wake all draw in the right place for the box and
-     the wrong place for the land. Rectangle.webp shipped 1448 x 1086
-     and did exactly that — its shore sat a tenth of a box below its
-     shoreline. It is now padded out to 1448 x 1448, transparently,
-     with the painting untouched.
+     the wrong place for the land. (rectangle.webp once shipped
+     1448 x 1086 and did exactly that.)
 
      Padding a tile does not change how big the island comes out:
      boxFor() sizes the box from `fill`, so a tile that covers less
      of its canvas simply gets a bigger box and the painted land is
      the same number of pixels either way.
 
-     Re-measured when the six land PNGs were redrawn. The trace is a
-     convex hull of the alpha mask simplified to the shape's own
-     corner count; each polygon's own area agrees with the measured
-     coverage to better than 1%, which is the check that it snapped
-     to the real corners rather than near them.
+     The trace is a convex hull of the alpha mask simplified to the
+     shape's own corner count, each side refitted through its middle
+     (tools/build_lands.py). The four shaped tiles are slabs with a
+     visible edge along the bottom, so their trace takes that edge in
+     with the top: a strip a hundredth of the box deep, the same on
+     all three islands of a round, so the areas stay in proportion.
 
      The land moved and the CRAFT artwork did not, so everything
      downstream of the two together — the box factors, the ship box,
      FIT_AREA — is derived at load from these figures and the CRAFT
      ones, and none of it is written down twice. */
   var LAND = {
-    triangle: {
-      img: 'Triangle.webp', fill: 36.623, cx: 0.4994, cy: 0.6345,
-      outline: 'M50 10.9L96.5 89.8L3.3 89.6z',
-      clip: 'polygon(50% 10.9%, 96.5% 89.8%, 3.3% 89.6%)',
-      label: [49.9, 63.4],
-      adjective: 'triangular'
-    },
-
     square: {
-      img: 'Square.webp', fill: 59.110, cx: 0.5004, cy: 0.5008,
+      img: 'square.webp', fill: 59.110, cx: 0.5004, cy: 0.5008,
       outline: 'M11.4 11.7L88.8 11.7L88.8 88.5L11.3 88.5z',
       clip: 'polygon(11.4% 11.7%, 88.8% 11.7%, 88.8% 88.5%, 11.3% 88.5%)',
       label: [50.0, 50.1],
@@ -153,34 +143,34 @@
     },
 
     rectangle: {
-      img: 'Rectangle.webp', fill: 28.000, cx: 0.4997, cy: 0.4993,
-      outline: 'M85 30L85 70L15 70L15 30z',
-      clip: 'polygon(85% 30%, 85% 70%, 15% 70%, 15% 30%)',
-      label: [50.0, 49.9],
+      img: 'rectangle.webp', fill: 39.870, cx: 0.4990, cy: 0.5013,
+      outline: 'M9.8 25.1L90.1 25.1L90 75.1L9.5 75.3z',
+      clip: 'polygon(9.8% 25.1%, 90.1% 25.1%, 90% 75.1%, 9.5% 75.3%)',
+      label: [49.9, 50.2],
       adjective: 'rectangular'
     },
 
     parallelogram: {
-      img: 'Parallelogram.webp', fill: 36.281, cx: 0.5015, cy: 0.4998,
-      outline: 'M34.5 21.5L98.5 21.5L65.7 78.5L1.6 78.4z',
-      clip: 'polygon(34.5% 21.5%, 98.5% 21.5%, 65.7% 78.5%, 1.6% 78.4%)',
-      label: [50.1, 50.0],
+      img: 'parallelogram.webp', fill: 33.706, cx: 0.4983, cy: 0.4761,
+      outline: 'M94.6 19L64.8 76.1L4.5 76.2L35.5 19z',
+      clip: 'polygon(94.6% 19%, 64.8% 76.1%, 4.5% 76.2%, 35.5% 19%)',
+      label: [49.8, 47.6],
       adjective: 'parallelogram'
     },
 
     trapezium: {
-      img: 'Trapezium.webp', fill: 38.396, cx: 0.4996, cy: 0.5636,
-      outline: 'M29.5 24.3L70.5 24.3L97.6 80.9L2.2 80.8z',
-      clip: 'polygon(29.5% 24.3%, 70.5% 24.3%, 97.6% 80.9%, 2.2% 80.8%)',
-      label: [50.0, 56.4],
+      img: 'trapezium.webp', fill: 41.420, cx: 0.4997, cy: 0.4929,
+      outline: 'M72.5 16.7L99.6 74.7L0.3 74.7L27.7 16.7z',
+      clip: 'polygon(72.5% 16.7%, 99.6% 74.7%, 0.3% 74.7%, 27.7% 16.7%)',
+      label: [50.0, 45.7],
       adjective: 'trapezium'
     },
 
     rhombus: {
-      img: 'Rhombus.webp', fill: 31.797, cx: 0.5000, cy: 0.4982,
-      outline: 'M50 3.5L84.6 50L49.8 96.1L15.4 49.9z',
-      clip: 'polygon(50% 3.5%, 84.6% 50%, 49.8% 96.1%, 15.4% 49.9%)',
-      label: [50.0, 49.8],
+      img: 'rhombus.webp', fill: 31.226, cx: 0.4994, cy: 0.4861,
+      outline: 'M49.9 5L85.7 47.8L49.9 93L14.1 47.9z',
+      clip: 'polygon(49.9% 5%, 85.7% 47.8%, 49.9% 93%, 14.1% 47.9%)',
+      label: [49.9, 48.4],
       adjective: 'rhombus'
     }
   };
@@ -264,6 +254,45 @@
            path('dim__square', 'M' + x + ' ' + (yb - 7.4) + 'H' + (x + 7.4) + 'V' + yb);
   }
 
+  /* o: a, b     the two corners of a SLANTED side, a the lower one
+        off      how far the dimension line stands off the side, to
+                 the left of the way from a to b (so, with a the
+                 lower corner, outward on a left-hand side and inward
+                 on a right-hand one -- give it a negative value there)
+        text     the number, set along the line and reading upward
+     The same tick-capped line as across() and beside(), turned to
+     the side's own angle, for a parallelogram's slant side and a
+     rhombus's side -- the one length neither of the others can
+     measure. */
+  function along(o) {
+    var dx = o.b[0] - o.a[0], dy = o.b[1] - o.a[1];
+    var len = Math.hypot(dx, dy) || 1;
+    var ux = dx / len, uy = dy / len;         /* along the side */
+    var nx = uy, ny = -ux;                    /* to its left */
+    var off = o.off == null ? 9 : o.off;
+    var p = function (x, y) { return r1(x) + ' ' + r1(y); };
+    var a = [o.a[0] + nx * off, o.a[1] + ny * off];
+    var b = [o.b[0] + nx * off, o.b[1] + ny * off];
+    /* the number along the line, never upside down, and outside it:
+       its glyphs stand up off the baseline, so where the baseline
+       goes depends on which way that "up" turns out to point */
+    var deg = Math.atan2(uy, ux) * 180 / Math.PI;
+    if (deg > 90) deg -= 180; else if (deg < -90) deg += 180;
+    var rad = deg * Math.PI / 180;
+    var upx = Math.sin(rad), upy = -Math.cos(rad);
+    var ox = off < 0 ? -nx : nx, oy = off < 0 ? -ny : ny;     /* away from the hull */
+    var gap = upx * ox + upy * oy > 0 ? 4 : 9.5;
+    var tx = (a[0] + b[0]) / 2 + ox * gap;
+    var ty = (a[1] + b[1]) / 2 + oy * gap;
+    return path('dim__line', 'M' + p(a[0], a[1]) + 'L' + p(b[0], b[1])) +
+           path('dim__tip', 'M' + p(a[0] - nx * CAP, a[1] - ny * CAP) + 'L' + p(a[0] + nx * CAP, a[1] + ny * CAP) +
+                            'M' + p(b[0] - nx * CAP, b[1] - ny * CAP) + 'L' + p(b[0] + nx * CAP, b[1] + ny * CAP)) +
+           '<text class="dim__text" x="' + r1(tx) + '" y="' + r1(ty) +
+           '" transform="rotate(' + r1(deg) + ' ' + r1(tx) + ' ' + r1(ty) + ')">' + o.text + '</text>';
+  }
+
+  function r1(n) { return Math.round(n * 10) / 10; }
+
 
   /* ---------------------------------------------------------- the craft
 
@@ -284,7 +313,7 @@
        poly          its corners, per cent: what the lock-on measures
                      how much of an island the hull covers against.
                      The extent alone would not do: it is half again
-                     the triangle's area, and on the parallelogram
+                     a pointed hull's area, and on the parallelogram
                      round it covers the 63-unit island so badly that
                      it could never be landed on
        nozzle        how wide the bell is, per cent of the box. The
@@ -296,93 +325,82 @@
                      through the centre of area, at the coast, and
                      moved in until there is metal across the whole of
                      the bell's flange -- so on a point (the rhombus's
-                     four, the triangle's nose) it is bolted on rather
+                     four) it is bolted on rather
                      than left hanging beside it. Without it (the
                      square) a nozzle is hung at the middle of each
                      side of `hull`, which on a square is the same
 
      Two of the source drawings in assets/images/new are misnamed
-     ("parallelogram craft.png" is a trapezium and the other way
+     ("parallelogram-craft.png" is a trapezium and the other way
      round); the files here are named after what they ARE.
 
      Each pair of callouts stands off past where its nozzles run out
      to, to the left and underneath. */
   var CRAFT = {
-    /* base y 74.1 from x 17.2 to 82.5, apex (49.9, 24.9) */
-    triangle: {
-      img: 'Triangle craft.webp', fill: 16.041, cx: 0.4998, cy: 0.5784,
-      hull: [18.0, 25.8, 82.0, 74.2],
-      poly: [[17.2, 74.1], [49.9, 24.9], [82.5, 74.1]],
-      nozzle: 13.7,
-      noz: { t: [50.0, 30.4], r: [69.5, 57.8], b: [50.0, 74.2], l: [30.5, 57.8] },
-      alt: 'Triangular spaceship, base 8 units, height 5 units',
-      dims:
-        perp(49.9, 24.9, 74.1) +
-        beside({ x: -8, y1: 24.9, y2: 74.1, text: '5 units' }) +
-        across({ x1: 17.2, x2: 82.5, y: 94, ty: 108, text: '8 units' })
-    },
-
     /* hull x 18.0..82.0, y 20.2..79.8 — 64.0 across by 59.6 down, so
        the drawn square is still 7% wider than it is tall. Both sides
-       are still called 6 units: the area is exact, the artwork is a
+       are still called 5 units: the area is exact, the artwork is a
        little out of square. */
     square: {
-      img: 'Square craft.webp', fill: 37.943, cx: 0.4997, cy: 0.5002,
+      img: 'square-craft.webp', fill: 37.943, cx: 0.4997, cy: 0.5002,
       hull: [18.0, 20.2, 82.0, 79.8],
-      alt: 'Square spaceship, each side 6 units',
+      alt: 'Square spaceship, each side 5 units',
       dims:
-        across({ x1: 18.0, x2: 82.0, y: 106, ty: 120, text: '6 units' }) +
-        beside({ x: -10, y1: 20.2, y2: 79.8, text: '6 units' })
+        across({ x1: 18.0, x2: 82.0, y: 106, ty: 120, text: '5 units' }) +
+        beside({ x: -10, y1: 20.2, y2: 79.8, text: '5 units' })
     },
 
     /* hull x 18.0..82.0, y 32.4..67.6: 1.82 to 1, the 2 to 1 of its
        numbers drawn a little short */
     rectangle: {
-      img: 'Rectangle craft.webp', fill: 22.469, cx: 0.5000, cy: 0.4999,
+      img: 'rectangle-craft.webp', fill: 22.469, cx: 0.5000, cy: 0.4999,
       hull: [18.0, 32.4, 82.0, 67.6],
       poly: [[81.9, 67.5], [18.0, 67.5], [18.0, 32.4], [81.9, 32.4]],
       nozzle: 16.2,
       noz: { t: [50.0, 32.4], r: [82.0, 50.0], b: [50.0, 67.6], l: [18.0, 50.0] },
-      alt: 'Rectangular spaceship, 10 units long and 5 units wide',
+      alt: 'Rectangular spaceship, 8 units long and 4 units wide',
       dims:
-        across({ x1: 18.0, x2: 82.0, y: 92, ty: 107, text: '10 units' }) +
-        beside({ x: -8, y1: 32.4, y2: 67.6, text: '5 units' })
+        across({ x1: 18.0, x2: 82.0, y: 92, ty: 107, text: '8 units' }) +
+        beside({ x: -8, y1: 32.4, y2: 67.6, text: '4 units' })
     },
 
     /* Top edge y 31.2 from x 39.3 to 82.5, bottom edge y 68.6 from
        x 17.5 to 61.1: every row 43.4 wide, sheared 0.58 sideways per
        unit down. The height callout is the PERPENDICULAR one — that
        is the whole point of the shape — so it is dropped through the
-       middle as well as measured down the side. */
+       middle as well as measured down the side. The slant side is
+       measured on the right-hand one, standing off it past where the
+       right nozzle runs out to. */
     parallelogram: {
-      img: 'Parallelogram craft.webp', fill: 16.233, cx: 0.5017, cy: 0.5003,
+      img: 'parallelogram-craft.webp', fill: 16.233, cx: 0.5017, cy: 0.5003,
       hull: [18.0, 31.2, 82.0, 68.8],
       poly: [[82.5, 31.2], [61.1, 68.6], [17.5, 68.6], [39.3, 31.3]],
       nozzle: 13.7,
       noz: { t: [50.2, 31.2], r: [69.9, 50.0], b: [50.2, 68.8], l: [30.5, 50.0] },
-      alt: 'Parallelogram spaceship, base 7 units, height 6 units',
+      alt: 'Parallelogram spaceship, base 7 units, height 5 units, slant side 6 units',
       dims:
         perp(50, 31.2, 68.6) +
         across({ x1: 17.5, x2: 61.1, y: 92, ty: 107, text: '7 units' }) +
-        beside({ x: -8, y1: 31.2, y2: 68.6, text: '6 units' })
+        beside({ x: -8, y1: 31.2, y2: 68.6, text: '5 units' }) +
+        along({ a: [61.1, 68.6], b: [82.5, 31.2], off: -16, text: '6 units' })
     },
 
     /* Top edge y 31.5 from x 35.0 to 65.1 (30.1 across), bottom edge
-       y 68.4 from x 17.6 to 82.3 (64.7 across), 36.9 apart — 5 : 10.7
-       : 6.1. The short side's callout goes over the top nozzle, clear
-       of where it runs out to. */
+       y 68.4 from x 17.6 to 82.3 (64.7 across), 36.9 apart — 8 : 17.2
+       : 9.8 against its numbers' 8 : 12 : 5. The short side's callout
+       goes over the top nozzle, clear of where it runs out to. */
     trapezium: {
-      img: 'Trapezium craft.webp', fill: 17.507, cx: 0.5003, cy: 0.5226,
+      img: 'trapezium-craft.webp', fill: 17.507, cx: 0.5003, cy: 0.5226,
       hull: [18.0, 31.5, 82.0, 68.5],
       poly: [[82.3, 68.4], [17.6, 68.4], [35.0, 31.5], [65.1, 31.5]],
       nozzle: 14.3,
       noz: { t: [50.0, 31.5], r: [73.0, 52.3], b: [50.0, 68.5], l: [27.0, 52.3] },
-      alt: 'Trapezium spaceship, parallel sides 5 and 10 units, height 6 units',
+      alt: 'Trapezium spaceship, parallel sides 8 and 12 units, height 5 units',
       dims:
         perp(50, 31.5, 68.4) +
-        across({ x1: 35.0, x2: 65.1, y: 20, ty: 15.5, text: '5 units' }) +
-        across({ x1: 17.6, x2: 82.3, y: 92, ty: 107, text: '10 units' }) +
-        beside({ x: -8, y1: 31.5, y2: 68.4, text: '6 units' })
+        across({ x1: 35.0, x2: 65.1, y: 20, ty: 15.5, text: '8 units' }) +
+        across({ x1: 17.6, x2: 82.3, y: 92, ty: 107, text: '12 units' }) +
+        beside({ x: -8, y1: 31.5, y2: 68.4, text: '5 units' })
     },
 
     /* Vertices (50.1, 17.7) (76.6, 50.9) (50.0, 82.2) (23.3, 50.8).
@@ -398,18 +416,21 @@
        diagonal, which then reads as two broken lines instead of
        one. */
     rhombus: {
-      img: 'Rhombus craft.webp', fill: 17.124, cx: 0.5003, cy: 0.5035,
+      img: 'rhombus-craft.webp', fill: 17.124, cx: 0.5003, cy: 0.5035,
       hull: [23.4, 18.0, 76.6, 82.0],
       poly: [[50.1, 17.7], [76.6, 50.9], [50.0, 82.2], [23.3, 50.8]],
       nozzle: 14.1,
       noz: { t: [50.0, 22.2], r: [73.4, 50.4], b: [50.0, 78.1], l: [26.6, 50.4] },
-      alt: 'Rhombus spaceship, diagonals 6 units and 7 units',
+      alt: 'Rhombus spaceship, diagonals 6 units and 8 units, each side 5 units',
       dims:
         path('dim__inner', 'M50 17.7V82.2') +
         path('dim__line', 'M23.3 50.8H76.6') +
         path('dim__tip', 'M23.3 47.2V54.4M76.6 47.2V54.4') +
         num(35, 66.5, '6 units') +
-        beside({ x: -8, y1: 17.7, y2: 82.2, text: '7 units' })
+        beside({ x: -8, y1: 17.7, y2: 82.2, text: '8 units' }) +
+        /* the side: the upper right one, standing off it past the
+           top and right nozzles */
+        along({ a: [76.6, 50.9], b: [50.1, 17.7], off: -14, text: '5 units' })
     }
   };
 
@@ -417,11 +438,12 @@
   /* ---------------------------------------------------------- the rounds
 
      `row` is the three islands of the round's own shape, left to
-     right, in SQUARE UNITS. The smallest is always in the middle,
-     for the reason screen 3's middle pad is the smallest one: the
-     craft's base callout hangs below the hull, and only the shortest
-     island leaves it room. Which side holds the answer alternates,
-     so the fit is never in the same place twice.
+     right, in SQUARE UNITS: too big, too small, the fit. The
+     smallest is always in the middle, for the reason screen 3's
+     middle pad is the smallest one: the craft's base callout hangs
+     below the hull, and only the shortest island leaves it room.
+     Which side holds the answer alternates, so the fit is never in
+     the same place twice.
 
      The wrong answers are the arithmetic slips the shape invites,
      not arbitrary numbers — the perimeter instead of the area, or
@@ -439,9 +461,10 @@
      answer to it. Every pool below is one a mathematician would
      accept.                                                        */
   var ROUNDS = [
-    /* The first round is only its LANDING: the survey asks this
-       round's shape question (see SURVEY below), and its NEXT button
-       is what opens this screen, straight onto site B.
+    /* The first round opens behind the drone's dark-and-scan opening
+       (`intro`): the dark, the bezel, the scan that finds the
+       archipelago, then the shape question on site A, the lens's
+       crossing to site B and the landing, as on every other round.
 
        Every landing is FLOWN (`pilot`): the craft hovers in the
        middle of the frame, its three islands are strewn round it
@@ -451,80 +474,89 @@
        full round that is site B only: the shape question on site A
        is still a tap.
 
-       This one's sea is the REEF (`reef`): deeper water, with rocks
-       under it out towards the edges. See js/reef.js. It is still
-       being tried out, so the other rounds keep the round screens'
-       own sea for now.
+       Every landing's sea is the REEF (`reef`): the square's ocean,
+       rocks under the water, and each island stood in it as a slab of
+       rock with small dry rocks round it. See js/reef.js. On a full
+       round that is site B's sea; site A's islands stand on the same
+       ocean with the shoreline js/water.js draws them.
 
-       And its landings are played as a cut-scene (`cinema`): GO cuts
-       to the landing seen from the side, drawn from the square's own
-       sheets in assets/new4. See js/cinematic.js. */
+       And every landing is played as a cut-scene (`cinema`): GO zooms
+       the lens onto the island and cuts to the landing seen from the
+       angle, the shape's own craft and island drawn live
+       (js/square-landing.js, js/square-crash.js, art from
+       tools/build_landings.py). A shape whose angle art is not in yet
+       lands from overhead instead, as it always did.
+
+       The areas, in square units, are the numbers the dimensions
+       give: `row` is the island too big, the island too small and
+       the one that fits, in that order (see below). */
     {
       shape: 'square',
-      landingOnly: true,
+      intro: true,
       pilot: true,
       reef: true,
       cinema: true,
-      area: 36,                       /* 6 x 6 */
+      area: 25,                       /* 5 x 5 */
       say: 'The spaceship is a square. Select all the square landing zones.',
       areaKey: 'calcArea',
-      askExact: false,                /* no "choose the landing zone with the exact area" here */
-      row: [54, 24, 36],              /* 24 is the perimeter */
-      decoyPool: ['triangle', 'rectangle', 'parallelogram', 'trapezium', 'rhombus']
+      row: [30, 20, 25],              /* 20 is the perimeter */
+      decoyPool: ['rectangle', 'parallelogram', 'trapezium', 'rhombus']
     },
 
     {
       shape: 'rectangle',
       pilot: true,
-      area: 50,                       /* 10 x 5 */
+      reef: true,
+      cinema: true,
+      area: 32,                       /* 8 x 4 */
       say: 'The spaceship is a rectangle. Select all the rectangular landing zones.',
       areaKey: 'findArea',
-      row: [50, 30, 75],              /* 30 is the perimeter */
-      decoyPool: ['triangle', 'parallelogram', 'trapezium', 'rhombus']   /* a square IS a rectangle */
+      row: [40, 24, 32],              /* 24 is the perimeter */
+      decoyPool: ['parallelogram', 'trapezium', 'rhombus']   /* a square IS a rectangle */
     },
 
     {
       shape: 'parallelogram',
       pilot: true,
-      area: 42,                       /* 7 x 6 */
+      reef: true,
+      cinema: true,
+      area: 35,                       /* base 7 x height 5 */
       say: 'The spaceship is a parallelogram. Select all the parallelogram landing zones.',
       areaKey: 'calcArea',
-      row: [63, 30, 42],
-      decoyPool: ['triangle', 'trapezium']       /* squares, rectangles and rhombi ARE parallelograms */
+      row: [42, 26, 35],              /* 42 is base x slant side; 26 the perimeter */
+      /* Strictly, squares, rectangles and rhombi ARE parallelograms;
+         with the triangle gone the trapezium is the only shape that is
+         not, and a pair is needed. The rectangle stands in: as the
+         mission draws them -- the parallelogram always slanted, the
+         rectangle always square-cornered -- it reads as a different
+         shape, and it is the one of the three furthest from the slant. */
+      decoyPool: ['trapezium', 'rectangle']
     },
 
     {
       shape: 'trapezium',
       pilot: true,
-      area: 45,                       /* 1/2 x (5 + 10) x 6 */
+      reef: true,
+      cinema: true,
+      area: 50,                       /* 1/2 x (8 + 12) x 5 */
       say: 'The spaceship is a trapezium. Select all the trapezium landing zones.',
       areaKey: 'findArea',
-      row: [45, 30, 90],              /* 90 is the half forgotten */
-      decoyPool: ['triangle', 'square', 'rectangle', 'parallelogram', 'rhombus']
+      row: [60, 40, 50],              /* 60 is 12 x 5; 40 is 8 x 5 */
+      decoyPool: ['square', 'rectangle', 'parallelogram', 'rhombus']
     },
 
     {
       shape: 'rhombus',
       pilot: true,
-      area: 21,                       /* 1/2 x 6 x 7 */
+      reef: true,
+      cinema: true,
+      area: 24,                       /* 1/2 x 6 x 8 */
       /* the tall one at both ends: drawn to a smaller unit than the
          others, in css/rounds.css */
       say: 'The spaceship is a rhombus. Select all the rhombus landing zones.',
       areaKey: 'calcArea',
-      row: [42, 14, 21],              /* 42 is the half forgotten */
-      decoyPool: ['triangle', 'rectangle', 'parallelogram', 'trapezium']   /* a square IS a rhombus */
-    },
-
-    {
-      shape: 'triangle',
-      pilot: true,
-      area: 20,                       /* 1/2 x 8 x 5 */
-      /* the one shape line with a recorded clip */
-      sayKey: 'pickTriangles',
-      say: 'The spaceship is a triangle. Select all the triangular landing zones.',
-      areaKey: 'findArea',
-      row: [30, 12, 20],              /* screen 2's old row, unchanged */
-      decoyPool: ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus']
+      row: [48, 20, 24],              /* 48 is the half forgotten; 20 the perimeter */
+      decoyPool: ['rectangle', 'parallelogram', 'trapezium']   /* a square IS a rhombus */
     }
   ];
 
@@ -539,11 +571,12 @@
 
   /* ---------------------------------------------------------- sizing
 
-     FIT_AREA is what screen 3's 20-unit island actually covers:
-     17 box units squared, of which the triangle paints 36.623%. Every
-     round's own fit island is drawn to cover the SAME painted area,
-     so a 36-unit square and a 20-unit triangle look like the same
-     amount of ground and the series keeps one scale throughout.
+     FIT_AREA is a fixed amount of painted land: what the mission's
+     first fit island (a 20-unit triangle, since taken out) covered,
+     17 box units squared at a fill of 36.623%. Every round's own fit
+     island is drawn to cover that SAME painted area, so a 25-unit
+     square and a 50-unit trapezium look like the same amount of
+     ground and the series keeps one scale throughout.
 
      From there:
        k(area)  = kFit x sqrt(area / fit area)   — areas in true
@@ -551,13 +584,8 @@
        fit      = sqrt(land fill / hull fill)    — a length ratio, so
                   the square root of two areas
        shipK    = kFit x fit                     — the box that makes
-                  the PAINTED hull cover exactly the fit island
-
-     DECOY_AREA is a bit under half the fit island: enough to read as
-     an island, small enough to sit in the middle distance without
-     competing with the row that carries the question.               */
+                  the PAINTED hull cover exactly the fit island */
   var FIT_AREA = 17 * 17 * 0.36623;      /* = 105.84 box units of land */
-  var DECOY_AREA = FIT_AREA * 0.45;
 
   function boxFor(paintedArea, land) {
     return Math.sqrt(paintedArea / (land.fill / 100));
@@ -588,10 +616,10 @@
      without ever looking at a shape, and the question stops being a
      question.
 
-     The survey's first site asks that same question of that same
-     five — three matches and two decoys — so it is laid out through
+     The first round's site A asks it behind the drone's opening, of
+     the same five -- three matches and two decoys -- laid out through
      the same scatter() below, on the same stations, with the same
-     shuffle (see buildSurvey, and resetSurvey in js/script.js).
+     shuffle (see resetRound in js/script.js).
 
      The area question is asked somewhere else entirely: site B, a
      frame away, where the three islands of the round's shape stand
@@ -711,11 +739,9 @@
      land on. `m` is that island's measurement, for a caller that
      positions by its box rather than by that centre.
 
-     Returns the islands back to front, left to right — the order
-     they should breach in, so the archipelago comes out of the
-     distance instead of in document order — or null if no draw of
-     five fitted, which is the caller's cue to leave them wherever
-     its stylesheet put them. */
+     Returns the placements, or null if no draw of five fitted,
+     which is the caller's cue to leave them wherever its
+     stylesheet put them. */
   function strew(sec, els, place) {
     var W = sec.clientWidth;
     var H = sec.clientHeight;
@@ -736,9 +762,7 @@
 
     placed.forEach(function (o) { place(o.m.el, o.x, o.y, o.m); });
 
-    return placed.slice()
-      .sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
-      .map(function (o) { return o.m.el; });
+    return placed;
   }
 
   /* A round screen's islands are anchored on their centre of area
@@ -823,7 +847,7 @@
 
      Before that fallback, a second, looser pass. The craft is kept
      clear by its whole box on the first, and on the slimmer hulls
-     (the rhombus, the triangle, the parallelogram: a sixth of their
+     (the rhombus, the parallelogram: a sixth of their
      canvas) that box is mostly empty water. And the rhombus round's
      islands are tall: on a landscape frame not one of them fits
      above or below the craft, so no draw of the eight spots can
@@ -841,7 +865,7 @@
                                 anywhere is somewhere an island cannot
                                 go, and each one costs next to nothing */
 
-  /* the nozzle's depth for its width -- Nozzle.webp is 320 x 123,
+  /* the nozzle's depth for its width -- nozzle.webp is 320 x 123,
      and css/pilot.css draws it at that aspect */
   var NOZZLE_ASPECT = 2.6;
 
@@ -998,31 +1022,12 @@
      js/script.js play them through one set of helpers.
      ============================================================ */
 
-  /* Screen 2's round: the FIRST round's shape question, with the
-     drone's dark-and-scan opening in front of it (`intro`). It stops
-     there (`shapeOnly`): its NEXT button opens that round's screen,
-     which is the landing (`landingOnly` above). Taken from the round
-     rather than written out again, so the shape the player picks on
-     the survey is always the craft that lands next. Its screen is
-     written in index.html rather than built -- see buildSurvey(). */
-  var FIRST = ROUNDS[0];
-  var SURVEY = {
-    intro: true,
-    shapeOnly: true,
-    shape: FIRST.shape,
-    area: FIRST.area,
-    sayKey: FIRST.sayKey,
-    say: FIRST.say,
-    decoyPool: FIRST.decoyPool
-  };
-
   /* the islets: how many, and the range of land they cover, in
      painted box units -- between a third and two thirds of the fit
      island -- cycling through every shape */
   var ISLETS = 16;
   var ISLET_AREA = [FIT_AREA * 0.30, FIT_AREA * 0.66];
-  var ISLET_SHAPES = ['triangle', 'square', 'rectangle',
-                      'parallelogram', 'trapezium', 'rhombus'];
+  var ISLET_SHAPES = ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus'];
 
   /* The world the islets are strewn over, in per cent of one frame.
      Site A's frame is (0..100, 0..100); site B's is a frame right
@@ -1109,6 +1114,21 @@
       '</div>';
   }
 
+  /* The drone's opening, on the first round (`intro`): the dark over
+     the water, the scanner's sweep, and the camera bezel that is
+     retired once the scan lands. Their look is css/style.css's; the
+     flow that plays them is runRound() in js/script.js. */
+  var BLACKOUT = '<div class="blackout" aria-hidden="true"></div>';
+  var SCANNER =
+    '<div class="scanner" aria-hidden="true">' +
+      '<div class="scanner__wash"></div>' +
+      '<div class="scanner__bar">' +
+        '<span class="scanner__core"></span>' +
+        '<span class="scanner__glow"></span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="layer layer--hud drone-hud" aria-hidden="true"></div>';
+
   /* Everything a round shares between its two sites and its lens */
   var CHROME =
     '<div class="aerial" aria-hidden="true"></div>' +
@@ -1134,7 +1154,6 @@
   function siteOf(round, node, key, offset) {
     var all = Array.prototype.slice.call(node.querySelectorAll('.pad'));
     return {
-      key: key,
       node: node,
       offset: offset,
       shape: round.shape,
@@ -1146,7 +1165,6 @@
         all: all,
         padList: all.slice(),
         ship: node.querySelector('.ship'),
-        shipCraft: node.querySelector('.ship__craft'),
         shipDims: node.querySelector('.ship__dims')
       }
     };
@@ -1154,9 +1172,8 @@
 
   /* Look a built screen up into the object the flow plays: the two
      sites, the islets, the lens's plate and every piece of chrome.
-     The survey's screen is written in index.html and the rounds'
-     are built by sectionHTML(); both come through here, so a
-     class, not an id, is how everything is found. */
+     Five copies of one screen cannot each own an id, so a class is
+     how everything is found. */
   function wireRound(node, round) {
     var land = LAND[round.shape];
     var craft = CRAFT[round.shape];
@@ -1183,8 +1200,6 @@
     round.el = {
       cam: node.querySelector('.cam'),
       bg: node.querySelector('.layer--bg'),
-      aerial: node.querySelector('.aerial'),
-      fix: node.querySelector('.fix'),
       alt: node.querySelector('.alt'),
       altNum: node.querySelector('.alt__num'),
       altState: node.querySelector('.alt__state'),
@@ -1195,7 +1210,7 @@
       /* a flown landing only (`pilot`): the controller and the hearts */
       stick: node.querySelector('.stick'),
       lives: node.querySelector('.lives'),
-      /* the survey's opening only */
+      /* the first round's opening only (`intro`) */
       blackout: node.querySelector('.blackout'),
       scanner: node.querySelector('.scanner'),
       bezel: node.querySelector('.drone-hud')
@@ -1214,24 +1229,6 @@
     });
 
     return round;
-  }
-
-  /* The survey: its screen is in index.html with its sites' .pads
-     and its .islets empty; this fills site A and the islets and
-     wires it. Site B stays empty -- the landing is the next screen.
-     Called at boot, before js/water.js dresses the stage, so every
-     island built here gets its shoreline with the rest. */
-  function buildSurvey(screen) {
-    if (!screen) return null;
-    var a = screen.querySelector('.site--a .pads');
-    var b = screen.querySelector('.site--b .pads');
-    var sea = screen.querySelector('.islets');
-    if (!a || !b || !sea) return null;
-
-    a.innerHTML = siteHTML(SURVEY, sizesA(SURVEY), false, FIT_AREA);
-    sea.innerHTML = isletsHTML();
-
-    return wireRound(screen, SURVEY);
   }
 
   /* Show two of a site's decoys and hide the rest, and hand the pair
@@ -1317,7 +1314,7 @@
   }
 
 
-  /* ---------------------------------------------------------- markup */  /* ---------------------------------------------------------- markup */
+  /* ---------------------------------------------------------- markup */
 
   var BADGE =
     '<span class="topbar__badge" aria-hidden="true">' +
@@ -1385,7 +1382,7 @@
           '<i class="jet__core"></i>' +
           '<i class="jet__spark"></i><i class="jet__spark"></i><i class="jet__spark"></i>' +
         '</span>' +
-        '<img class="thruster__bell" src="assets/images/Nozzle.webp" alt="" draggable="false" />' +
+        '<img class="thruster__bell" src="assets/images/nozzle.webp" alt="" draggable="false" />' +
         '<i class="thruster__heat"></i>' +
       '</span>';
     }).join('');
@@ -1427,9 +1424,9 @@
      the game-wide tap tick (onTap in js/script.js) as a click. */
   var STICK =
     '<div class="stick" role="group" aria-label="Flight joystick: drag it, or use the arrow keys, to fly">' +
-      '<img class="stick__base" src="assets/images/Joystick%20base.webp" alt="" draggable="false" />' +
+      '<img class="stick__base" src="assets/images/joystick-base.webp" alt="" draggable="false" />' +
       '<span class="stick__knob" aria-hidden="true">' +
-        '<img src="assets/images/Joystick%20knob.webp" alt="" draggable="false" />' +
+        '<img src="assets/images/joystick-knob.webp" alt="" draggable="false" />' +
       '</span>' +
       '<button class="stick__go" type="button" data-quiet tabindex="-1" aria-hidden="true"' +
              ' aria-label="Go: land here">' +
@@ -1511,18 +1508,27 @@
       '--scy:' + craft.cy
     ].join(';');
 
+    /* data-intro: the screen opens in the dark, and its sea is lit up
+       by the scan (css/style.css, css/reef.css). data-landing: a screen
+       that is only the landing, with no shape question in front of it
+       -- so no site A, no islets and no survey haze to show
+       (css/reef.css); no round is one now. */
     return '<section class="screen screen--round" data-shape="' + round.shape + '"' +
                    (round.pilot ? ' data-pilot' : '') +
                    (round.reef ? ' data-reef' : '') +
-                   (round.cinema ? ' data-cinema' : '') + ' style="' + vars + '">' +
+                   (round.cinema ? ' data-cinema' : '') +
+                   (round.intro ? ' data-intro' : '') +
+                   (round.landingOnly ? ' data-landing' : '') + ' style="' + vars + '">' +
 
       '<div class="layer layer--bg s3-bg" aria-hidden="true"></div>' +
+      (round.intro ? BLACKOUT : '') +
 
       /* the camera plate: the islets, the two sites, and the wave
          fronts js/water.js mounts in here. See .cam in css/style.css */
       '<div class="cam">' + sitesHTML(round) + '</div>' +
 
       CHROME +
+      (round.intro ? SCANNER : '') +
 
       '<div class="confetti" aria-hidden="true"></div>' +
 
@@ -1579,9 +1585,9 @@
   }
 
   global.GeoPages = {
-    build: build, buildSurvey: buildSurvey,
-    scatter: scatter, deal: deal, dealRow: dealRow, strewPilot: strewPilot,
+    build: build,
+    scatter: scatter, dealRow: dealRow, strewPilot: strewPilot,
     arrangeSite: arrangeSite, drawPair: drawPair, strewIslets: strewIslets,
-    rounds: ROUNDS, survey: SURVEY, land: LAND, craft: CRAFT
+    rounds: ROUNDS, land: LAND
   };
 })(window);
