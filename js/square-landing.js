@@ -101,10 +101,27 @@
   if (ART && ART.craft && ART.land) ART = { square: ART };
   var SEA = global.GeoEnvironmentAssets && global.GeoEnvironmentAssets.ocean;
 
-  /* a screen's own art: the shape it is the round of */
-  function artOf(screen) {
-    var a = ART && screen && ART[screen.dataset.shape];
+  /* A screen's art, for one of the shapes it lands: the shape being
+     dressed (dressWith), else the screen's own. A screen can land more
+     than one shape -- rounds that share one sea (js/pages.js) -- and
+     each of its landing sites says which (`data-of`). */
+  var dressing = null;
+
+  function shapeOf(screen, shape) {
+    return shape || dressing || (screen && screen.dataset.shape);
+  }
+
+  function artOf(screen, shape) {
+    var a = ART && screen && ART[shapeOf(screen, shape)];
     return a && a.craft && a.land ? a : null;
+  }
+
+  function shapesOf(screen) {
+    var out = [];
+    Array.prototype.forEach.call(screen.querySelectorAll('.site--b[data-of]'), function (site) {
+      if (out.indexOf(site.dataset.of) < 0) out.push(site.dataset.of);
+    });
+    return out.length ? out : [screen.dataset.shape];
   }
 
   var STAGE_W = 1600;
@@ -153,12 +170,13 @@
      front view's one -- at these shares of the wall's length. */
   var STREAKS = { 2: [.27, .73], 1: [.12, .37, .63, .88] };
 
-  var shots = new Map();        /* screen -> { fit, tight }: its overlays */
+  var shots = new Map();        /* screen -> shape -> { fit, tight }: its overlays */
 
-  function shotsOf(screen) {
-    var o = shots.get(screen);
-    if (!o) shots.set(screen, o = {});
-    return o;
+  function shotsOf(screen, shape) {
+    var all = shots.get(screen);
+    if (!all) shots.set(screen, all = {});
+    var k = shapeOf(screen, shape);
+    return all[k] || (all[k] = {});
   }
 
   function clamp(lo, v, hi) { return v < lo ? lo : (v > hi ? hi : v); }
@@ -323,14 +341,13 @@
   }
 
   /* the affine taking three points onto three others, as canvas
-     setTransform(a, b, c, d, e, f) arguments: near enough to the
-     island's homography for the cut's blurred snapshot */
+     setTransform(a, b, c, d, e, f) arguments */
   function affine(src, dst) {
     var x1 = src[0][0], y1 = src[0][1], x2 = src[1][0], y2 = src[1][1], x3 = src[2][0], y3 = src[2][1];
     var det = x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2);
     var solve = function (v1, v2, v3) {
       return [(v1 * (y2 - y3) + v2 * (y3 - y1) + v3 * (y1 - y2)) / det,
-              (x1 * (v3 - v2) + x2 * (v1 - v3) + x3 * (v2 - v1)) / det,
+              (x1 * (v2 - v3) + x2 * (v3 - v1) + x3 * (v1 - v2)) / det,
               (x1 * (y2 * v3 - y3 * v2) + x2 * (y3 * v1 - y1 * v3) + x3 * (y1 * v2 - y2 * v1)) / det];
     };
     var X = solve(dst[0][0], dst[1][0], dst[2][0]), Y = solve(dst[0][1], dst[1][1], dst[2][1]);
@@ -346,6 +363,42 @@
   function matrix3d(h) {
     return 'matrix3d(' + [h[0], h[3], 0, h[6], h[1], h[4], 0, h[7], 0, 0, 1, 0, h[2], h[5], 0, h[8]]
       .map(function (n) { return +n.toFixed(8); }).join(',') + ')';
+  }
+
+  /* A picture of `size` laid onto a 2D canvas through the homography
+     h, as the live island is through matrix3d(h): the canvas has no
+     perspective of its own, so the picture goes down as a MESH x MESH
+     grid of triangles, each through the affine that is exact at its
+     three corners. Each is clipped `seam` px wide of its edges (canvas
+     px in the context's current units), so no hairline of the sea
+     shows between two of them. */
+  var MESH = 8;
+
+  function drawThrough(x, img, size, h, seam) {
+    var W = size[0], H = size[1];
+    var at = function (i, j) { return [W * i / MESH, H * j / MESH]; };
+    for (var j = 0; j < MESH; j++) {
+      for (var i = 0; i < MESH; i++) {
+        var a = at(i, j), b = at(i + 1, j), c = at(i + 1, j + 1), d = at(i, j + 1);
+        piece(x, img, size, h, [a, b, d], seam);
+        piece(x, img, size, h, [b, c, d], seam);
+      }
+    }
+  }
+
+  function piece(x, img, size, h, src, seam) {
+    var dst = src.map(function (p) { return project(h, p); });
+    var m = [(dst[0][0] + dst[1][0] + dst[2][0]) / 3, (dst[0][1] + dst[1][1] + dst[2][1]) / 3];
+    x.save();
+    x.beginPath();
+    dst.forEach(function (p, k) {
+      var dx = p[0] - m[0], dy = p[1] - m[1], l = Math.hypot(dx, dy) || 1;
+      x[k ? 'lineTo' : 'moveTo'](p[0] + dx / l * seam, p[1] + dy / l * seam);
+    });
+    x.clip();
+    x.transform.apply(x, affine(src, dst));
+    x.drawImage(img, 0, 0, size[0], size[1]);
+    x.restore();
   }
 
   function polygon(pts) {
@@ -461,8 +514,6 @@
       craft: { left: AT[0] - mid[0] * K, top: AT[1] - mid[1] * K, w: c.size[0] * K, h: c.size[1] * K,
                origin: [mid[0] * K, mid[1] * K] },
       land: h,
-      landFlat: affine(['l', 'b', 'r'].map(function (key) { return l.top[key]; }),
-                       ['l', 'b', 'r'].map(function (key) { return face[key]; })),
       face: face,
       quad: KEYS.map(function (key) { return face[key]; }),
       base: base,
@@ -770,24 +821,35 @@
     return [st.ox + f[0] * st.scale, st.oy + f[1] * st.scale];
   }
 
+  /* how hard a jolt (run.punch, run.shake) is at t: in over its first
+     JOLT_IN ms -- a few frames, so it hits without jumping the frame in
+     one -- and then dying away */
+  var JOLT_IN = 60;
+
+  function jolt(j, t) {
+    var a = t - j.t0;
+    return (1 - Math.pow(1 - seg(a, 0, JOLT_IN), 2)) * Math.pow(1 - a / j.ms, 2);
+  }
+
   function camera(st, run, t) {
     var fx = run.fx;
     var z = (1 + .06 * ease.inOut(seg(t, WARP + 400, st.end))) * fx.zoom;
     var p = run.punch;
-    if (p && t >= p.t0 && t < p.t0 + p.ms) z += p.amt * Math.pow(1 - (t - p.t0) / p.ms, 2);
+    if (p && t >= p.t0 && t < p.t0 + p.ms) z += p.amt * jolt(p, t);
     var dx = 0, dy = 0;
     var q = run.shake;
     if (q && t >= q.t0 && t < q.t0 + q.ms) {
-      var u = 1 - (t - q.t0) / q.ms;
-      var a = q.amp * u * u;
+      var a = q.amp * jolt(q, t);
       dx = a * (Math.sin(t * .113) + .6 * Math.sin(t * .271 + 1.3));
       dy = a * (Math.cos(t * .097) + .6 * Math.sin(t * .233 + .4));
     }
     var F = focus(st, t);
     var off = [dx * st.scale, dy * st.scale];
-    if (run.warp && fx.shift) {
-      off[0] += run.warp.off[0] * fx.shift;
-      off[1] += run.warp.off[1] * fx.shift;
+    /* the lead is the cut's, but it eases out long after the cut's
+       canvas has gone (unwarp), so it is kept apart from it */
+    if (run.lead && fx.shift) {
+      off[0] += run.lead[0] * fx.shift;
+      off[1] += run.lead[1] * fx.shift;
     }
     run.cam = { z: z, F: F, off: off };
     st.cam.style.transformOrigin = px(F[0]) + ' ' + px(F[1]);
@@ -801,7 +863,7 @@
     var screen = st.screen;
     var W = st.root.clientWidth || 1, H = st.root.clientHeight || 1;
     var box = screen.getBoundingClientRect();
-    var ship = screen.querySelector('.ship__img') || screen.querySelector('.ship');
+    var ship = st.ship || screen.querySelector('.ship__img') || screen.querySelector('.ship');
     var P = [W / 2, H / 2];
     if (ship) {
       var r = ship.getBoundingClientRect();
@@ -821,19 +883,26 @@
       return [L - f - (L + m - f) * z, -f + (m + f) * z];
     };
     var rx = room(F[0], W), ry = room(F[1], H);
-    run.warp = {
-      C: C,
-      off: [clamp(rx[0], P[0] - F[0] - (C[0] - F[0]) * z, rx[1]),
-            clamp(ry[0], P[1] - F[1] - (C[1] - F[1]) * z, ry[1])]
-    };
+    run.warp = { C: C };
+    run.lead = [clamp(rx[0], P[0] - F[0] - (C[0] - F[0]) * z, rx[1]),
+                clamp(ry[0], P[1] - F[1] - (C[1] - F[1]) * z, ry[1])];
 
     run.dive = [];
     Array.prototype.forEach.call(screen.querySelectorAll('.s3-bg, .reef-water, .cam'), function (el) {
       if (el.parentNode !== screen) return;
       var o = (global.getComputedStyle(el).transformOrigin || '0 0').split(' ').map(parseFloat);
+      /* the craft's follow (js/pilot.js) parks the world with
+         `translate` too: the dive carries that along, scaled with the
+         rest, rather than throwing it away on its first frame */
+      var by = (el.style.translate || '').split(' ').map(parseFloat);
       run.dive.push({
         el: el,
         at: [P[0] - el.offsetLeft - (o[0] || 0), P[1] - el.offsetTop - (o[1] || 0)],
+        by: [by[0] || 0, by[1] || 0],
+        /* only the land and the craft blur: a blur on the sea's two
+           full-frame plates (the painting, under the live water that
+           covers it) dropped frames all through the cut */
+        blur: el.classList.contains('cam'),
         keep: [el.style.scale, el.style.translate, el.style.filter]
       });
     });
@@ -844,8 +913,8 @@
     var blur = v > .02 ? 'blur(' + (DIVE_BLUR * v).toFixed(2) + 'px)' : '';
     run.dive.forEach(function (p) {
       p.el.style.scale = s.toFixed(4);
-      p.el.style.translate = px(p.at[0] * (1 - s)) + ' ' + px(p.at[1] * (1 - s));
-      p.el.style.filter = blur;
+      p.el.style.translate = px(p.at[0] * (1 - s) + p.by[0] * s) + ' ' + px(p.at[1] * (1 - s) + p.by[1] * s);
+      if (p.blur) p.el.style.filter = blur;
     });
   }
 
@@ -890,10 +959,7 @@
       }
       x.translate(st.ox, st.oy);
       x.scale(st.scale, st.scale);
-      x.save();
-      x.transform.apply(x, geo.landFlat);
-      x.drawImage(st.land, 0, 0, st.geo.art.land.size[0], st.geo.art.land.size[1]);
-      x.restore();
+      drawThrough(x, st.land, geo.art.land.size, geo.land, 1 / (q * st.scale));
       var so = st.from || [0, 0];
       x.drawImage(st.craft, g.left + so[0], g.top - st.hover + so[1], g.w, g.h);
     } catch (e) {
@@ -1427,8 +1493,6 @@
     var g = {
       art: art, K: K, view: view, apex: apex,
       s: s, foot: foot, top: top, face: face, base: base, land: h,
-      landFlat: affine(['l', 'b', 'r'].map(function (k) { return l.top[k]; }),
-                       ['l', 'b', 'r'].map(function (k) { return face[k]; })),
       craft: box,
       quad: KEYS.map(function (k) { return foot[k]; }),
       faceQuad: KEYS.map(function (k) { return face[k]; }),
@@ -2411,10 +2475,13 @@
     return n && n.closest ? n.closest('.screen') : null;
   }
 
-  /* one of the screen's shots: 'fit' (the default) or 'tight' */
+  /* one of the screen's shots for the site's shape: 'fit' (the default)
+     or 'tight' */
   function shotOf(site, kind) {
-    var o = shots.get(screenOf(site));
-    return (o && o[kind || 'fit']) || null;
+    var screen = screenOf(site);
+    if (!screen || !shots.has(screen)) return null;
+    var o = shotsOf(screen, site && site.shape);
+    return o[kind || 'fit'] || null;
   }
 
   /* Can this site's screen play it? Only with its art all in -- and a
@@ -2449,7 +2516,7 @@
       run = {
         t: 0, last: 0, raf: 0, paused: true, fired: {}, hooks: hooks,
         jets: 0, hum: 0, pulseAt: 0, mb: '', tl: null, fx: calm(),
-        warp: null, dive: null, shake: null, punch: null
+        warp: null, lead: null, dive: null, shake: null, punch: null
       };
       fit(st);
       st.reset(st, run);
@@ -2600,10 +2667,13 @@
 
   /* Cut it off where it stands: the screen is being left or reset. */
   function stop(site) {
-    var o = shots.get(screenOf(site));
-    if (!o) return;
-    Object.keys(o).forEach(function (kind) {
-      if (o[kind].run) o[kind].run.destroy();
+    var all = shots.get(screenOf(site));
+    if (!all) return;
+    Object.keys(all).forEach(function (shape) {
+      var o = all[shape];
+      Object.keys(o).forEach(function (kind) {
+        if (o[kind].run) o[kind].run.destroy();
+      });
     });
   }
 
@@ -2612,7 +2682,7 @@
      with dress(screen, kit) returning its state, as dressMisfit's is
      (st: kind, hover, end, frame(st, run), strew(st, run) -> an anime
      timeline or null, reset(st, run), focusAt(t) (optional), screen,
-     root, cam, stage, sea, land, craft, geo.craft, geo.landFlat,
+     root, cam, stage, sea, land, craft, geo.craft, geo.land,
      layers, warp, flash; run, scale, ox, oy, and a ResizeObserver
      calling kit.fit(st)). It is then played by play(site, kind, hooks)
      like the two here. The screen's own two pictures are
@@ -2621,21 +2691,38 @@
   var dressers = [['fit', dress], ['tight', dressMisfit]];
   var dressed = null;
 
-  function dressWith(screen, kind, fn) {
-    var o = shotsOf(screen);
-    if (o[kind]) return;
-    var st = fn(screen, kit);
-    if (st && !o[kind]) {
-      st.kind = st.kind || kind;
-      o[kind] = st;
+  /* Each shot is dressed once for each shape the screen lands, with
+     that shape's art (`dressing`, artOf) and that shape's craft to dive
+     from (st.ship) */
+  function dressWith(screen, kind, fn, shape) {
+    dressing = shape;
+    try {
+      var o = shotsOf(screen);
+      if (o[kind]) return;
+      var st = fn(screen, kit);
+      if (st && !o[kind]) {
+        st.kind = st.kind || kind;
+        o[kind] = st;
+      }
+      /* set on the shot however it was filed: the two here file
+         themselves, a registered one is filed from what it returns */
+      if (o[kind]) o[kind].ship = screen.querySelector('.site--b[data-of="' + shape + '"] .ship__img');
+    } finally {
+      dressing = null;
     }
+  }
+
+  function dressScreen(screen, list) {
+    shapesOf(screen).forEach(function (shape) {
+      list.forEach(function (d) { dressWith(screen, d[0], d[1], shape); });
+    });
   }
 
   function register(kind, fn) {
     dressers.push([kind, fn]);
     if (!dressed || !ART) return;
     dressed.querySelectorAll('.screen[data-cinema]').forEach(function (screen) {
-      dressWith(screen, kind, fn);
+      dressScreen(screen, [[kind, fn]]);
     });
   }
 
@@ -2643,7 +2730,7 @@
     if (!ART) return;
     dressed = stage || doc;
     dressed.querySelectorAll('.screen[data-cinema]').forEach(function (screen) {
-      dressers.forEach(function (d) { dressWith(screen, d[0], d[1]); });
+      dressScreen(screen, dressers);
     });
   }
 

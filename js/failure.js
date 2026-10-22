@@ -307,13 +307,16 @@
      document.
      ============================================================ */
 
+  /* the layers of the craft's own site, which a screen carrying more
+     than one landing site (rounds sharing one sea) has one set of each */
   function sceneOf(ship) {
     var host = screenOf(ship);
+    var site = (ship.closest && ship.closest('.site')) || host;
     return {
       host:  host,
-      back:  host.querySelector('.fx-layer--back'),
-      front: host.querySelector('.fx-layer--front'),
-      water: host.querySelector('.water-depth-overlay')
+      back:  site.querySelector('.fx-layer--back'),
+      front: site.querySelector('.fx-layer--front'),
+      water: site.querySelector('.water-depth-overlay')
     };
   }
 

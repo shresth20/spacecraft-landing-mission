@@ -56,20 +56,17 @@
     perfectFit:'Perfect match! The spaceship fits exactly.ogg',
     landed:   'Landing successful! Great work, Space Commander.ogg',
 
-    /* screens 4-8 (js/pages.js) run the survey feed's shape task and
-       the landing's area task back to back on one screen, so they
-       need one line the earlier screens never had: the hand-off from
-       the first task to the second. These two were recorded with the
-       rest and had nowhere to go until now.
+    /* a second way of asking for the area, so the five rounds do not
+       all ask with the same sentence.
 
-       The line that NAMES the shape is deliberately not here. It
-       says something different on each of the five screens ("the
-       spaceship is a square", "... a rhombus") and there is no clip
-       for any of them, so narrate() types it at the typewriter's own
+       Each round's own lines are deliberately not here: the craft's
+       arrival ("here comes our first spaceship"), the formula ("this
+       spaceship is a square ...") and the closing line say something
+       different on each of the five screens and there is no clip for
+       any of them, so narrate() types them at the typewriter's own
        reading rate instead. Record them, add them here under the
-       keys pages.js asks for, and they start speaking with no other
-       change — see narrate() in js/script.js. */
-    onlyMatching:'Now we only need to check these matching landing zones.ogg',
+       keys js/script.js asks for, and they start speaking with no
+       other change — see narrate() in js/script.js. */
     findArea: 'Find the area of spaceship, And select the suitable land.ogg'
   };
 

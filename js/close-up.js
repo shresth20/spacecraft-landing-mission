@@ -153,7 +153,9 @@
      filling FILL of the frame's tighter side -- and then the window
      is kept inside the frame, and p is the one point a zoom of k
      about which ends on exactly that window. */
-  function aim(screen, pad) {
+  /* `ship`: the landing site's own craft -- a screen can carry more than
+     one landing site (rounds sharing one sea, js/pages.js) */
+  function aim(screen, pad, ship) {
     var frame = screen.getBoundingClientRect();
     var W = screen.clientWidth || frame.width || 1;
     var H = screen.clientHeight || frame.height || 1;
@@ -163,7 +165,7 @@
     var c = [(land[0] + land[2]) / 2, (land[1] + land[3]) / 2];
 
     var all = land.slice();
-    var ship = screen.querySelector('.site--b .ship');
+    ship = ship || screen.querySelector('.site--b .ship');
     if (ship) {
       var hull = hullOf(ship, frame);
       all = [Math.min(all[0], hull[0]), Math.min(all[1], hull[1]),
@@ -271,7 +273,7 @@
     var plates = platesOf(screen);
     if (!plates.length) return Promise.resolve(true);
 
-    var to = aim(screen, pad);
+    var to = aim(screen, pad, site && site.el && site.el.ship);
     var lens = { screen: screen, plates: plates, p: to.p, k: 1, K: to.k, raf: 0, job: null };
     measure(lens);
     lenses.set(screen, lens);

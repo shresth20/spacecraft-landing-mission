@@ -11,8 +11,8 @@
      2  square         area = side x side          (with the opening)
      3  rectangle      area = length x width
      4  parallelogram  area = base x height
-     5  trapezium      area = 1/2 x (a + b) x height
-     6  rhombus        area = 1/2 x d1 x d2
+     5  rhombus        area = 1/2 x d1 x d2
+     6  trapezium      area = 1/2 x (a + b) x height
 
    (the triangle was taken out of the mission on 2026-10-21: its
    round, and its island from the shape question). Every one of them plays
@@ -489,15 +489,40 @@
 
        The areas, in square units, are the numbers the dimensions
        give: `row` is the island too big, the island too small and
-       the one that fits, in that order (see below). */
+       the one that fits, in that order (see below).
+
+       The lines (Game_Flow_Without_Learning.md). The craft hovers
+       over site A while the shape is the question, so `arrive` asks
+       for the zones it can land on without naming its shape; `say`
+       names it, for a frame with no open water to hover the craft
+       over (hoverSpot below). On site B `formula` names the shape
+       and its area rule, since no lesson has taught it, and `rule`
+       is that rule on the mission-complete card. `teach` is the
+       first landing, which walks the player through the area
+       question and the joystick; `outro` is said once a landing is
+       down, before its NEXT. None of these has a clip, so each is
+       typed at reading rate (see narrate() in js/script.js).
+
+       `split`: the round is played in two visits to its screen, the
+       shape question on one and the landing on the other, and the
+       split rounds' shape questions all come first -- square shapes,
+       rectangle shapes, square landing, rectangle landing (SCREENS
+       in js/script.js). The last split round's `huntOutro` is said
+       once its shapes are found, before its NEXT; the ones before it
+       climb away and go straight on to the next shape question. */
     {
       shape: 'square',
       intro: true,
+      split: true,
+      teach: true,
       pilot: true,
       reef: true,
       cinema: true,
       area: 25,                       /* 5 x 5 */
+      arrive: 'Here comes our first spaceship! Look at its shape. Select all the landing zones where it can land.',
       say: 'The spaceship is a square. Select all the square landing zones.',
+      formula: 'This spaceship is a square. Its area is side × side.',
+      rule: 'side × side',
       areaKey: 'calcArea',
       row: [30, 20, 25],              /* 20 is the perimeter */
       decoyPool: ['rectangle', 'parallelogram', 'trapezium', 'rhombus']
@@ -505,12 +530,18 @@
 
     {
       shape: 'rectangle',
+      split: true,
       pilot: true,
       reef: true,
       cinema: true,
       area: 32,                       /* 8 x 4 */
+      arrive: 'Here comes our second spaceship! Select all the landing zones where it can land.',
+      huntOutro: 'We have found the landing zones. But which one is the right zone to land on perfectly?',
       say: 'The spaceship is a rectangle. Select all the rectangular landing zones.',
+      formula: 'This spaceship is a rectangle. Its area is length × width.',
+      rule: 'length × width',
       areaKey: 'findArea',
+      outro: 'Great landings, Commander! Three more spaceships are on their way, and they have new shapes. Let’s find them a safe place to land!',
       row: [40, 24, 32],              /* 24 is the perimeter */
       decoyPool: ['parallelogram', 'trapezium', 'rhombus']   /* a square IS a rectangle */
     },
@@ -521,7 +552,10 @@
       reef: true,
       cinema: true,
       area: 35,                       /* base 7 x height 5 */
+      arrive: 'Here comes our third spaceship! Look at its shape. Select all the landing zones where it can land.',
       say: 'The spaceship is a parallelogram. Select all the parallelogram landing zones.',
+      formula: 'This spaceship is a parallelogram. Its area is base × height.',
+      rule: 'base × height',
       areaKey: 'calcArea',
       row: [42, 26, 35],              /* 42 is base x slant side; 26 the perimeter */
       /* Strictly, squares, rectangles and rhombi ARE parallelograms;
@@ -534,18 +568,6 @@
     },
 
     {
-      shape: 'trapezium',
-      pilot: true,
-      reef: true,
-      cinema: true,
-      area: 50,                       /* 1/2 x (8 + 12) x 5 */
-      say: 'The spaceship is a trapezium. Select all the trapezium landing zones.',
-      areaKey: 'findArea',
-      row: [60, 40, 50],              /* 60 is 12 x 5; 40 is 8 x 5 */
-      decoyPool: ['square', 'rectangle', 'parallelogram', 'rhombus']
-    },
-
-    {
       shape: 'rhombus',
       pilot: true,
       reef: true,
@@ -553,10 +575,28 @@
       area: 24,                       /* 1/2 x 6 x 8 */
       /* the tall one at both ends: drawn to a smaller unit than the
          others, in css/rounds.css */
+      arrive: 'Here comes our fourth spaceship! Select all the landing zones where it can land.',
       say: 'The spaceship is a rhombus. Select all the rhombus landing zones.',
-      areaKey: 'calcArea',
+      formula: 'This spaceship is a rhombus. Its area is ½ × diagonal 1 × diagonal 2.',
+      rule: '½ × d₁ × d₂',
+      areaKey: 'findArea',
       row: [30, 20, 24],              /* 30 is side x short diagonal; 20 the perimeter */
       decoyPool: ['rectangle', 'parallelogram', 'trapezium']   /* a square IS a rhombus */
+    },
+
+    {
+      shape: 'trapezium',
+      pilot: true,
+      reef: true,
+      cinema: true,
+      area: 50,                       /* 1/2 x (8 + 12) x 5 */
+      arrive: 'Here comes our last spaceship! Select all the landing zones where it can land.',
+      say: 'The spaceship is a trapezium. Select all the trapezium landing zones.',
+      formula: 'This spaceship is a trapezium. Its area is ½ × (sum of the parallel sides) × height.',
+      rule: '½ × (a + b) × h',
+      areaKey: 'calcArea',
+      row: [60, 40, 50],              /* 60 is 12 x 5; 40 is 8 x 5 */
+      decoyPool: ['square', 'rectangle', 'parallelogram', 'rhombus']
     }
   ];
 
@@ -978,6 +1018,134 @@
     return false;
   }
 
+  /* ---------------------------------------------------------- the craft over site A
+
+     The shape question is asked OF the craft: it flies in and hovers
+     over site A while the player finds the islands of its shape. So
+     it needs open water to hover over -- clear of every island, of
+     the rocks lying off them, and of the narration bar and the nav --
+     and with five islands strewn at random that is somewhere new on
+     every visit. Every spot on a grid over the water is tried, and
+     the one with the most water round it wins (up to HOVER_ROOM,
+     past which more is no better), nearest the top right of the
+     frame (HOVER_AIM) on a tie. Largest size first. A frame with no
+     room even at the smallest gets no craft: hoverSpot() says false,
+     and the flow names the shape instead.
+
+     Called after the reef's strew, since its rocks are what lie off
+     the islands. Besides the spot it works out the two legs of the
+     craft's own flight, in px from the spot. The way in
+     (`site.hoverPath`, flown by hoverIn() in js/script.js): from
+     past the left edge, high, down in a swoop through the lower
+     middle of the frame and up onto the spot -- a cubic through four
+     points, sampled. The way out (--hout-x/y, css/rounds.css):
+     towards the round's own site B, wherever it lies, which is the way the
+     craft arrives on site B (arrive() in js/pilot.js).              */
+  var HOVER_SCALES = [1, 0.86, 0.74, 0.62];
+  var HOVER_GAP = 20;        /* px of water between the hull and any land */
+  var HOVER_ROOM = 64;
+  var HOVER_GRID = [48, 32]; /* spots tried across and down */
+  var HOVER_AIM = [0.86, 0.3];
+  var HOVER_LOW = 0.82;      /* the swoop's lowest pull, of the frame's height */
+  var HOVER_SAMPLES = 32;
+
+  /* the water between two boxes, px; -1 where they overlap */
+  function apart(a, b) {
+    var dx = Math.max(b.l - a.r, a.l - b.r, 0);
+    var dy = Math.max(b.t - a.b, a.t - b.b, 0);
+    return dx || dy ? Math.hypot(dx, dy) : -1;
+  }
+
+  function hoverSpot(round) {
+    var site = round.sites.a;
+    var el = site.el.hover;
+    var craft = CRAFT[round.shape];
+    var sec = round.node;
+    var W = sec.clientWidth;
+    var H = sec.clientHeight;
+    var S = el ? el.offsetWidth : 0;
+    if (!S || !W || !H || !craft || !craft.hull) return false;
+
+    var land = site.el.padList.filter(function (pad) { return !pad.hidden; }).map(function (pad) {
+      var b = boxIn(pad, site.node, 0), w = pad.offsetWidth, e = LAND[pad.dataset.shape].ext;
+      return { l: b.l + e[0] * w, t: b.t + e[1] * w, r: b.l + e[2] * w, b: b.t + e[3] * w };
+    });
+    var rocks = Array.prototype.filter.call(site.node.querySelectorAll('.env-satellite'), function (r) {
+      return !r.hidden && r.offsetParent;
+    }).map(function (r) { return boxIn(r, site.node, 6); });
+
+    var chrome = [];
+    var nav = doc.getElementById('nav');
+    if (nav && nav.offsetWidth) chrome.push(boxIn(nav, sec.parentNode, 12));
+
+    var hx = craft.hull;
+    for (var s = 0; s < HOVER_SCALES.length; s++) {
+      var k = S * HOVER_SCALES[s];
+      /* the hull's reach from its centre of area, px */
+      var L = (craft.cx - hx[0] / 100) * k, R = (hx[2] / 100 - craft.cx) * k;
+      var U = (craft.cy - hx[1] / 100) * k, D = (hx[3] / 100 - craft.cy) * k;
+      var best = null;
+
+      for (var i = 0; i <= HOVER_GRID[0]; i++) {
+        for (var j = 0; j <= HOVER_GRID[1]; j++) {
+          var x = W * (SIDES + (1 - 2 * SIDES) * i / HOVER_GRID[0]);
+          var y = H * (BAND[0] + (BAND[1] - BAND[0]) * j / HOVER_GRID[1]);
+          var b = { l: x - L, t: y - U, r: x + R, b: y + D };
+          if (b.l < W * SIDES || b.r > W * (1 - SIDES) ||
+              b.t < H * BAND[0] || b.b > H * BAND[1]) continue;
+          if (chrome.concat(rocks).some(function (o) { return apart(b, o) < 0; })) continue;
+
+          var room = Infinity;
+          for (var n = 0; n < land.length; n++) room = Math.min(room, apart(b, land[n]));
+          if (room < HOVER_GAP) continue;
+
+          var score = Math.min(room, HOVER_ROOM) * 1000 -
+                      Math.hypot(x - W * HOVER_AIM[0], y - H * HOVER_AIM[1]);
+          if (!best || score > best.score) best = { x: x, y: y, score: score, b: b };
+        }
+      }
+
+      if (!best) continue;
+
+      /* in: from wholly past the left edge, a fifth of the way down;
+         pulled low through the middle, and coming up onto the spot */
+      var x0 = -(R + k * 0.3);
+      var low = H * HOVER_LOW;
+      var pts = [
+        [x0, H * 0.2],
+        [x0 + 0.4 * (best.x - x0), low],
+        [best.x - 0.06 * (best.x - x0), Math.min(best.y + H * 0.42, low)],
+        [best.x, best.y]
+      ];
+      site.hoverPath = [];
+      for (var q = 0; q <= HOVER_SAMPLES; q++) {
+        var u = q / HOVER_SAMPLES, v = 1 - u;
+        var c = [v * v * v, 3 * v * v * u, 3 * v * u * u, u * u * u];
+        site.hoverPath.push([0, 1].map(function (ax) {
+          return Math.round(c[0] * pts[0][ax] + c[1] * pts[1][ax] +
+                            c[2] * pts[2][ax] + c[3] * pts[3][ax] - pts[3][ax]);
+        }));
+      }
+
+      /* out: on the line to the round's own site B, wherever on the
+         sea that is, until the whole craft is past the frame */
+      var ob = round.sites.b.offset, oa = site.offset;
+      var dx = (ob.x - oa.x) / 100 * W, dy = (ob.y - oa.y) / 100 * H;
+      var len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+      var go = Math.min(
+        ux > 1e-6 ? (W - best.b.l + k * 0.3) / ux : ux < -1e-6 ? (best.b.r + k * 0.3) / -ux : Infinity,
+        uy > 1e-6 ? (H - best.b.t + k * 0.3) / uy : uy < -1e-6 ? (best.b.b + k * 0.3) / -uy : Infinity);
+
+      el.style.setProperty('--hx', (best.x / W * 100).toFixed(3) + '%');
+      el.style.setProperty('--hy', (best.y / H * 100).toFixed(3) + '%');
+      el.style.setProperty('--hs', HOVER_SCALES[s]);
+      el.style.setProperty('--hout-x', Math.round(ux * go) + 'px');
+      el.style.setProperty('--hout-y', Math.round(uy * go) + 'px');
+      return true;
+    }
+    return false;
+  }
+
   /* ============================================================
      THE SITES -- how every playing screen is laid out
 
@@ -1026,6 +1194,8 @@
      painted box units -- between a third and two thirds of the fit
      island -- cycling through every shape */
   var ISLETS = 16;
+  /* a shared sea is two views wide, and a few of them lie between */
+  var ISLETS_SHARED = 34;
   var ISLET_AREA = [FIT_AREA * 0.30, FIT_AREA * 0.66];
   var ISLET_SHAPES = ['square', 'rectangle', 'parallelogram', 'trapezium', 'rhombus'];
 
@@ -1051,9 +1221,9 @@
     '</div>';
   }
 
-  function isletsHTML() {
+  function isletsHTML(n) {
     var out = [];
-    for (var i = 0; i < ISLETS; i++) {
+    for (var i = 0; i < (n || ISLETS); i++) {
       var shape = ISLET_SHAPES[i % ISLET_SHAPES.length];
       var area = ISLET_AREA[0] + Math.random() * (ISLET_AREA[1] - ISLET_AREA[0]);
       out.push(isletHTML(shape, boxFor(area, LAND[shape])));
@@ -1097,21 +1267,71 @@
     return SIZES_A.map(function (m) { return round.area * m; });
   }
 
+  /* Where a round's two sites stand in the camera plate's world, in
+     per cent of one frame (their top-left corners). A round on a sea
+     of its own: A at the origin, B a frame right and 45% down, and
+     the lens holds the middle of the two at survey height.
+
+     Rounds that share one sea (`split`) are seen as two such views, a
+     sea's width apart: their shape questions together in the first --
+     the second round's site A where a round's own B would stand -- and
+     their landings together in the second, LANDINGS_AT to the right,
+     laid out the same way. So each survey-height view holds two sites
+     and its islets, as every round's does, rather than four in one.
+     The lens crosses inside a view at height, as a round crosses from
+     A to B, and from the first view to the second along the sea at
+     height; the screen never changes. */
+  var SITE_AT = { a: { x: 0, y: 0 }, b: { x: 100, y: 45 } };
+  var SHARED_AT = [{ x: 0, y: 0 }, { x: 100, y: 45 }];
+  var LANDINGS_AT = 340;
+
+  /* the two sites of the `i`th round on its screen */
+  function atOf(i, shared) {
+    if (!shared) return SITE_AT;
+    var a = SHARED_AT[i] || SHARED_AT[0];
+    return { a: a, b: { x: a.x + LANDINGS_AT, y: a.y } };
+  }
+
+  /* the craft's box and centre of area, for the stylesheet: on each
+     site, so two rounds' crafts can share a screen */
+  function craftVars(round) {
+    var land = LAND[round.shape];
+    var craft = CRAFT[round.shape];
+    var fit = Math.sqrt(land.fill / craft.fill);
+    return [
+      '--ship-k:' + round2(boxFor(FIT_AREA, land) * fit),
+      '--scx:' + craft.cx,
+      '--scy:' + craft.cy
+    ].join(';');
+  }
+
+  function siteStyle(round, at) {
+    return ' data-of="' + round.shape + '" style="left:' + at.x + '%;top:' + at.y + '%;' +
+           craftVars(round) + '"';
+  }
+
   /* A landing-only screen never leaves site B, so it has no shape
-     question to lay out and no wide shot to need an archipelago */
-  function sitesHTML(round) {
-    var full = !round.landingOnly;
-    return '<div class="islets" aria-hidden="true">' + (full ? isletsHTML() : '') + '</div>' +
-      '<div class="site site--a">' +
-        '<div class="pads">' +
-          (full ? siteHTML(round, sizesA(round), false, FIT_AREA) : '') +
-        '</div>' +
-      '</div>' +
-      '<div class="site site--b">' +
-        shipHTML(round) +
-        '<div class="pads">' + siteHTML(round, round.row, true, null) + '</div>' +
-        fxHTML() +
-      '</div>';
+     question to lay out and no wide shot to need an archipelago. One
+     set of islets for the whole sea, however many rounds share it. */
+  function sitesHTML(rounds) {
+    var full = !rounds[0].landingOnly;
+    var shared = rounds.length > 1;
+    return '<div class="islets" aria-hidden="true">' +
+        (full ? isletsHTML(shared ? ISLETS_SHARED : ISLETS) : '') + '</div>' +
+      rounds.map(function (round, i) {
+        var at = atOf(i, shared);
+        return '<div class="site site--a"' + siteStyle(round, at.a) + '>' +
+            '<div class="pads">' +
+              (full ? siteHTML(round, sizesA(round), false, FIT_AREA) : '') +
+            '</div>' +
+            (full ? hoverHTML(round) : '') +
+          '</div>' +
+          '<div class="site site--b"' + siteStyle(round, at.b) + '>' +
+            shipHTML(round) +
+            '<div class="pads">' + siteHTML(round, round.row, true, null) + '</div>' +
+            fxHTML() +
+          '</div>';
+      }).join('');
   }
 
   /* The drone's opening, on the first round (`intro`): the dark over
@@ -1160,12 +1380,15 @@
       area: round.area,
       geo: round.geo,
       askExact: round.askExact !== false,
+      teach: !!round.teach,
       el: {
         pads: node.querySelector('.pads'),
         all: all,
         padList: all.slice(),
         ship: node.querySelector('.ship'),
-        shipDims: node.querySelector('.ship__dims')
+        shipDims: node.querySelector('.ship__dims'),
+        /* site A only: the craft over the shape question */
+        hover: node.querySelector('.hover-ship')
       }
     };
   }
@@ -1174,9 +1397,10 @@
      sites, the islets, the lens's plate and every piece of chrome.
      Five copies of one screen cannot each own an id, so a class is
      how everything is found. */
-  function wireRound(node, round) {
+  function wireRound(node, round, i, shared) {
     var land = LAND[round.shape];
     var craft = CRAFT[round.shape];
+    var at = atOf(i || 0, shared);
 
     round.node = node;
 
@@ -1191,9 +1415,10 @@
       fit: Math.sqrt(land.fill / craft.fill)
     } : null;
 
+    var of = '[data-of="' + round.shape + '"]';
     round.sites = {
-      a: siteOf(round, node.querySelector('.site--a'), 'a', { x: 0, y: 0 }),
-      b: siteOf(round, node.querySelector('.site--b'), 'b', { x: 100, y: 45 })
+      a: siteOf(round, node.querySelector('.site--a' + of), 'a', at.a),
+      b: siteOf(round, node.querySelector('.site--b' + of), 'b', at.b)
     };
     round.islets = Array.prototype.slice.call(node.querySelectorAll('.islet'));
 
@@ -1272,11 +1497,16 @@
      the pads' own scatter: a spot is drawn, measured against the
      exclusions and against every islet already placed, and kept
      only if it is clear. */
-  function strewIslets(cam, islets, keys) {
+  /* `keys` is the water to keep clear: site keys ('a', 'b') on a
+     round's own sea, or the boxes themselves (`keepOut`, build).
+     `world`: the sea to strew over -- WORLD, or a shared sea's own
+     (`round.world`, build) */
+  function strewIslets(cam, islets, keys, world) {
     var W = cam.clientWidth || 1;
     var H = cam.clientHeight || 1;
     var placed = [];
-    var keep = (keys || ['a', 'b']).map(function (k) { return EXCLUDE[k]; });
+    var keep = (keys || ['a', 'b']).map(function (k) { return typeof k === 'string' ? EXCLUDE[k] : k; });
+    var sea = world || WORLD;
 
     function clear(x, y, rx, ry) {
       var i, e, o;
@@ -1298,13 +1528,13 @@
       var t, x, y;
 
       for (t = 0; t < 80; t++) {
-        x = WORLD.l + rx + Math.random() * (WORLD.r - WORLD.l - 2 * rx);
-        y = WORLD.t + ry + Math.random() * (WORLD.b - WORLD.t - 2 * ry);
+        x = sea.l + rx + Math.random() * (sea.r - sea.l - 2 * rx);
+        y = sea.t + ry + Math.random() * (sea.b - sea.t - 2 * ry);
         if (clear(x, y, rx, ry)) break;
       }
       if (t === 80) {
         /* nowhere clear: park it well off the visible sea */
-        x = WORLD.l - 60; y = WORLD.t - 60;
+        x = sea.l - 60; y = sea.t - 60;
       }
 
       el.style.setProperty('--wx', x.toFixed(2) + '%');
@@ -1498,6 +1728,54 @@
     '</div>';
   }
 
+  /* The craft over site A while the shape is the question: the hull
+     and its four nozzles, hung as the landing's craft hangs them
+     (helmAttrs) and burning as it flies in and away (hoverJets() in
+     js/script.js) -- no callouts, since it is only there to be looked
+     at. A class of its own and not .ship, so nothing that looks a
+     round's craft up by .ship ever finds this one. Where it hovers is
+     hoverSpot(); how it moves is css/rounds.css. */
+  function hoverHTML(round) {
+    var craft = CRAFT[round.shape];
+    return '<div class="hover-ship" aria-hidden="true"' + helmAttrs(craft) + '>' +
+      '<div class="hover-ship__craft">' +
+        thrustersHTML() +
+        '<img class="hover-ship__img" src="assets/images/' + encodeURI(craft.img) +
+             '" alt="" draggable="false" />' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* Mission complete: every round's craft standing on the island it
+     fits, in the order they were flown, with the shape's name and
+     its area rule under it. Each island is drawn to cover FIT_AREA,
+     as on the water, and its craft over it exactly as it lands --
+     centre of area on centre of area, the box `fit` times the
+     island's -- so the five read as the five landings. The card's
+     look is css/style.css. */
+  function fleetHTML() {
+    return ROUNDS.map(function (round, i) {
+      var land = LAND[round.shape];
+      var craft = CRAFT[round.shape];
+      var fit = Math.sqrt(land.fill / craft.fill);
+      var name = round.shape.charAt(0).toUpperCase() + round.shape.slice(1);
+      var at = [
+        'width:' + round2(fit * 100) + '%',
+        'left:' + round2((land.cx - craft.cx * fit) * 100) + '%',
+        'top:' + round2((land.cy - craft.cy * fit) * 100) + '%'
+      ].join(';');
+      return '<li class="fleet__item" style="--i:' + i + ';--k:' + round2(boxFor(FIT_AREA, land)) + '">' +
+        '<span class="fleet__scene">' +
+          '<img class="fleet__land" src="assets/images/' + encodeURI(land.img) + '" alt="" draggable="false" />' +
+          '<img class="fleet__craft" src="assets/images/' + encodeURI(craft.img) + '" alt=""' +
+               ' draggable="false" style="' + at + '" />' +
+        '</span>' +
+        '<span class="fleet__name">' + name + '</span>' +
+        '<span class="fleet__rule">Area = ' + round.rule + '</span>' +
+      '</li>';
+    }).join('');
+  }
+
   /* The landing's effect layers, one either side of the craft: the
      back one (z 3) holds the scorch mark the wreck lies on and half
      the spray, the front one (z 6) the rest. Between them sits the
@@ -1513,18 +1791,12 @@
            '<div class="fx-layer fx-layer--front" aria-hidden="true"></div>';
   }
 
-  function sectionHTML(round) {
-    var land = LAND[round.shape];
-    var craft = CRAFT[round.shape];
-
-    var kFit = boxFor(FIT_AREA, land);
-    var fit = Math.sqrt(land.fill / craft.fill);
-
-    var vars = [
-      '--ship-k:' + round2(kFit * fit),
-      '--scx:' + craft.cx,
-      '--scy:' + craft.cy
-    ].join(';');
+  /* One screen for `rounds`: a round alone, or the rounds that share
+     one sea. The first one's shape and flags are the screen's; each
+     site carries its own round's craft figures (siteStyle). */
+  function sectionHTML(rounds) {
+    var round = rounds[0];
+    var vars = craftVars(round);
 
     /* data-intro: the screen opens in the dark, and its sea is lit up
        by the scan (css/style.css, css/reef.css). data-landing: a screen
@@ -1543,7 +1815,7 @@
 
       /* the camera plate: the islets, the two sites, and the wave
          fronts js/water.js mounts in here. See .cam in css/style.css */
-      '<div class="cam">' + sitesHTML(round) + '</div>' +
+      '<div class="cam">' + sitesHTML(rounds) + '</div>' +
 
       CHROME +
       (round.intro ? SCANNER : '') +
@@ -1591,21 +1863,69 @@
   function build(stage, before) {
     if (!stage) return [];
 
-    return ROUNDS.map(function (round) {
+    /* `split` rounds next to each other share one screen, one sea */
+    var groups = [];
+    ROUNDS.forEach(function (round) {
+      var last = groups[groups.length - 1];
+      if (round.split && last && last[0].split && last.length < SHARED_AT.length) last.push(round);
+      else groups.push([round]);
+    });
+
+    var out = [];
+    groups.forEach(function (rounds) {
+      var shared = rounds.length > 1;
       var host = doc.createElement('div');
-      host.innerHTML = sectionHTML(round);
+      host.innerHTML = sectionHTML(rounds);
 
       var node = host.firstChild;
       stage.insertBefore(node, before || null);
 
-      return wireRound(node, round);
+      rounds.forEach(function (round, i) { out.push(wireRound(node, round, i, shared)); });
+
+      /* what the rounds on one sea share: each other, the water the
+         islets keep off (every site the screen plays, with a margin),
+         and the sea itself -- a shared one runs on to the landings'
+         view (`world`, which js/reef.js reads off the plate) */
+      var keep = [];
+      rounds.forEach(function (round) {
+        round.plays.forEach(function (k) {
+          var o = round.sites[k].offset;
+          keep.push({ l: o.x - 8, r: o.x + 108, t: o.y - 8, b: o.y + 108 });
+        });
+      });
+      var world = shared
+        ? { l: WORLD.l, t: WORLD.t, r: WORLD.r + LANDINGS_AT, b: WORLD.b }
+        : WORLD;
+      node.querySelector('.cam').dataset.world = [world.l, world.t, world.r, world.b].join(' ');
+
+      /* and each site the middle of the view it is in, which the lens
+         holds at survey height over it: on a shared sea the shape
+         questions' and the landings', on a round's own its A and B */
+      var views = shared
+        ? [rounds.map(function (r) { return r.sites.a; }), rounds.map(function (r) { return r.sites.b; })]
+        : [[rounds[0].sites.a, rounds[0].sites.b]];
+      views.forEach(function (sites) {
+        var mid = { x: 0, y: 0 };
+        sites.forEach(function (site) {
+          mid.x += (site.offset.x + 50) / sites.length;
+          mid.y += (site.offset.y + 50) / sites.length;
+        });
+        sites.forEach(function (site) { site.mid = mid; });
+      });
+
+      rounds.forEach(function (round) {
+        round.together = rounds;
+        round.keepOut = keep;
+        round.world = world;
+      });
     });
+    return out;
   }
 
   global.GeoPages = {
     build: build,
-    scatter: scatter, dealRow: dealRow, strewPilot: strewPilot,
-    arrangeSite: arrangeSite, drawPair: drawPair, strewIslets: strewIslets,
+    scatter: scatter, dealRow: dealRow, strewPilot: strewPilot, hoverSpot: hoverSpot,
+    arrangeSite: arrangeSite, drawPair: drawPair, strewIslets: strewIslets, fleet: fleetHTML,
     rounds: ROUNDS, land: LAND, world: WORLD, hand: HAND
   };
 })(window);

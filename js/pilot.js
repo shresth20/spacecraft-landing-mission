@@ -1028,8 +1028,10 @@
   }
 
   /* Brings the craft in onto its hover point. Resolves once it is
-     there, which is when the flow can go on. */
-  function arrive(site) {
+     there, which is when the flow can go on. `from`, when it is
+     given, is the bearing to come in on instead of a random one: the
+     way the craft was last seen heading (js/script.js). */
+  function arrive(site, from) {
     var h = site.helm;
     if (!h) return Promise.resolve();
 
@@ -1040,7 +1042,7 @@
     if (reduced()) return wait(300);
 
     var g = measure(h);
-    var b = bearing(h);
+    var b = from == null ? bearing(h) : (h.bearing = from);
     var ux = Math.cos(b), uy = Math.sin(b);       /* out from the station */
 
     /* out along it to the frame's edge, then the whole craft at its
@@ -1276,7 +1278,7 @@
 
   /* back to the hover point, at rest -- where the craft comes back
      in after a miss */
-  function home(site) {
+  function home(site, ms) {
     var h = site.helm;
     if (!h) return;
     cancelArrival(h);
@@ -1286,12 +1288,38 @@
     h.geo = null;
     place(h);
     setFlying(h, false);
-    resetCamera(h);
+    /* the world back under it: at once (a reset), or eased over `ms`
+       where it is watched (after a miss), so the follow's offset is
+       not dropped in one frame */
+    if (ms) centre(site, ms);
+    else resetCamera(h);
   }
 
   function show(site) {
     var h = site.helm;
     if (h && h.lives) h.lives.classList.add('is-on');
+  }
+
+  /* The follow eased off the camera over `ms`, the craft left where it
+     is: for a lens leaving a landing for another site on the same sea
+     (js/script.js), which would otherwise carry the follow's offset
+     with it all the way there. */
+  function centre(site, ms) {
+    var h = site.helm;
+    if (!h) return;
+    var plates = h.cameraPlates.length ? h.cameraPlates : cameraPlates(h);
+    h.cameraX = h.cameraY = 0;
+    h.cameraAt = null;
+    plates.forEach(function (el) {
+      el.style.transition = 'translate ' + ms + 'ms cubic-bezier(.4, 0, .2, 1)';
+      el.style.translate = '0px 0px';
+    });
+    wait(ms + 60).then(function () {
+      plates.forEach(function (el) {
+        el.style.removeProperty('transition');
+        if (el.style.translate === '0px 0px') el.style.removeProperty('translate');
+      });
+    });
   }
 
   /* Everything back to the opening state: three hearts, the craft at
@@ -1524,6 +1552,7 @@
     stow: stow,
     home: home,
     show: show,
+    centre: centre,
     reset: reset,
     arrive: arrive,
     flyTo: flyTo,

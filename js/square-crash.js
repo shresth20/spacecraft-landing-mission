@@ -180,8 +180,6 @@
     st.big = s;
     var h = grown(g.fitLand, m, s);
     g.land = h;
-    var f = g.fitFlat;
-    g.landFlat = [f[0] * s, f[1] * s, f[2] * s, f[3] * s, m[0] + (f[4] - m[0]) * s, m[1] + (f[5] - m[1]) * s];
     g.top = KEYS.map(function (key) { return project(h, land.top[key]); });
     g.base = KEYS.map(function (key) { return project(h, land.base[key]); });
     st.land.style.transform = kit.matrix3d(h);
@@ -209,7 +207,6 @@
     if (!art) return null;
     var geo = kit.layout(art);
     geo.fitLand = geo.land;
-    geo.fitFlat = geo.landFlat;
 
     var shell = kit.shellOf('sqx');
     var root = shell.root, cam = shell.cam, sea = shell.sea, stage = shell.stage;

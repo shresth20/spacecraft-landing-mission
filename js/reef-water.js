@@ -18,6 +18,20 @@
    edge fragments, their shoreline rings, the craft) is DOM over the
    canvas, so it stays perfectly still.
 
+   The ocean painting is not held still under all that: it runs on a
+   slow current (two copies sliding along it in turn, fading in and
+   out), which wanders in broad swirls and turns along the shores rather
+   than into the land. The rocks under the water stay put.
+
+   Over the whole canvas runs a wave simulation (a height field on the
+   GPU, stepped at a fixed rate): the craft's downwash beats rings out
+   from under its hull, each burning jet churns the water white where its
+   blast meets it, leaving a wake of foam, and every wave stops dead
+   against land, so it comes back off it and bends round it. Its waves
+   bend the sea under them and light their own faces. It lives on the
+   canvas and is carried along with the world plate whenever the camera
+   moves, so it stays where it was on the sea.
+
    Round every piece of dry land it draws the shore, from the land's own
    silhouettes (a distance field over all the land in the camera plate:
    site B's, site A's islands, the islets and the rock strewn between
@@ -39,7 +53,7 @@
 (function (global) {
   'use strict';
   var doc = document, ART = global.GeoEnvironmentAssets;
-  var MAX_ROCKS = 16, MAX_EVENTS = 32, MAX_LANDS = 128;
+  var MAX_ROCKS = 16, MAX_EVENTS = 32, MAX_LANDS = 255;
   var CONFIG = {
     // the strength of the whole pass; light levels are added brightness
     amplitude: 1, reducedAmplitude: .35, rays: .07, shimmer: .03,
@@ -51,6 +65,9 @@
     // sun (`shade`). It only warps and lights the ocean image; nothing is
     // drawn over it.
     surfaceSpeed: 1, refract: 11, shade: .3,
+    // the current: the painting is carried `flow` painting px each
+    // `flowCycle` seconds (a drift of flow / flowCycle px a second)
+    flow: 36, flowCycle: 4.5,
     // a breach, in real seconds from the land starting up (css/reef.css
     // envRise): it breaks the surface at `breach`, and its water has
     // settled by `eventLife`. Small rocks move this share of the water,
@@ -70,7 +87,30 @@
     shoreGlow: .75, shoreFoam: 1, shoreSwell: 1.6,
     // backing pixels never exceed the painting's resolution (times this),
     // and drop to `slowQuality` if frames keep running long
-    resolution: 1.15, slowQuality: .65, slowFrameMs: 24
+    resolution: 1.15, slowQuality: .65, slowFrameMs: 24,
+    // The water's own motion: a wave simulation over the frame, a grid
+    // `simCells` across, stepped `simRate` times a second. Waves run at
+    // `simWave` with the lens down (.6 of a cell a step; slower by the
+    // camera's scale from higher up, so a wave keeps its size on the sea),
+    // keep `simDamp` of themselves each step and stop dead against land,
+    // so they bounce off it and bend round it. `simSmooth` takes the
+    // finest ripples, a cell or two long, out before they build into grit.
+    simCells: 560, simRate: 60, simWave: 1.5, simDamp: .985, simSmooth: .1,
+    // what stirs it: the craft's downwash (a beat under the hull, `washHz`
+    // a second, and a churn round it) and each burning jet where its blast
+    // hits the water. Land breaking the surface keeps the breach above: as
+    // a wave of the simulation it hugged the land's outline like a drawn line.
+    wash: 16, washHz: 2, jet: 3, jetHz: 3.2,
+    // Where a burning jet's blast meets the water it churns it white
+    // (`jetFoam` at full burn), and the foam keeps `foamKeep` of itself a
+    // step where it was raised (gone in a second or so), so a moving craft
+    // leaves a wake of it; `simFoam` is how white it shows.
+    jetFoam: 1, foamKeep: .98, simFoam: .75,
+    // how it shows: its slope times `simGain` is how far a face tips
+    // (eased so it never tips past 1), which bends what is under it by
+    // `simRefract` painting px and lights the faces turned to the sun by
+    // `simShade`; its crests gather light onto the sea under them
+    simGain: 45, simRefract: 7, simShade: .55, simCaustic: .2
   };
 
   var VERTEX = [
@@ -94,16 +134,22 @@
     'uniform vec4 uEv[' + MAX_EVENTS + '];',    // breach: centre, half size, canvas px
     'uniform vec4 uEvT[' + MAX_EVENTS + '];',   // age s, strength (0: unused), corner px (< 0: a rhombus), seed
     'uniform float uEvents;',
-    'uniform sampler2D uField;',     // distance to land, outward direction
+    'uniform sampler2D uField;',     // distance to land
     'uniform sampler2D uFieldId;',   // which land is nearest (its index / 255)
     'uniform sampler2D uLand;',      // each land's shore strength, in a row
     'uniform vec4 uSite;',           // the field's box, canvas px
+    'uniform vec2 uFieldTexel;',     // one of its cells, in uv
     'uniform float uWorld;',         // canvas px per camera plate px
     'uniform float uClock;',         // real seconds (0: still)
     'uniform float uShore;',         // 0 until the field is built
     'uniform vec3 uShoreMix;',       // glow, foam, swell
     'uniform vec3 uSurf;',           // surface clock (s), refract, shade
     'uniform float uZoom;',          // the camera's scale (1: a site's frame)
+    'uniform sampler2D uSim;',       // the wave simulation, over the canvas: height, speed
+    'uniform vec2 uSimCell;',        // one of its cells, in uv
+    'uniform vec4 uSimMix;',         // gain, refract, shade, caustic (0: no simulation)
+    'uniform float uSimFoam;',
+    'uniform vec2 uFlow;',           // how far the current carries the painting a cycle (painting px; 0: still), cycles so far
     'const float BREACH = ' + CONFIG.breach.toFixed(3) + ';',
     'const float REACH = ' + CONFIG.shoreReach.toFixed(1) + ';',
     'const float LANDS = ' + MAX_LANDS.toFixed(1) + ';',
@@ -162,25 +208,44 @@
     // The shore round every piece of land, from its own silhouette: the
     // shallows glowing turquoise against it, swell rolling in that only
     // bends the water (no line is drawn), and broken foam that washes up
-    // the land and draws back again.
-    'void shore(vec2 p, inout vec2 disp, inout float glow, inout float foam) {',
+    // the land and draws back again. Nothing in it steps at the field's
+    // cells or where one land's water meets the next: how much shore there
+    // is blends between the lands of the four nearest cells (shoreK), the
+    // way off the land is the distance's slope over three cells (so it
+    // fades out where two lands' waters meet instead of turning round),
+    // and the swell and the lap keep time by the place, not by the land.
+    'float landK(vec2 uv) {',
+    '  float id = floor(texture2D(uFieldId, uv).r * 255.0 + 0.5);',
+    '  return texture2D(uLand, vec2((id + 0.5) / LANDS, 0.5)).r;',
+    '}',
+    'float shoreK(vec2 fuv) {',
+    '  vec2 c = fuv / uFieldTexel - 0.5, i = floor(c), f = c - i;',
+    '  vec2 a = (i + 0.5) * uFieldTexel, b = a + uFieldTexel;',
+    '  return mix(mix(landK(a), landK(vec2(b.x, a.y)), f.x), mix(landK(vec2(a.x, b.y)), landK(b), f.x), f.y);',
+    '}',
+    'void shore(vec2 p, inout vec2 disp, inout float glow, inout float foam, inout vec3 coast) {',
     '  vec2 fuv = (p - uSite.xy) / uSite.zw;',
     '  if (fuv.x < 0.0 || fuv.y < 0.0 || fuv.x > 1.0 || fuv.y > 1.0) return;',
-    '  vec4 f = texture2D(uField, fuv);',
-    '  if (f.r > 0.99) return;',
-    '  float id = floor(texture2D(uFieldId, fuv).r * 255.0 + 0.5);',
-    '  float k = texture2D(uLand, vec2((id + 0.5) / LANDS, 0.5)).r;',
+    '  float f = texture2D(uField, fuv).r;',
+    '  if (f > 0.99) return;',
+    '  float k = shoreK(fuv);',
     '  if (k <= 0.0) return;',
-    '  float d = f.r * REACH, t = uClock;',             // plate px from that land
-    '  vec2 dir = f.gb * 2.0 - 1.0, w = (p - uSite.xy) / uWorld;',
-    '  float swell = sin(d * 0.17 + t * 1.3 + id * 1.7) * exp(-d / 30.0) * smoothstep(0.0, 5.0, d);',
+    '  float d = f * REACH, t = uClock;',               // plate px from that land
+    '  vec2 e = uFieldTexel * 1.5, w = (p - uSite.xy) / uWorld;',
+    '  vec2 dir = vec2(texture2D(uField, fuv + vec2(e.x, 0.0)).r - texture2D(uField, fuv - vec2(e.x, 0.0)).r,',
+    '                  texture2D(uField, fuv + vec2(0.0, e.y)).r - texture2D(uField, fuv - vec2(0.0, e.y)).r) *',
+    '    REACH * uWorld / (2.0 * e * uSite.zw);',
+    '  dir /= max(1.0, length(dir));',
+    '  float here = noise(w * 0.006) * 6.2832;',
+    '  coast = vec3(dir, mix(REACH, d, k));',
+    '  float swell = sin(d * 0.17 + t * 1.3 + here) * exp(-d / 30.0) * smoothstep(0.0, 5.0, d);',
     '  disp += dir * swell * uShoreMix.z * k * uWorld / uUnit;',
     '  glow += k * (1.0 - smoothstep(REACH * 0.6, REACH, d)) *',
     '    (0.55 * exp(-d / 12.0) + 0.45 * exp(-d / 32.0)) * (0.88 + 0.12 * swell);',
     '  if (d < 22.0) {',
-    '    float lap = 0.5 + 0.5 * sin(t * 1.1 + id * 2.3 + dot(w, vec2(0.013, 0.009)));',
+    '    float lap = 0.5 + 0.5 * sin(t * 1.1 + here * 1.35 + dot(w, vec2(0.013, 0.009)));',
     '    float reach = 2.5 + 6.5 * lap;',
-    '    float fn = noise(w * 0.21 + vec2(t * 0.25, -t * 0.18)) * 0.65 + noise(w * 0.53 - vec2(t * 0.2, t * 0.3)) * 0.35;',
+    '    float fn = noise(w * 0.09 + vec2(t * 0.11, -t * 0.08)) * 0.65 + noise(w * 0.23 - vec2(t * 0.09, t * 0.13)) * 0.35;',
     '    float band = 1.0 - smoothstep(reach * 0.35, reach, d);',
     '    foam += uShoreMix.y * k * smoothstep(0.55, 0.8, fn * 0.8 + band * 0.25) * band;',
     '  }',
@@ -224,7 +289,7 @@
     '      float zone = smoothstep(-4.0, 1.0, d) * (1.0 - smoothstep(spread * 0.4, spread, d));',
     '      float fade = k * smoothstep(-0.1, 0.12, ta) * (1.0 - smoothstep(0.5, 2.6, ta));',
     '      vec2 drift = vec2(0.7, -0.5) * ta;',
-    '      float fn = noise(s * 0.12 + drift + et.w) * 0.6 + noise(s * 0.31 - drift * 1.6 + et.w) * 0.4;',
+    '      float fn = noise(s * 0.055 + drift * 0.46 + et.w) * 0.6 + noise(s * 0.14 - drift * 0.72 + et.w) * 0.4;',
     '      foam += smoothstep(0.42 + 0.2 * smoothstep(0.0, 2.6, ta), 0.8, fn) * zone * fade;',
     '    }',
     '    if (d < 70.0 && a < 3.2) {',
@@ -282,6 +347,40 @@
     '  return d * uAmp;',
     '}',
 
+    // The painting itself runs on a slow current: two copies of it slide
+    // along the flow, each fading out before it has gone too far and back
+    // in from where it started, half a cycle apart (and out of step from
+    // place to place, so the sea never pulses as one). The current wanders
+    // in broad swirls and turns along the shore instead of into the land.
+    // The blend keeps the painting's own contrast.
+    'vec3 sea(vec2 q) { return texture2D(uSea, clamp((q - uOcean.xy) / uOcean.zw, 0.0, 1.0)).rgb; }',
+    'vec3 flow(vec2 s, vec2 q, vec3 coast) {',
+    '  if (uFlow.x <= 0.0) return sea(q);',
+    '  vec3 n = noised(s / 520.0 + vec2(uFlow.y * 0.07, 0.0));',
+    '  vec2 f = normalize(vec2(1.0, 0.42)) + vec2(n.z, -n.y) * 0.55;',
+    '  float near = 1.0 - smoothstep(0.0, REACH, coast.z);',
+    '  f -= coast.xy * min(dot(f, coast.xy), 0.0) * near * 1.4;',
+    '  float ph = uFlow.y + noise(s * 0.0035) * 1.7;',
+    '  float p0 = fract(ph), p1 = fract(ph + 0.5), w0 = 1.0 - abs(1.0 - 2.0 * p0), w1 = 1.0 - w0;',
+    '  vec3 a = sea(q - f * (p0 - 0.5) * uFlow.x * uUnit), b = sea(q - f * (p1 - 0.5) * uFlow.x * uUnit);',
+    '  vec3 mean = vec3(0.0, 0.56, 0.95);',
+    '  return mean + (a * w0 + b * w1 - mean) / sqrt(w0 * w0 + w1 * w1);',
+    '}',
+
+    // The simulation read through a cubic B-spline over its cells, four
+    // bilinear taps for the sixteen cells (the texture is LINEAR wherever
+    // floats filter): smooth through and across every cell, so at no zoom
+    // does its grid show in the light, the shade or the foam.
+    'vec4 simAt(vec2 uv) {',
+    '  vec2 c = uv / uSimCell - 0.5, i = floor(c), f = c - i, f2 = f * f, f3 = f2 * f;',
+    '  vec2 w0 = (1.0 - 3.0 * f + 3.0 * f2 - f3) / 6.0, w1 = (4.0 - 6.0 * f2 + 3.0 * f3) / 6.0;',
+    '  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f2 - 3.0 * f3) / 6.0, w3 = f3 / 6.0;',
+    '  vec2 g0 = w0 + w1, g1 = w2 + w3;',
+    '  vec2 a = (i - 0.5 + w1 / g0) * uSimCell, b = (i + 1.5 + w3 / g1) * uSimCell;',
+    '  return g0.y * (g0.x * texture2D(uSim, a) + g1.x * texture2D(uSim, vec2(b.x, a.y))) +',
+    '         g1.y * (g0.x * texture2D(uSim, vec2(a.x, b.y)) + g1.x * texture2D(uSim, b));',
+    '}',
+
     'void main() {',
     '  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);',
     '  vec2 s = (p - uOcean.xy) / uUnit;',
@@ -289,13 +388,34 @@
     '  vec2 disp = vec2(0.0);',
     '  float light = 0.0, foam = 0.0, bub = 0.0;',
     '  float glow = 0.0;',
-    '  if (uShore > 0.5) shore(p, disp, glow, foam);',
+    '  vec3 coast = vec3(0.0, 0.0, REACH);',          // the way off the nearest land, and how far it is
+    '  if (uShore > 0.5) shore(p, disp, glow, foam, coast);',
     '  if (uEvents > 0.5) breach(s, disp, light, foam, bub);',
     '  float h;',
     '  vec2 g = surface(s, uSurf.x, h);',
     '  disp += g * uSurf.y * uAmp;',
+    // the simulated waves: their slope (down the screen is +y) bends the
+    // sea under them, and their crests gather light onto it
+    '  vec2 gw = vec2(0.0);',
+    '  float lap = 0.0;',
+    '  if (uSimMix.x > 0.0) {',
+    '    vec2 su = gl_FragCoord.xy / uRes;',
+    '    vec4 st = simAt(su);',
+    '    float c0 = st.r;',
+    '    float wl = simAt(su - vec2(uSimCell.x, 0.0)).r, wr = simAt(su + vec2(uSimCell.x, 0.0)).r;',
+    '    float wd = simAt(su - vec2(0.0, uSimCell.y)).r, wu = simAt(su + vec2(0.0, uSimCell.y)).r;',
+    '    gw = vec2(wr - wl, wd - wu) * 0.5 * uSimMix.x;',
+    '    gw /= 1.0 + length(gw);',
+    '    lap = (wl + wr + wd + wu - 4.0 * c0) * uSimMix.x;',
+    '    disp += gw * uSimMix.y;',
+    // churned water, broken up into foam and bubbles by two sizes of noise
+    // that drift with the clock
+    '    vec2 fw = p / uZoom;',
+    '    float fn = noise(fw * 0.045 + vec2(uClock * 0.25, -uClock * 0.16)) * 0.6 + noise(fw * 0.12 - vec2(uClock * 0.2, uClock * 0.29)) * 0.4;',
+    '    foam += uSimFoam * st.b * smoothstep(0.45, 0.8, fn * 0.6 + st.b * 0.55);',
+    '  }',
     '  vec2 q = p + (displace(s, t) + disp) * uUnit;',
-    '  vec3 color = texture2D(uSea, clamp((q - uOcean.xy) / uOcean.zw, 0.0, 1.0)).rgb;',
+    '  vec3 color = flow(s, q, coast);',
     '  for (int i = 0; i < ' + MAX_ROCKS + '; i++) {',
     '    vec4 r = uRock[i];',
     '    if (r.z <= 0.0) continue;',
@@ -312,11 +432,90 @@
     // brighter, the far sides of the ripples and the troughs darker. No
     // sun glints: off a slope like this they trace thin rings or smudges.
     '  shimmer += (dot(g, normalize(vec2(-0.6, -0.8))) + (h - 0.5) * 0.25) * uSurf.z;',
+    '  shimmer += dot(gw, normalize(vec2(-0.6, -0.8))) * uSimMix.z;',
+    '  light += clamp(-lap, 0.0, 1.0) * uSimMix.w;',
     '  color = color * (1.0 + shimmer * uAmp) + vec3(0.75, 0.93, 1.0) * (rays * uAmp + light);',
     '  color = mix(color, vec3(0.33, 0.88, 0.97), clamp(glow * uShoreMix.x, 0.0, 0.6));',
     '  color = mix(color, vec3(0.9, 0.98, 1.0), clamp(foam, 0.0, 0.85));',
     '  color = mix(color, vec3(0.86, 0.97, 1.0), clamp(bub, 0.0, 0.9));',
     '  gl_FragColor = vec4(color, 1.0);',
+    '}'
+  ].join('\n');
+
+  /* ------------------------------------------------- the wave simulation
+     The surface as a height field over the canvas, one cell per texel:
+     height in r, its speed in g, foam in b. Each step every cell is pulled towards
+     the mean of its four neighbours (the wave equation), loses a little,
+     and is held flat where there is land, so a wave that reaches a shore
+     comes back off it. Whatever stirs the water is added on the frame's
+     first step, as round spots of height and of foam (centre and radius
+     in cells, top down). Cells near the canvas's edges soak waves up instead of
+     returning them. */
+  var MAX_STIR = 24;
+  var STEP = [
+    'precision highp float;',
+    'uniform sampler2D uState;',
+    'uniform vec2 uCell;',           // one cell, in uv
+    'uniform float uK, uDamp, uSmooth;',
+    'uniform float uFoam;',          // foam kept a step
+    'uniform vec4 uStir[' + MAX_STIR + '];',    // centre, radius, height added (0: unused)
+    'uniform float uFroth[' + MAX_STIR + '];',  // foam raised there
+    'uniform sampler2D uField;',
+    'uniform sampler2D uFieldId;',
+    'uniform sampler2D uLand;',
+    'uniform vec4 uSite;',           // the shore field's box, canvas px
+    'uniform vec2 uCanvas;',         // canvas px
+    'uniform float uShore;',
+    'const float LANDS = ' + MAX_LANDS.toFixed(1) + ';',
+    'void main() {',
+    '  vec2 uv = gl_FragCoord.xy * uCell;',
+    '  vec4 c = texture2D(uState, uv);',
+    '  float mean = 0.25 * (texture2D(uState, uv - vec2(uCell.x, 0.0)).r + texture2D(uState, uv + vec2(uCell.x, 0.0)).r +',
+    '    texture2D(uState, uv - vec2(0.0, uCell.y)).r + texture2D(uState, uv + vec2(0.0, uCell.y)).r);',
+    '  c.g = (c.g + (mean - c.r) * uK) * uDamp;',
+    '  vec2 at = vec2(gl_FragCoord.x, 1.0 / uCell.y - gl_FragCoord.y);',
+    '  for (int i = 0; i < ' + MAX_STIR + '; i++) {',
+    '    vec4 e = uStir[i];',
+    '    if (e.w == 0.0) continue;',
+    '    vec2 q = (at - e.xy) / e.z;',
+    '    float k = exp(-dot(q, q));',
+    '    c.r += e.w * k;',
+    '    c.b = max(c.b, uFroth[i] * k);',
+    '  }',
+    '  c.r += c.g + (mean - c.r) * uSmooth;',
+    '  c.b *= uFoam;',
+    // land: the water against it is held still, so waves come back off it
+    '  if (uShore > 0.5) {',
+    '    vec2 fuv = (vec2(uv.x, 1.0 - uv.y) * uCanvas - uSite.xy) / uSite.zw;',
+    '    if (fuv.x > 0.0 && fuv.y > 0.0 && fuv.x < 1.0 && fuv.y < 1.0) {',
+    '      float f = texture2D(uField, fuv).r;',
+    '      float id = floor(texture2D(uFieldId, fuv).r * 255.0 + 0.5);',
+    '      float k = texture2D(uLand, vec2((id + 0.5) / LANDS, 0.5)).r;',
+    '      float dry = (1.0 - smoothstep(0.0, 0.03, f)) * smoothstep(0.2, 0.8, k);',
+    '      c.rgb *= 1.0 - dry;',
+    '    }',
+    '  }',
+    // the canvas's edges soak waves up
+    '  vec2 edge = min(gl_FragCoord.xy, 1.0 / uCell - gl_FragCoord.xy);',
+    '  float soak = smoothstep(0.0, 14.0, min(edge.x, edge.y));',
+    '  c.g *= mix(0.8, 1.0, soak); c.r *= mix(0.96, 1.0, soak);',
+    // and nothing ever runs away with itself
+    '  c.rg = clamp(c.rg, -2.0, 2.0);',
+    '  gl_FragColor = vec4(c.rgb, 1.0);',
+    '}'
+  ].join('\n');
+  // The water stays where the world is when the camera moves: a cell now
+  // was at uMove.xy + uMove.zw * here (uv, top down) before the move.
+  var MOVE = [
+    'precision highp float;',
+    'uniform sampler2D uState;',
+    'uniform vec2 uCell;',
+    'uniform vec4 uMove;',
+    'void main() {',
+    '  vec2 uv = gl_FragCoord.xy * uCell;',
+    '  vec2 was = uMove.xy + uMove.zw * vec2(uv.x, 1.0 - uv.y);',
+    '  if (was.x < 0.0 || was.y < 0.0 || was.x > 1.0 || was.y > 1.0) { gl_FragColor = vec4(0.0); return; }',
+    '  gl_FragColor = texture2D(uState, vec2(was.x, 1.0 - was.y));',
     '}'
   ].join('\n');
 
@@ -346,7 +545,8 @@
     return { canvas: c, cells: cells };
   }
 
-  function program(gl) {
+  // every pass draws the same quad, its corners always at attribute 0
+  function program(gl, fragment) {
     function compile(type, src) {
       var sh = gl.createShader(type);
       gl.shaderSource(sh, src); gl.compileShader(sh);
@@ -355,7 +555,8 @@
     }
     var prog = gl.createProgram();
     gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAGMENT));
+    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fragment));
+    gl.bindAttribLocation(prog, 0, 'aPos');
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     return prog;
@@ -371,20 +572,23 @@
     return tex;
   }
 
+  function uniforms(gl, prog, names) {
+    var u = {};
+    names.forEach(function (name) { u[name] = gl.getUniformLocation(prog, name); });
+    return u;
+  }
   function setup(s) {
     var gl = s.gl;
-    s.prog = program(gl);
+    s.prog = program(gl, FRAGMENT);
     gl.useProgram(s.prog);
     var buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    var aPos = gl.getAttribLocation(s.prog, 'aPos');
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-    s.u = {};
-    ['uRes', 'uTime', 'uAmp', 'uOcean', 'uUnit', 'uSea', 'uAtlas', 'uRock', 'uCell', 'uRockAlpha', 'uLight',
-      'uEv', 'uEvT', 'uEvents', 'uField', 'uFieldId', 'uLand', 'uSite', 'uWorld', 'uClock', 'uShore', 'uShoreMix', 'uSurf', 'uZoom']
-      .forEach(function (name) { s.u[name] = gl.getUniformLocation(s.prog, name); });
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    s.u = uniforms(gl, s.prog, ['uRes', 'uTime', 'uAmp', 'uOcean', 'uUnit', 'uSea', 'uAtlas', 'uRock', 'uCell',
+      'uRockAlpha', 'uLight', 'uEv', 'uEvT', 'uEvents', 'uField', 'uFieldId', 'uLand', 'uSite', 'uFieldTexel', 'uWorld', 'uClock',
+      'uShore', 'uShoreMix', 'uSurf', 'uZoom', 'uSim', 'uSimCell', 'uSimMix', 'uSimFoam', 'uFlow']);
     gl.activeTexture(gl.TEXTURE0); s.seaTex = texture(gl, s.sea, false);
     gl.activeTexture(gl.TEXTURE1); s.atlasTex = texture(gl, s.atlas.canvas, true);
     s.fieldTex = dataTexture(gl, gl.LINEAR); s.idTex = dataTexture(gl, gl.NEAREST);
@@ -393,10 +597,66 @@
     upload(gl, s.landTex, gl.LUMINANCE, MAX_LANDS, 1, s.landBytes);
     gl.uniform1i(s.u.uSea, 0); gl.uniform1i(s.u.uAtlas, 1);
     gl.uniform1i(s.u.uField, 2); gl.uniform1i(s.u.uFieldId, 3); gl.uniform1i(s.u.uLand, 4);
+    gl.uniform1i(s.u.uSim, 5);
     gl.uniform2f(s.u.uLight, CONFIG.rays, CONFIG.shimmer);
     s.rocks = new Float32Array(MAX_ROCKS * 4); s.cells = new Float32Array(MAX_ROCKS * 4);
     s.ev = new Float32Array(MAX_EVENTS * 4); s.evT = new Float32Array(MAX_EVENTS * 4);
     s.field = null; s.fieldDirty = true;
+    s.sim = null;
+    try { s.sim = simSetup(gl); } catch (e) { console.warn('Reef waves unavailable:', e.message); }
+  }
+
+  // The simulation's two state textures, read from one and written to the
+  // other each pass. Half floats where the device can draw into them,
+  // else full floats; without either the sea keeps its painted motion.
+  function simSetup(gl) {
+    var half = gl.getExtension('OES_texture_half_float'), full = gl.getExtension('OES_texture_float');
+    var kinds = [];
+    if (half) kinds.push({ type: half.HALF_FLOAT_OES, linear: !!gl.getExtension('OES_texture_half_float_linear') });
+    if (full) kinds.push({ type: gl.FLOAT, linear: !!gl.getExtension('OES_texture_float_linear') });
+    gl.getExtension('EXT_color_buffer_half_float'); gl.getExtension('WEBGL_color_buffer_float');
+    for (var i = 0; i < kinds.length; i++) {
+      var m = { type: kinds[i].type, filter: kinds[i].linear ? gl.LINEAR : gl.NEAREST, w: 0, h: 0 };
+      if (simAlloc(gl, m, 8, 8)) {
+        m.step = program(gl, STEP); m.move = program(gl, MOVE);
+        m.su = uniforms(gl, m.step, ['uState', 'uCell', 'uK', 'uDamp', 'uSmooth', 'uFoam', 'uStir', 'uFroth', 'uField', 'uFieldId',
+          'uLand', 'uSite', 'uCanvas', 'uShore']);
+        m.mu = uniforms(gl, m.move, ['uState', 'uCell', 'uMove']);
+        gl.useProgram(m.step);
+        gl.uniform1i(m.su.uState, 5); gl.uniform1i(m.su.uField, 2); gl.uniform1i(m.su.uFieldId, 3);
+        gl.uniform1i(m.su.uLand, 4);
+        gl.useProgram(m.move); gl.uniform1i(m.mu.uState, 5);
+        m.stir = new Float32Array(MAX_STIR * 4); m.froth = new Float32Array(MAX_STIR);
+        m.clock = 0; m.cam = null;
+        return m;
+      }
+    }
+    return null;
+  }
+  // (Re)size the state to w x h cells, flat. False if the device cannot
+  // draw into this kind of texture.
+  function simAlloc(gl, m, w, h) {
+    (m.tex || []).forEach(function (t) { gl.deleteTexture(t); });
+    (m.fb || []).forEach(function (f) { gl.deleteFramebuffer(f); });
+    m.tex = []; m.fb = [];
+    for (var i = 0; i < 2; i++) {
+      var tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE],
+        [gl.TEXTURE_MIN_FILTER, m.filter], [gl.TEXTURE_MAG_FILTER, m.filter]]
+        .forEach(function (p) { gl.texParameteri(gl.TEXTURE_2D, p[0], p[1]); });
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, m.type, null);
+      var fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      var ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      if (ok) { gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
+      m.tex.push(tex); m.fb.push(fb);
+      if (!ok) { gl.bindFramebuffer(gl.FRAMEBUFFER, null); return false; }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    m.w = w; m.h = h; m.cur = 0;
+    return true;
   }
   function dataTexture(gl, filter) {
     var tex = gl.createTexture();
@@ -434,11 +694,12 @@
     while (n && n !== host) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
     return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight };
   }
-  // Site B's first: it is where the landing is flown, so it is never the
-  // land left over when there is more than the field can tell apart.
+  // The site Bs' first (a screen can hold more than one round): they are
+  // where the landings are flown, so they are never the land left over
+  // when there is more than the field can tell apart.
   function landsOf(s) {
-    var out = [], all = Array.prototype.slice.call(s.site.querySelectorAll(LAND));
-    s.cam.querySelectorAll(LAND).forEach(function (el) { if (!s.site.contains(el)) all.push(el); });
+    var out = [], all = Array.prototype.slice.call(s.cam.querySelectorAll('.site--b :is(' + LAND + ')'));
+    s.cam.querySelectorAll(LAND).forEach(function (el) { if (!el.closest('.site--b')) all.push(el); });
     all.forEach(function (el) {
       var img = pictureOf(el);
       if (out.length >= MAX_LANDS - 1 || !img || el.closest('[hidden]') || !img.offsetParent ||
@@ -483,15 +744,21 @@
     var lands = landsOf(s);
     if (lands.some(function (l) { return !l.img.complete || !l.img.naturalWidth; })) return false;
     // the field covers the land and its shores, and no more of the sea
-    // than the wide shot can see (an islet with nowhere to go is parked
-    // well off it, js/pages.js)
+    // than lies within half a frame or so of a site (an islet with nowhere
+    // to go is parked well off them all, js/pages.js)
     var reach = CONFIG.shoreReach + 8, l0 = Infinity, t0 = Infinity, r0 = -Infinity, b0 = -Infinity;
     lands.forEach(function (l) {
       var b = l.box = layout(l.img, cam);
       l0 = Math.min(l0, b.x - reach); t0 = Math.min(t0, b.y - reach);
       r0 = Math.max(r0, b.x + b.w + reach); b0 = Math.max(b0, b.y + b.h + reach);
     });
-    l0 = Math.max(l0, -W); t0 = Math.max(t0, -1.2 * H); r0 = Math.min(r0, 3 * W); b0 = Math.min(b0, 2.8 * H);
+    var sl = Infinity, st = Infinity, sr = -Infinity, sb = -Infinity;
+    cam.querySelectorAll('.site').forEach(function (site) {
+      var b = layout(site, cam);
+      sl = Math.min(sl, b.x - .6 * W); st = Math.min(st, b.y - .6 * H);
+      sr = Math.max(sr, b.x + b.w + .6 * W); sb = Math.max(sb, b.y + b.h + .6 * H);
+    });
+    if (sr > sl) { l0 = Math.max(l0, sl); t0 = Math.max(t0, st); r0 = Math.min(r0, sr); b0 = Math.min(b0, sb); }
     if (!(r0 > l0 && b0 > t0)) { s.field = null; return true; }
     var cell = Math.max(2, W / 512), cells = (r0 - l0) * (b0 - t0) / (cell * cell);
     if (cells > CONFIG.maxCells) cell *= Math.sqrt(cells / CONFIG.maxCells);
@@ -527,8 +794,7 @@
       edt(f, gh, d, arg, v, z);
       for (y = 0; y < gh; y++) { col[y * gw + x] = d[y] > far ? INF : d[y]; rowOf[y * gw + x] = arg[y]; }
     }
-    var px = new Uint8Array(n * 4), ids = new Uint8Array(n), reach = CONFIG.shoreReach;
-    for (i = 0; i < n; i++) { px[i * 4] = 255; px[i * 4 + 1] = px[i * 4 + 2] = 128; px[i * 4 + 3] = 255; }
+    var px = new Uint8Array(n).fill(255), ids = new Uint8Array(n), reach = CONFIG.shoreReach;
     for (y = 0; y < gh; y++) {
       var near = false;
       for (x = 0; x < gw; x++) { f[x] = col[y * gw + x]; near = near || f[x] < INF; }
@@ -538,16 +804,15 @@
         i = y * gw + x;
         var dist = Math.sqrt(d[x]) * cell, sx = arg[x], sy = rowOf[y * gw + sx];
         if (!(dist < reach) || d[x] >= INF) continue;
-        var dx = x - sx, dy = y - sy, len = Math.hypot(dx, dy) || 1;
-        px[i * 4] = Math.round(dist / reach * 250);
-        px[i * 4 + 1] = Math.round((dx / len * .5 + .5) * 255);
-        px[i * 4 + 2] = Math.round((dy / len * .5 + .5) * 255);
+        px[i] = Math.round(dist / reach * 250);
         ids[i] = owner[sy * gw + sx];
       }
     }
     var gl = s.gl;
-    upload(gl, s.fieldTex, gl.RGBA, gw, gh, px);
+    upload(gl, s.fieldTex, gl.LUMINANCE, gw, gh, px);
     upload(gl, s.idTex, gl.LUMINANCE, gw, gh, ids);
+    gl.useProgram(s.prog);
+    gl.uniform2f(s.u.uFieldTexel, 1 / gw, 1 / gh);
     s.field = { x: l0, y: t0, w: gw * cell, h: gh * cell, lands: lands };
     s.landBytes.fill(0); s.landSent = null;
     return true;
@@ -658,6 +923,112 @@
     return n;
   }
 
+  /* ------------------------------------------------- stepping the waves */
+  // What stirs the water this step, read off the page: each craft in
+  // frame, a beat of downwash under its hull, and a churn where each
+  // burning jet's blast meets the sea (css/pilot.css and css/rounds.css
+  // light them off `.is-lit`).
+  var CRAFT = '.ship.is-in:not(.is-committed) .ship__img, .hover-ship.is-in:not(.is-gone) .hover-ship__img';
+  var JET = { t: [0, -1], r: [1, 0], b: [0, 1], l: [-1, 0] };
+  function stir(s, cr, dt) {
+    var m = s.sim, n = 0, kx = m.w / cr.width, ky = m.h / cr.height;
+    m.stir.fill(0); m.froth.fill(0);
+    function spot(x, y, r, a, froth) {
+      if (n >= MAX_STIR || !a) return;
+      m.stir.set([(x - cr.left) * kx, (y - cr.top) * ky, Math.max(1.5, r * kx), a], n * 4);
+      m.froth[n++] = froth || 0;
+    }
+    s.screen.querySelectorAll(CRAFT).forEach(function (img) {
+      var b = img.getBoundingClientRect();
+      if (!b.width || b.right < cr.left || b.left > cr.right || b.bottom < cr.top || b.top > cr.bottom) return;
+      var size = Math.min(b.width, b.height), x = b.left + b.width / 2, y = b.top + b.height / 2;
+      spot(x, y, size * .2, CONFIG.wash * dt * Math.sin(m.clock * CONFIG.washHz * 6.2832));
+      spot(x + (Math.random() - .5) * size * .5, y + (Math.random() - .5) * size * .5, size * .12,
+        CONFIG.wash * .5 * dt * (Math.random() * 2 - 1));
+      img.parentNode.querySelectorAll('.thruster.is-lit').forEach(function (jet) {
+        var side = /thruster--([trbl])/.exec(jet.className), bell = jet.querySelector('.thruster__bell');
+        if (!side || !bell) return;
+        var d = JET[side[1]], j = bell.getBoundingClientRect(), pow = parseFloat(jet.style.getPropertyValue('--pow')) || 1;
+        var reach = size * (.22 + .2 * pow), jx = j.left + j.width / 2 + d[0] * reach, jy = j.top + j.height / 2 + d[1] * reach;
+        // a beat of its own, a little off the hull's, so the two never lock
+        var beat = Math.sin(m.clock * CONFIG.jetHz * 6.2832 + 'trbl'.indexOf(side[1]) * 1.7);
+        spot(jx, jy, size * .15, CONFIG.jet * pow * dt * beat, CONFIG.jetFoam * pow);
+      });
+    });
+    return n;
+  }
+  // The fastest the waves can be stepped: past it the finest ripple, a
+  // cell long, grows every step instead of dying away, and the whole sea
+  // fills with it (the lens zoomed in on a landing asked for more). With
+  // the loss (d) and the smoothing (s) each step takes, that is
+  // (1 + d)(1 - s) / d; kept a tenth under it.
+  function waveLimit() {
+    var d = CONFIG.simDamp, s = CONFIG.simSmooth;
+    return .9 * (1 + d) * (1 - s) / d;
+  }
+  function simPass(gl, m) {
+    gl.bindTexture(gl.TEXTURE_2D, m.tex[m.cur]);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, m.fb[1 - m.cur]);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    m.cur = 1 - m.cur;
+  }
+  function simClear(gl, m) {
+    m.fb.forEach(function (fb) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    });
+  }
+  // The steps owed since the last frame, after carrying the water along
+  // with any move of the camera (the world plate's box against the
+  // canvas's). The shore field's textures are bound already (units 2-4);
+  // the state goes on unit 5.
+  function simulate(s, cr, site) {
+    var gl = s.gl, m = s.sim, w = CONFIG.simCells, h = Math.max(8, Math.round(w * cr.height / cr.width));
+    if (m.w !== w || m.h !== h) {
+      if (!simAlloc(gl, m, w, h)) { s.sim = null; gl.bindFramebuffer(gl.FRAMEBUFFER, null); return; }
+      m.cam = null; m.clock = s.clock;
+    }
+    gl.viewport(0, 0, m.w, m.h);
+    if (m.clear) { simClear(gl, m); m.clear = false; m.cam = null; m.clock = s.clock; }
+    gl.activeTexture(gl.TEXTURE5);
+    var b = s.cam.getBoundingClientRect();
+    if (b.width && b.height) {
+      var now = [(b.left - cr.left) / cr.width, (b.top - cr.top) / cr.height, b.width / cr.width, b.height / cr.height];
+      var was = m.cam;
+      if (was && now.some(function (v, i) { return Math.abs(v - was[i]) > 1e-6; })) {
+        var rx = was[2] / now[2], ry = was[3] / now[3];
+        gl.useProgram(m.move);
+        gl.uniform2f(m.mu.uCell, 1 / m.w, 1 / m.h);
+        gl.uniform4f(m.mu.uMove, was[0] - rx * now[0], was[1] - ry * now[1], rx, ry);
+        simPass(gl, m);
+      }
+      m.cam = now;
+    }
+    var owed = Math.floor((s.clock - m.clock) * CONFIG.simRate);
+    if (owed > 0) {
+      m.clock += owed / CONFIG.simRate;
+      owed = Math.min(owed, 4);
+      var stirs = stir(s, cr, owed / CONFIG.simRate);
+      gl.useProgram(m.step);
+      gl.uniform2f(m.su.uCell, 1 / m.w, 1 / m.h);
+      var zoom = zoomOf(s);
+      gl.uniform1f(m.su.uK, Math.min(waveLimit(), CONFIG.simWave * zoom * zoom));
+      gl.uniform1f(m.su.uDamp, CONFIG.simDamp);
+      gl.uniform1f(m.su.uSmooth, CONFIG.simSmooth);
+      gl.uniform1f(m.su.uFoam, CONFIG.foamKeep);
+      gl.uniform1f(m.su.uShore, site ? 1 : 0);
+      if (site) gl.uniform4fv(m.su.uSite, site);
+      gl.uniform2f(m.su.uCanvas, s.canvas.width, s.canvas.height);
+      gl.uniform4fv(m.su.uStir, m.stir); gl.uniform1fv(m.su.uFroth, m.froth);
+      for (var i = 0; i < owed; i++) {
+        // stirred on the first step only
+        if (i === 1 && stirs) { m.stir.fill(0); gl.uniform4fv(m.su.uStir, m.stir); }
+        simPass(gl, m);
+      }
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
   // Backing store: device pixels, but never more than the painting holds.
   function fit(s) {
     var c = s.canvas, w = c.clientWidth, h = c.clientHeight;
@@ -674,6 +1045,23 @@
     var c = s.canvas, cr = c.getBoundingClientRect();
     if (!cr.width || !cr.height) return false;
     var kx = c.width / cr.width, ky = c.height / cr.height;
+    var live = events(s, cr, kx, ky);
+    // the shores: the field rides the camera plate
+    if (s.fieldDirty && buildField(s)) s.fieldDirty = false;
+    var cam = s.cam.getBoundingClientRect(), zoom = s.cam.offsetWidth ? cam.width / s.cam.offsetWidth : 1;
+    var world = zoom * kx, site = null;
+    if (s.field) {
+      landStates(s);
+      var worldY = (s.cam.offsetHeight ? cam.height / s.cam.offsetHeight : 1) * ky;
+      site = [(cam.left - cr.left) * kx + s.field.x * world, (cam.top - cr.top) * ky + s.field.y * worldY,
+        s.field.w * world, s.field.h * worldY];
+    }
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, s.fieldTex);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, s.idTex);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, s.landTex);
+    var waves = s.sim && !s.reduced;
+    if (waves) simulate(s, cr, site);
+    waves = waves && s.sim;
     // the ocean plate, through whatever the camera is doing to it, then
     // the painting covering it (background-size: cover, centred)
     var br = s.bg.getBoundingClientRect(), size = ART.ocean.size;
@@ -700,29 +1088,27 @@
     gl.uniform4fv(s.u.uRock, s.rocks);
     gl.uniform4fv(s.u.uCell, s.cells);
     gl.uniform1f(s.u.uRockAlpha, s.rockAlpha);
-    gl.uniform1f(s.u.uEvents, events(s, cr, kx, ky));
+    gl.uniform1f(s.u.uEvents, live);
     gl.uniform4fv(s.u.uEv, s.ev);
     gl.uniform4fv(s.u.uEvT, s.evT);
-    // the shores: the field rides the camera plate
-    if (s.fieldDirty && buildField(s)) s.fieldDirty = false;
-    var cam = s.cam.getBoundingClientRect(), zoom = s.cam.offsetWidth ? cam.width / s.cam.offsetWidth : 1;
     gl.uniform1f(s.u.uZoom, Math.max(zoom, CONFIG.breachZoom));
-    if (s.field) {
-      landStates(s);
-      var world = zoom * kx, worldY = (s.cam.offsetHeight ? cam.height / s.cam.offsetHeight : 1) * ky;
-      gl.uniform4f(s.u.uSite, (cam.left - cr.left) * kx + s.field.x * world, (cam.top - cr.top) * ky + s.field.y * worldY,
-        s.field.w * world, s.field.h * worldY);
-      gl.uniform1f(s.u.uWorld, world);
-    }
-    gl.uniform1f(s.u.uShore, s.field ? 1 : 0);
+    if (site) { gl.uniform4fv(s.u.uSite, site); gl.uniform1f(s.u.uWorld, world); }
+    gl.uniform1f(s.u.uShore, site ? 1 : 0);
+    if (waves) {
+      gl.uniform2f(s.u.uSimCell, 1 / s.sim.w, 1 / s.sim.h);
+      gl.uniform4f(s.u.uSimMix, CONFIG.simGain, CONFIG.simRefract, CONFIG.simShade, CONFIG.simCaustic);
+      gl.uniform1f(s.u.uSimFoam, CONFIG.simFoam);
+    } else gl.uniform4f(s.u.uSimMix, 0, 0, 0, 0);
     gl.uniform3f(s.u.uShoreMix, CONFIG.shoreGlow, CONFIG.shoreFoam, CONFIG.shoreSwell);
     gl.uniform1f(s.u.uClock, s.reduced ? 0 : s.clock);
     gl.uniform3f(s.u.uSurf, s.reduced ? 0 : s.clock * CONFIG.surfaceSpeed, CONFIG.refract, CONFIG.shade);
+    gl.uniform2f(s.u.uFlow, s.reduced ? 0 : CONFIG.flow, s.clock / CONFIG.flowCycle);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, s.seaTex);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, s.atlasTex);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, s.fieldTex);
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, s.idTex);
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, s.landTex);
+    if (waves) { gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, s.sim.tex[s.sim.cur]); }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     if (!s.live) { s.live = true; s.screen.dataset.seaWater = 'live'; }
     return true;
@@ -774,8 +1160,13 @@
     if (running(s)) schedule(s);
     else {
       stop(s);
-      // a breach left half-played on a screen the player has left is over
-      if (!s.screen.classList.contains('is-active')) s.events = [];
+      // a breach left half-played on a screen the player has left is over,
+      // and so are its waves; and the sea comes back from a landing's
+      // cut-scene calm, not with the waves it had before the shot
+      if (!s.screen.classList.contains('is-active')) {
+        s.events = [];
+        if (s.sim) s.sim.clear = true;
+      } else if (s.screen.classList.contains('is-cinema') && s.sim) s.sim.clear = true;
     }
   }
 
@@ -790,9 +1181,9 @@
       stencil: false, premultipliedAlpha: false, powerPreference: 'low-power' });
     if (!gl) return;
     var reef = global.GeoReef && global.GeoReef.config;
-    var site = screen.querySelector('.site--b'), cam = screen.querySelector('.cam');
-    if (!site || !cam) return;
-    var s = { screen: screen, bg: bg, site: site, cam: cam, canvas: canvas, gl: gl, sea: sea, atlas: atlas,
+    var cam = screen.querySelector('.cam');
+    if (!cam || !screen.querySelector('.site--b')) return;
+    var s = { screen: screen, bg: bg, cam: cam, canvas: canvas, gl: gl, sea: sea, atlas: atlas,
       upAt: new WeakMap(), downAt: new WeakMap(),
       deep: screen.getElementsByClassName('env-submerged'),
       rockAlpha: reef ? reef.deepOpacity : .62,

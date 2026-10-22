@@ -219,53 +219,72 @@
     var fp = meta.footprint, k = (land.ext[2] - land.ext[0]) * 100 / fp[2];
     return { meta: meta, scale: k, x: land.ext[0] * 100 - fp[0] * k, y: land.ext[1] * 100 - fp[1] * k };
   }
+  // Every landing site on the screen is dressed, and keeps a state of its
+  // own (keyed by the site): one site B on a round's own sea, one per
+  // round where rounds share a sea (`split`, js/pages.js). The rest of the
+  // sea is the screen's, and its one wide layer is shared by them all.
+  var screens = new Map();
   function dress(screen) {
-    if (states.has(screen) || !ART) return;
-    var site = screen.querySelector('.site--b');
-    if (!site) return;
-    var root = node('div', 'env-world', site);
-    site.insertBefore(root, site.firstChild);
-    root.setAttribute('aria-hidden', 'true');
-    var deep = node('div', 'env-deep', root);
-    var bigs = node('div', 'env-bigs', root);
-    var clusters = [];
-    site.querySelectorAll('.pad[data-area]').forEach(function (pad) {
-      var old = pad.querySelector('.pad__img');
-      var at = platformOf(pad.dataset.shape);
-      if (!old || !at) return;
-      // No gameplay metadata, hit polygon, fit trace, label or size is edited.
-      var art = dryObject(at.meta, 'env-platform', true, +pad.dataset.area);
-      var x = at.x, y = at.y, scale = at.scale;
-      art.style.left = r(x) + '%'; art.style.top = r(y) + '%';
-      art.style.width = r(at.meta.size[0] * scale) + '%';
-      old.replaceWith(art);
-      var satellites = node('div', 'env-satellites', pad);
-      clusters.push({ pad: pad, art: art, satellites: satellites, local: [],
-        extent: { l: x / 100, t: y / 100, r: (x + at.meta.size[0] * scale) / 100,
-          b: (y + at.meta.size[1] * scale) / 100 } });
-    });
-    var state = { screen: screen, site: site, root: root, deep: deep,
-      bigs: bigs, clusters: clusters, seed: 0, landing: screen.hasAttribute('data-landing') };
+    if (screens.has(screen) || !ART) return;
+    var sites = screen.querySelectorAll('.site--b');
+    if (!sites.length) return;
+    var landing = screen.hasAttribute('data-landing');
     // The rest of the sea, on a screen that shows it: its own layer at the
-    // bottom of the camera plate, under the islets and both sites, and a
-    // place for small rocks on each of site A's islands and each islet,
+    // bottom of the camera plate, under the islets and every site, and a
+    // place for small rocks on each of the site As' islands and each islet,
     // so they come up with that land.
-    var cam = screen.querySelector('.cam');
-    if (cam && !state.landing) {
-      var wide = node('div', 'env-world env-world--wide');
-      wide.setAttribute('aria-hidden', 'true');
-      cam.insertBefore(wide, cam.firstChild);
-      state.cam = cam;
-      state.wide = { root: wide, deep: node('div', 'env-deep', wide), bigs: node('div', 'env-bigs', wide) };
+    var cam = screen.querySelector('.cam'), wide = null;
+    if (cam && !landing) {
+      var layer = node('div', 'env-world env-world--wide');
+      layer.setAttribute('aria-hidden', 'true');
+      cam.insertBefore(layer, cam.firstChild);
+      wide = { root: layer, deep: node('div', 'env-deep', layer), bigs: node('div', 'env-bigs', layer) };
       screen.querySelectorAll('.site--a .pad, .islet').forEach(function (land) {
         node('div', 'env-satellites', land);
       });
     }
-    states.set(screen, state);
-    // Resize may suppress a decoration which no longer fits, but never draws
-    // a new position or seed. Restoring the size restores the same decoration.
-    new ResizeObserver(function () { fitDecorations(state); }).observe(site);
+    var all = [];
+    sites.forEach(function (site) {
+      var root = node('div', 'env-world', site);
+      site.insertBefore(root, site.firstChild);
+      root.setAttribute('aria-hidden', 'true');
+      var deep = node('div', 'env-deep', root);
+      var bigs = node('div', 'env-bigs', root);
+      var clusters = [];
+      site.querySelectorAll('.pad[data-area]').forEach(function (pad) {
+        var old = pad.querySelector('.pad__img');
+        var at = platformOf(pad.dataset.shape);
+        if (!old || !at) return;
+        // No gameplay metadata, hit polygon, fit trace, label or size is edited.
+        var art = dryObject(at.meta, 'env-platform', true, +pad.dataset.area);
+        var x = at.x, y = at.y, scale = at.scale;
+        art.style.left = r(x) + '%'; art.style.top = r(y) + '%';
+        art.style.width = r(at.meta.size[0] * scale) + '%';
+        old.replaceWith(art);
+        var satellites = node('div', 'env-satellites', pad);
+        clusters.push({ pad: pad, art: art, satellites: satellites, local: [],
+          extent: { l: x / 100, t: y / 100, r: (x + at.meta.size[0] * scale) / 100,
+            b: (y + at.meta.size[1] * scale) / 100 } });
+      });
+      var state = { screen: screen, site: site, root: root, deep: deep,
+        bigs: bigs, clusters: clusters, seed: 0, landing: landing, all: all };
+      if (wide) { state.cam = cam; state.wide = wide; }
+      states.set(site, state);
+      all.push(state);
+      // Resize may suppress a decoration which no longer fits, but never draws
+      // a new position or seed. Restoring the size restores the same decoration.
+      new ResizeObserver(function () { fitDecorations(state); }).observe(site);
+    });
+    screens.set(screen, all);
     configure(screen);
+  }
+  // every site frame on the camera plate, in its pixels: each site is the
+  // frame's own size, at its own place on the sea
+  function framesOf(cam) {
+    return Array.prototype.map.call(cam.querySelectorAll(':scope > .site'), function (el) {
+      var b = box(el, cam);
+      return rect(b.l, b.t, cam.clientWidth, cam.clientHeight);
+    });
   }
   function prepare() {
     if (prepared) return prepared;
@@ -315,7 +334,7 @@
     return true;
   }
   function strew(round, seed) {
-    var s = round && states.get(round.node);
+    var s = round && round.sites && states.get(round.sites.b.node);
     if (!s) return;
     var W = s.site.clientWidth, H = s.site.clientHeight, S = Math.min(W, H);
     if (!W || !H) return;
@@ -449,36 +468,49 @@
     var e = land ? land.ext : [0, 0, 1, 1];
     return rect(b.l + e[0] * w, b.t + e[1] * w, (e[2] - e[0]) * w, (e[3] - e[1]) * w);
   }
-  // The rest of the sea, in the camera plate's own pixels: site A's frame
-  // is its 0..W by 0..H, site B's is a frame right and 45% down, and the
-  // islets lie all round both (js/pages.js). After site B's strew, on the
-  // same seed, and clear of everything on it or hanging off it.
+  // The rest of the sea, in the camera plate's own pixels: every site is a
+  // frame of it, each at its own place (js/pages.js), and the islets lie
+  // all round them. After a site B's strew, on the same seed, and clear of
+  // everything on every site B or hanging off it -- so on a sea several
+  // rounds share it is drawn again with each one's strew, and the last
+  // drawn is the one that stands.
   function strewWide(s, round, rng) {
     var wide = s.wide, cfg = CONFIG.wide;
     if (!wide) return;
-    // site A's frame is the screen's, at rest, so the chrome is where it is
+    // a site A's frame is the screen's, at rest, so the chrome is where it
+    // is on it: moved along with that frame, wherever it lies
     var hard = chromeBoxes(round, s.screen);
     var cam = s.cam, W = cam.clientWidth, H = cam.clientHeight, S = Math.min(W, H);
     var between = function (lo, hi) { return lo + rng() * (hi - lo); };
     var count = function (span) { return span[0] + Math.floor(rng() * (span[1] - span[0] + 1)); };
-    var world = global.GeoPages.world || { l: -44, r: 244, t: -68, b: 214 };
+    // the sea's own bounds where it is wider than a round's (a shared sea,
+    // js/pages.js, says so on the plate), and the open water's rock spread
+    // over it in proportion
+    var one = global.GeoPages.world || { l: -44, r: 244, t: -68, b: 214 };
+    var own = (cam.dataset.world || '').split(' ').map(Number);
+    var world = own.length === 4 && own.every(isFinite) ? { l: own[0], t: own[1], r: own[2], b: own[3] } : one;
+    var spread = Math.max(1, (world.r - world.l) / (one.r - one.l));
     var bounds = rect(world.l / 100 * W, world.t / 100 * H, (world.r - world.l) / 100 * W, (world.b - world.t) / 100 * H);
     var inside = function (b) { return b.l >= bounds.l && b.t >= bounds.t && b.r <= bounds.r && b.b <= bounds.b; };
-    var siteA = rect(0, 0, W, H), siteB = box(s.site, cam);
-    siteB = rect(siteB.l, siteB.t, W, H);
-    // everything on site B, and whatever of it hangs off its frame
-    var taken = [siteB];
-    s.site.querySelectorAll('.env-object').forEach(function (el) {
-      if (!el.closest('[hidden]')) taken.push(box(el, cam));
+    var frames = framesOf(cam);
+    // everything on every site B, and whatever of it hangs off its frame
+    var taken = [];
+    (s.all || [s]).forEach(function (o) {
+      var f = box(o.site, cam);
+      taken.push(rect(f.l, f.t, W, H));
+      o.site.querySelectorAll('.env-object').forEach(function (el) {
+        if (!el.closest('[hidden]')) taken.push(box(el, cam));
+      });
     });
     var shown = function (el) { return !el.hidden && el.offsetParent; };
-    var pads = round.sites.a.el.padList.filter(shown);
-    var islets = round.islets.filter(shown).filter(function (el) { return inside(box(el, cam)); });
+    var pads = Array.prototype.filter.call(cam.querySelectorAll('.site--a .pad'), shown);
+    var islets = Array.prototype.filter.call(cam.querySelectorAll('.islet'), shown)
+      .filter(function (el) { return inside(box(el, cam)); });
     var land = pads.concat(islets).map(function (el) { return footprint(el, cam); });
     var pick = function (list) { return list[Math.floor(rng() * list.length)]; };
     var rocks = [];
     wide.bigs.replaceChildren(); wide.deep.replaceChildren();
-    round.sites.a.el.all.concat(round.islets).forEach(function (el) {
+    cam.querySelectorAll('.site--a .pad, .islet').forEach(function (el) {
       var holder = el.querySelector(':scope > .env-satellites');
       if (holder) holder.replaceChildren();
     });
@@ -507,25 +539,28 @@
         }
       }
     }
-    // site A's islands, inside its frame and clear of the chrome, as site
-    // B's are inside its own
+    // each site A's islands, inside its frame and clear of the chrome, as a
+    // site B's are inside its own
     pads.forEach(function (pad, i) {
+      var f = box(pad.closest('.site'), cam);
+      var chrome = hard.map(function (o) { return rect(o.l + f.l, o.t + f.t, o.r - o.l, o.b - o.t); });
       companions(pad, land[i], count(cfg.siteA), function (b) {
-        return b.l >= 8 && b.t >= H * .14 && b.r <= W - 8 && b.b <= H - 32 &&
-          !hard.some(function (o) { return hits(b, o); });
+        return b.l >= f.l + 8 && b.t >= f.t + H * .14 && b.r <= f.l + W - 8 && b.b <= f.t + H - 32 &&
+          !chrome.some(function (o) { return hits(b, o); });
       });
     });
-    // some of the islets, off both sites' frames
+    // some of the islets, off every site's frame
     islets.forEach(function (el, i) {
       if (rng() >= cfg.islets) return;
       companions(el, land[pads.length + i], count(cfg.isletRocks), function (b) {
-        return inside(b) && !hits(b, siteA) && !hits(b, siteB);
+        return inside(b) && !frames.some(function (f) { return hits(b, f); });
       });
     });
-    // and out on the open water, biggest first: off both sites' frames,
+    // and out on the open water, biggest first: off every site's frame,
     // `clear` of all land and rock, and each at least `apartBy` from the
     // last of its kind, so none of it heaps up in one place
-    var gap = S * cfg.clear, spacing = S * cfg.spacing, off = [grow(siteA, S * .04)].concat(taken);
+    var gap = S * cfg.clear, spacing = S * cfg.spacing;
+    var off = frames.map(function (f) { return grow(f, S * .04); }).concat(taken);
     function strewOpen(m, w, apartBy, spots) {
       var h = w * m.size[1] / m.size[0];
       for (var t = 0; t < CONFIG.attempts * 2; t++) {
@@ -540,13 +575,13 @@
     }
     var big = (ART.big || []).filter(function (m) { return m.large; });
     var small = (ART.big || []).filter(function (m) { return !m.large; });
-    // site B's own big rocks count as the last ones down: nothing out here
-    // heaps up against them either
-    var spots = Array.prototype.map.call(s.site.querySelectorAll('.env-big:not([hidden])'), function (el) {
+    // every site B's own big rocks count as the last ones down: nothing out
+    // here heaps up against them either
+    var spots = Array.prototype.map.call(cam.querySelectorAll('.site--b .env-big:not([hidden])'), function (el) {
       var b = box(el, cam);
       return { x: (b.l + b.r) / 2, y: (b.t + b.b) / 2 };
     });
-    for (var bi = 0; bi < cfg.islands && big.length; bi++) {
+    for (var bi = 0; bi < Math.round(cfg.islands * spread) && big.length; bi++) {
       var bm = pick(big), long = S * between(cfg.islandSize[0], cfg.islandSize[1]);
       var bw = bm.size[0] >= bm.size[1] ? long : long * bm.size[0] / bm.size[1];
       var at = strewOpen(bm, bw, spacing, spots);
@@ -554,7 +589,7 @@
       var isle = dryObject(bm, 'env-big', false, s.seed + 17 * bi, rng() < .5);
       place(isle, at.l, at.t, bw, W, H); wide.bigs.appendChild(isle); rocks.push(at);
     }
-    var want = count(cfg.clusters), start = Math.floor(rng() * small.length);
+    var want = Math.round(count(cfg.clusters) * spread), start = Math.floor(rng() * small.length);
     for (var ci = 0; ci < want && small.length; ci++) {
       var cm = small[(start + ci) % small.length], cw = S * between(CONFIG.clusterSize[0], CONFIG.clusterSize[1]);
       var cat = strewOpen(cm, cw, spacing, spots);
@@ -565,7 +600,7 @@
     // the rocks under the water: clear of the dry rock too, and apart
     // from each other
     var deepSpots = [], first = Math.floor(rng() * ART.deep.length);
-    for (var di = 0; di < cfg.deep; di++) {
+    for (var di = 0; di < Math.round(cfg.deep * spread); di++) {
       var dm = ART.deep[(first + di) % ART.deep.length], dw = S * between(CONFIG.deepSize[0], CONFIG.deepSize[1]);
       var dat = strewOpen(dm, dw, spacing * .8, deepSpots);
       if (!dat) continue;
@@ -593,8 +628,8 @@
     // in vmin, the islets in per cent and --pu: a new shape of window can
     // walk one onto the other, or onto a site.
     if (!s.wide) return;
-    var cam = s.cam, landed = [rect(0, 0, cam.clientWidth, cam.clientHeight), box(s.site, cam)];
-    s.round.islets.concat(s.round.sites.a.el.padList).forEach(function (el) {
+    var cam = s.cam, landed = framesOf(cam);
+    cam.querySelectorAll('.islet, .site--a .pad').forEach(function (el) {
       if (!el.hidden && el.offsetParent) landed.push(footprint(el, cam));
     });
     // the rock above the water keeps its place before the rock under it
@@ -611,7 +646,7 @@
   if (global.GeoLife) { global.GeoLife.on('suspend', pause); global.GeoLife.on('resume', resume); }
   global.GeoReef = { init: init, prepare: prepare, strew: strew, config: CONFIG,
     inspect: function (screen) {
-      var s = states.get(screen); if (!s) return null;
+      var s = (screens.get(screen) || [])[0]; if (!s) return null;
       return { seed: s.seed, clusters: s.clusters.map(function (c) {
         return { area: c.pad.dataset.area, satellites: c.local, extent: c.extent };
       }), missing: Array.from(missing) };

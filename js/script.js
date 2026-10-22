@@ -19,41 +19,49 @@
      → the lens brackets site A and descends — see THE CAMERA in
         js/animation.js
      → "the scanner found several landing zones"
-     → "look at the shapes of the landing zones"
-     → "the spaceship is a square — select all the square landing
-        zones"
+     → the round's craft flies in and hovers over open water:
+       "here comes our first spaceship! look at its shape. select
+        all the landing zones where it can land"
      → site A's five islands become selectable; three squares to
        find, two other shapes to leave
        · right shape → green coast, zone locks in
        · wrong shape → red coast, buzzer, "try again"
      → all three found: the two wrong shapes sink, "correct! these
-       landing zones have the same shape as the spaceship", and a
-       NEXT button arrives
+       landing zones have the same shape as the spaceship", and the
+       lens climbs away with the craft and goes straight on
 
-   Screen 3 · the square's landing, flown by hand
-     the lens is already down on the landing site: the three squares
-     (54, 24 and 36 square units) break the surface strewn round the
-     middle of the frame, the craft flies in and hovers there, its
-     side is called out, the areas are printed on -- and the
-     joystick comes up.
+   Screen 3 · the rectangle's shapes
+     the next site's screen dissolves in at survey height, and the
+     same shape question is asked there of the rectangle's craft;
+     once its three are found it says "we have found the landing
+     zones. but which one is the right zone to land on perfectly?"
+     and NEXT arrives
+
+   Screens 4 and 5 · the square's landing, then the rectangle's
+     each back on its own screen, with the lens already down on the
+     landing site: three islands of the shape break the surface, the
+     craft flies in and hovers, its sides are called out, the areas
+     are printed on -- and the joystick comes up.
      The player flies the craft over an island, lets go, and presses
      GO (js/pilot.js); it comes down and the geometry decides what
      happens (see THE LANDING below). A miss costs one of three
      hearts and the craft comes back to the middle; with all three
      gone the autopilot lands it on the one that fits. It fits:
-     confetti, "landing successful", and NEXT. The narration bar on
-     this screen stays up while each sentence is spoken and steps
-     aside once it is finished, so the screen is left clear.
+     confetti, "landing successful", and NEXT. The narration bar
+     stays up while each sentence is spoken and steps aside once it
+     is finished, so the screen is left clear. Screens 2 to 5 are
+     two visits each to the square's and the rectangle's screens
+     (`split`, js/pages.js).
 
-   Screens 4 to 8 · a round per shape
+   Screens 6 to 8 · a round per shape
      the whole lesson on one screen, for a new shape and a new area
      formula each time, opening straight onto the water at survey
      height: the archipelago breaks the surface, the lens comes down
-     on site A for "select all the rectangular landing zones", climbs
-     and crosses and comes down on site B, where the player flies the
-     craft onto the island whose area it needs, exactly as on screen
-     3 -- hearts, autopilot and all. Rectangle, parallelogram,
-     trapezium, rhombus. See runRound().
+     on site A for the shape question, climbs and crosses and comes
+     down on site B, where the player flies the craft onto the
+     island whose area it needs, exactly as on screens 4 and 5 --
+     hearts, autopilot and all. Parallelogram, rhombus, trapezium.
+     See runRound().
 
    The "<" / ">" nav can cut in at any point, so each screen is
    described as a list of steps run under a generation id. Jumping
@@ -152,11 +160,11 @@
     perfectFit: 'Perfect match! The spaceship fits exactly.',
     landed: 'Landing successful! Great work, Space Commander.',
 
-    /* the two lines screens 3-8 add: the hand-off from the shape
-       task to the area task, and a second way of asking for the
-       area so five rounds do not all open with the same sentence */
-    onlyMatching: 'Now we only need to check these matching landing zones.',
+    /* a second way of asking for the area, so five rounds do not
+       all ask with the same sentence */
     findArea: 'Find the area of spaceship, and select the suitable land.',
+    /* each round's own lines -- the craft's arrival, the formula, the
+       closing lines -- are in js/pages.js */
 
     /* the flown landing (js/pilot.js): how to fly, and what happens
        when the hearts run out. No clips for either -- typed at
@@ -165,7 +173,7 @@
     autoPilot: 'Out of hearts! Autopilot will land on the zone that fits.',
 
     /* the last screen (runEnd); no clip, shown for a reading's length */
-    complete:  'You landed the spaceship safely on every shape. Great work, Space Commander!'
+    complete:  'All five spaceships have landed safely. Great work, Space Commander!'
   };
 
   function grab() {
@@ -173,7 +181,7 @@
       'stage', 'screenCockpit', 'starfield', 'cruiseCanvas',
       'flyDrone', 'flyTrail', 'dash', 'waveCanvas', 'cockpitCaption',
       'launchSlot', 'launchBtn',
-      'screenEnd', 'endStars', 'endShip', 'endTitle', 'endCaption', 'endConfetti', 'restartBtn',
+      'screenEnd', 'endStars', 'endFleet', 'endTitle', 'endCaption', 'endConfetti', 'restartBtn',
       'gate', 'gateBtn', 'gateLoad', 'gateFill',
       'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext',
       'navDebug', 'navDebugMenu'
@@ -308,15 +316,27 @@
        typewriter's own reading rate and the flow waits for the text
        rather than for a voice. Drop the mp3s in and register them in
        VOICE (js/audio.js) and this branch stops being taken — every
-       one of those lines starts speaking, with no change here. */
+       one of those lines starts speaking, with no change here.
+
+       Typed one sentence at a time, each in place of the last, so
+       the bar never carries more than one -- a long line ("here
+       comes our first spaceship! look at its shape. select ...")
+       would otherwise wrap and stand there as a paragraph. A jump
+       away between two sentences ends it there. */
     if (!A.hasVoice(key)) {
-      if (M.reduced()) {
-        T.set(bar, text);
-        return M.wait(1400);
-      }
-      return T.type(bar, text, { hold: 900 }).then(function () {
-        return M.wait(400);
-      });
+      var gen = runId;
+      return sentences(text).reduce(function (chain, s) {
+        return chain.then(function () {
+          if (gen !== runId) return;
+          if (M.reduced()) {
+            T.set(bar, s);
+            return M.wait(1400);
+          }
+          return T.type(bar, s, { hold: 900 }).then(function () {
+            return M.wait(400);
+          });
+        });
+      }, Promise.resolve());
     }
 
     if (M.reduced()) {
@@ -331,6 +351,13 @@
     }).then(function () {
       return M.wait(300);
     });
+  }
+
+  /* a line's sentences, in order */
+  function sentences(text) {
+    return (String(text).match(/[^.!?]+(?:[.!?]+|$)/g) || [])
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
   }
 
   /* ============================================================
@@ -421,7 +448,8 @@
   /* ============================================================
      MISSION COMPLETE — the last screen
 
-     After the last round's NEXT: the craft, the title, one line,
+     After the last round's NEXT: the five crafts landed, each with
+     its area rule (the fleet, js/pages.js), the title, one line,
      confetti, and RESTART, which takes the mission from the top.
      Shaped like the cockpit: reset puts every piece back while the
      screen is still hidden, run brings them in one after another
@@ -430,7 +458,7 @@
      ============================================================ */
   function resetEnd() {
     if (!el.screenEnd) return;
-    el.endShip.classList.remove('is-in');
+    el.endFleet.classList.remove('is-in');
     el.endTitle.classList.remove('is-in');
     el.endCaption.classList.remove('is-shown');
     el.endCaption.textContent = '';
@@ -445,9 +473,11 @@
   function runEnd() {
     return sequence([
       function () { return M.wait(500); },
+      /* the five come down onto their islands one after another
+         (css/style.css staggers them) */
       function () {
-        el.endShip.classList.add('is-in');
-        return M.wait(900);
+        el.endFleet.classList.add('is-in');
+        return M.wait(M.reduced() ? 300 : 1500);
       },
       /* the title comes in on the fanfare, with the music drawn back
          under it for its length and brought up again after */
@@ -492,13 +522,14 @@
                            under the lens -- sixteen islets of every
                            shape, and among them the two sites
        down on SITE A      three islands of the round's shape, three
-                           sizes, and two other shapes. The line
-                           names the shape; wrong shape shakes, right
-                           shape takes a green coast
+                           sizes, and two other shapes, and the craft
+                           flies in and hovers over them. The line
+                           points at its shape; wrong shape shakes,
+                           right shape takes a green coast
        up, across, down    the two that never matched sink and the
-                           payoff line plays from the air; the lens
-                           crosses the water at height and comes
-                           down on SITE B
+                           payoff line plays from the air; the craft
+                           heads off for site B, and the lens crosses
+                           the water at height and comes down there
        down on SITE B      three islands of the round's shape in the
                            row, carrying the round's three areas, and
                            nothing else. The craft arrives, its
@@ -507,13 +538,15 @@
                            decides, exactly as it always has
        land                planted, confetti, NEXT
 
-     The first round is split in two. The survey (screen 2) is the
-     drone's dark-and-scan opening (`round.intro`) and the shape
-     question on site A, and stops there with NEXT
-     (`round.shapeOnly`); screen 3 is that round's landing, opened
-     with the lens already down on site B (`round.landingOnly`, see
-     runLanding). Every other round opens straight onto the water
-     and plays both. What differs between them otherwise is
+     The first two rounds are split (`round.split`): each screen is
+     visited twice, for its shape question alone ('hunt') and for its
+     landing alone ('land'), and both shape questions come first. The
+     first visit of all is the drone's dark-and-scan opening
+     (`round.intro`), where the scan finds the land; every visit after
+     it opens high over land already up, the last visit having zoomed
+     out to that height (leaveTo), and comes down on the site it
+     plays -- A for a shape question, B for a landing. The later
+     rounds play both sites in one visit. What differs between them otherwise is
      entirely data -- the artwork, the measurements, the numbers on
      the islands, the formula -- and all of it lives in
      js/pages.js. Nothing below names a shape.
@@ -530,23 +563,23 @@
      ── coordinates ──
 
      Everything in the camera plate is in WORLD coordinates -- per
-     cent of one frame. Site A's frame is (0..100, 0..100), site B's
-     a frame to the right and 45% down. SITES holds their centres,
-     and it MUST agree with .site--b in css/style.css: a site's
-     centre is its offset plus (50, 50). WORLD is the point between
-     them the lens holds at survey height.
+     cent of one frame. On a round's own sea site A's frame is
+     (0..100, 0..100) and site B's a frame to the right and 45% down;
+     where rounds share one sea each pair has its own place on it
+     (SITE_AT, js/pages.js). A site's centre is its offset plus
+     (50, 50); the lens holds the middle of every site on the sea at
+     survey height (`round.mid`, or WORLD on a sea of one round).
 
      ── the lens ──
 
-     Three states, and the flights between them (THE CAMERA in
-     js/animation.js): wide over WORLD, down on A, down on B. The
-     first descent is one leg; the crossing is one animation with a
+     The states, and the flights between them (THE CAMERA in
+     js/animation.js): wide over the middle, and down on each site.
+     The first descent is one leg; a crossing is one animation with a
      climb, a slow drift at altitude and a descent in it, so the lens
-     never stops between the two sites. The altimeter follows the
-     lens itself (altFollow), whatever it is doing.
+     never stops between two sites. The altimeter follows the lens
+     itself (altFollow), whatever it is doing.
      ============================================================ */
 
-  var SITES = { a: { x: 50, y: 50 }, b: { x: 150, y: 95 } };
   var WORLD = { x: 100, y: 72.5 };
 
   /* how long each move takes. Long -- the move is the beat, not an
@@ -564,72 +597,117 @@
 
   /* the lens down on a site: scale 1, the site's centre under the
      middle of the frame -- which is that site laid out exactly as a
-     screen of its own would lay it out */
-  function siteState(key) {
-    return { s: 1, x: SITES[key].x, y: SITES[key].y };
+     screen of its own would lay it out. Wherever on the sea the site
+     stands (its offset, js/pages.js). */
+  function siteState(site) {
+    return { s: 1, x: site.offset.x + 50, y: site.offset.y + 50 };
   }
 
-  /* and at survey height, over the middle of the sea */
-  function wideState(round, dx, dy) {
-    return {
-      s: M.camWide(round.node),
-      x: WORLD.x + (dx || 0),
-      y: WORLD.y + (dy || 0)
-    };
+  /* and at survey height, over the middle of the view `site` is in --
+     a round's two sites, or on a shared sea its shape questions or its
+     landings (`site.mid`, js/pages.js) */
+  function wideState(round, site) {
+    var mid = (site && site.mid) || WORLD;
+    return { s: M.camWide(round.node), x: mid.x, y: mid.y };
   }
 
-  function resetRound(round) {
+  /* the site a visit to `round` comes down on */
+  function targetOf(round) {
+    return landing(round) ? round.sites.b : round.sites.a;
+  }
+
+  /* Which visit to a round's screen is being played: the whole round
+     ('full'), or -- on a `split` round, js/pages.js -- its shape
+     question alone ('hunt') or its landing alone ('land'). SCREENS
+     lists each visit as a screen of its own. */
+  function landing(round) {
+    return round.landingOnly || round.visit === 'land';
+  }
+
+  /* The whole screen back to its opening state for `visit` of `round`
+     -- and, where rounds share the screen's sea (`together`,
+     js/pages.js), every one of them: all their sites, the islets, the
+     reef, each craft's spot over its site A. */
+  function resetRound(round, visit) {
     var e = round.el;
-    var a = round.sites.a;
-    var b = round.sites.b;
     var P = global.GeoPages;
+    var rounds = round.together || [round];
 
+    rounds.forEach(function (r) { r.visit = null; });
+    round.visit = visit || 'full';
 
     /* the lens first: back to the ground state before anything is
        measured, so the layout below is read off the layout itself */
     M.camReset(round.node);
     altReset(round);
 
-    /* the first round's opening: the dark, the bezel and the scanner */
-    if (round.intro) {
-      e.bg.classList.remove('is-lit');
-      e.bezel.classList.remove('is-retired');
-      e.blackout.classList.remove('is-clear');
+    /* the screen's opening: the dark, the bezel and the scanner -- in
+       the dark only for the visit that opens with the scan. Any other
+       visit to that screen is in daylight from the off: lit with the
+       fades held, so the dissolve onto it does not bring the sea up
+       out of the dark (`is-cut`, css/style.css). */
+    if (e.blackout) {
+      var lit = !(round.intro && !landing(round));
+      round.node.classList.add('is-cut');
+      e.bg.classList.toggle('is-lit', lit);
+      e.bezel.classList.toggle('is-retired', lit);
+      e.blackout.classList.toggle('is-clear', lit);
       e.scanner.classList.remove('is-on');
       var bar = e.scanner.querySelector('.scanner__bar');
       if (bar && bar.getAnimations) {
         bar.getAnimations().forEach(function (an) { an.cancel(); });
       }
+      void round.node.offsetWidth;
+      round.node.classList.remove('is-cut');
     }
 
-    /* both sites back to their opening state, then a fresh draw on
-       each: site A with a fresh pair of decoys, strewn across the
-       five stations; site B's three dealt across the row, so the fit
-       is never twice in the same place */
-    clearRound(a);
-    clearRound(b);
+    /* every site back to its opening state, then a fresh draw on
+       each: a site A with a fresh pair of decoys, strewn across the
+       five stations; a site B's three dealt across the row, so the
+       fit is never twice in the same place */
+    rounds.forEach(function (r) {
+      clearRound(r.sites.a);
+      clearRound(r.sites.b);
+    });
 
     /* a full round's bar only steps aside once its landing is flown
        (landingSteps); the landing screen's is marked so in its markup */
     if (!round.landingOnly && e.topbar) e.topbar.removeAttribute('data-step-aside');
 
-    P.arrangeSite(a, P.drawPair(round.decoyPool), ['pad--far1', 'pad--far2']);
-    P.arrangeSite(b, [], []);
-    P.dealRow(a);
-    P.scatter(a);
-    /* a flown landing strews its three round the hovering craft
-       instead of lining them up under it */
-    if (flown(b)) P.strewPilot(round);
-    else P.dealRow(b);
+    rounds.forEach(function (r) {
+      var a = r.sites.a;
+      var b = r.sites.b;
+      P.arrangeSite(a, P.drawPair(r.decoyPool), ['pad--far1', 'pad--far2']);
+      P.arrangeSite(b, [], []);
+      P.dealRow(a);
+      P.scatter(a);
+      /* a flown landing strews its three round the hovering craft
+         instead of lining them up under it */
+      if (flown(b)) P.strewPilot(r);
+      else P.dealRow(b);
+    });
 
-    /* the rest of the archipelago, strewn again -- over the frame of
-       any site this screen never plays, too */
+    /* the rest of the archipelago, strewn again -- clear of every site
+       on the sea (`keepOut`), or of the sites this screen plays */
     round.islets.forEach(function (isl) { isl.classList.remove('is-up'); });
-    P.strewIslets(e.cam, round.islets, round.plays);
+    P.strewIslets(e.cam, round.islets, round.keepOut || round.plays, round.world);
 
-    /* and the reef's rock, above the water and under it, clear of
-       where all of that now is, on the screen that has one */
-    REEF.strew(round);
+    rounds.forEach(function (r) {
+      /* and the reef's rock, above the water and under it, clear of
+         where all of that now is, on the screen that has one */
+      REEF.strew(r);
+
+      /* the craft over site A, on open water clear of all of that --
+         or, on a frame with none to spare, not at all, and the shape
+         question names the shape instead (hoverSpot in js/pages.js).
+         Found for every round on the sea, since a visit after this
+         one plays its shape question without another reset. */
+      r.sites.a.hovers = !r.landingOnly && !!r.arrive && P.hoverSpot(r);
+    });
+
+    /* and the land itself: up already on every visit but the first,
+       which is the one whose scan finds it (emerge) */
+    if (!round.intro || landing(round)) surfaced(round);
 
     /* And the lens: PARKED at survey height over the middle of the
        sea, before the screen is shown. Reset runs while the screen is
@@ -646,23 +724,33 @@
        page is reloaded. A loiter that only ever runs on a screen the
        player is looking at is cancelled long before it can finish.
 
-       A landing screen is the exception: it opens with the lens
-       already down on site B, and never leaves it. */
+       Every visit opens here, a landing visit too: it comes down on
+       site B from this height as the others come down on site A. */
     airborne = !M.reduced();
-    M.camSet(round.node, round.landingOnly ? siteState('b') : wideState(round));
+    M.camSet(round.node, wideState(round, targetOf(round)));
   }
 
-  function runRound(round) {
+  /* `visit`: which visit this is, when it is played without a reset
+     ahead of it. `opts.from`: the visit before it, on this same sea
+     (continueTo) -- the lens is wherever that one left it, and flies
+     on from there instead of opening the screen. */
+  function runRound(round, visit, opts) {
     W.stop();
-
-    if (round.landingOnly) return runLanding(round);
+    opts = opts || {};
+    if (visit) round.visit = visit;
 
     var e = round.el;
     var a = round.sites.a;
     var b = round.sites.b;
+    var from = opts.from || null;
 
-    /* site A's question is the live one until the craft arrives */
-    R = a;
+    /* the site this visit comes down on: B for a landing on its own,
+       A for everything else, whose question is the live one until the
+       craft arrives on B */
+    var land = landing(round);
+    var target = land ? b : a;
+    var opening = round.intro && !land && !from;
+    R = target;
 
     /* The lens starts its loiter now that the screen is on -- see the
        note at the end of resetRound(). Long enough that nothing on
@@ -671,11 +759,14 @@
        interrupts it, so it never gets to finish and never leaves a
        filled frame behind. The amplitude is scaled to match, so the
        drift the player sees is the same slow one it always was. */
-    if (airborne) M.camLoiter(round.node, wideState(round), { dx: 5.8, dy: 3.2, ms: 45000 });
+    if (airborne && !from) M.camLoiter(round.node, wideState(round, target), { dx: 5.8, dy: 3.2, ms: 45000 });
 
     var steps = [];
 
-    if (round.intro) {
+    if (from) {
+      /* ── on from the last visit, over the same sea ── */
+      steps.push(function (id) { return arriveFrom(round, target, from, id); });
+    } else if (opening) {
       /* ── the first round's opening: the dark, and the scan ── */
       steps.push(
         /* the bar drops in empty and then carries every line on this
@@ -726,46 +817,72 @@
         }
       );
     } else {
-      /* ── a round opens on the water, at height ── */
-      steps.push(function () {
-        A.duckAmbience(0.16, 900);
-        altTo(round, 'SURVEY');
-        return M.wait(airborne ? 900 : 300);
-      });
+      /* ── every other visit opens high over the water ──
+         The screen before it climbed away to survey height and
+         dissolved into this one at that height (leaveTo), so the
+         land here is already up (resetRound) and the lens goes
+         straight on: brackets the site it is coming down on, and
+         comes down. One zoom out, one zoom in. */
+      steps.push(
+        function () {
+          A.duckAmbience(0.16, 900);
+          altTo(round, 'SURVEY');
+          return M.wait(airborne ? 400 : 200);
+        },
+        function () {
+          altTo(round, 'CONTACT');
+          if (!airborne) return M.wait(200);
+          M.camFix(round.node, siteBox(round, target, M.camRead(round.node)), 620);
+          cue('bracket');
+          return M.wait(900);
+        }
+      );
     }
 
-    steps.push(
-      /* --- the archipelago breaks the surface --- */
-      function () {
-        altTo(round, 'CONTACT');
-        return emerge(round);
-      },
-      function () { return M.wait(420); },
+    if (opening) {
+      steps.push(
+        /* --- the archipelago breaks the surface --- */
+        function () {
+          altTo(round, 'CONTACT');
+          return emerge(round);
+        },
+        function () { return M.wait(420); }
+      );
+    }
 
-      /* --- and the lens comes down on site A ---
-         Nothing is said over it: the first line is the first thing
-         spoken from the new altitude. The bracket is released a
-         little under halfway down, well before the islands are big
-         enough for it to be a box drawn round the answer. */
-      function (id) {
+    /* --- and the lens comes down on the site ---
+       Nothing is said over it: the first line is the first thing
+       spoken from the new altitude. The bracket is released a little
+       under halfway down, well before the islands are big enough for
+       it to be a box drawn round the answer. A visit on from another
+       came down at the end of its crossing (arriveFrom). */
+    if (!from) {
+      steps.push(function (id) {
         altTo(round, 'DESCEND');
         A.duckAmbience(0.26, 1400);
         M.wait(DESCENT_MS * 0.42).then(function () {
           if (live(id)) M.camUnfix(round.node, 620);
         });
-        return fly(round, [siteState('a')], DESCENT_MS);
-      },
+        return fly(round, [siteState(target)], DESCENT_MS);
+      });
+    }
 
+    steps.push(
       /* --- the lens settles, the instrument bows out, and the bar
-             comes up --- */
+             comes up -- for a question read on site A; a landing's
+             bar comes up with its first line --- */
       function () {
         altTo(round, 'HOLD');
-        e.topbar.classList.add('is-on');
-        return Promise.all([altOut(round), M.wait(780)]);
+        if (!land) e.topbar.classList.add('is-on');
+        return Promise.all([altOut(round), M.wait(land ? 300 : 780)]);
       }
     );
 
-    if (round.intro) {
+    /* a landing on its own: down on site B, and straight on to the
+       area question */
+    if (land) return sequence(steps.concat(landingSteps(round)));
+
+    if (opening) {
       steps.push(
         function () { return narrate(e.topbarText, 'foundZones'); },
         function () { return M.wait(300); }
@@ -774,28 +891,53 @@
 
     steps.push(
       /* ═══════════════ the shape question, on site A ═══════════════
-         The craft is NOT on screen for this half. The line names its
-         shape and the player has to carry that to the water
-         themselves, which is a different question from "which of
-         these looks like that" -- and a harder one. */
-      function () { return narrate(e.topbarText, 'lookShapes'); },
+         Asked of the craft itself: it flies in and hovers over open
+         water (hoverIn), and the line asks for the zones it can land
+         on without naming its shape -- the player reads the shape
+         off the craft. Its first sentence ("here comes our first
+         spaceship!") is typed while the craft flies in, and the rest
+         ("look at its shape", "select all ...") once it is on its
+         spot, a sentence at a time (see voice()).
 
-      /* a beat to look at the water before the line names the shape */
-      function () { return M.wait(560); },
+         A frame with no open water to spare for it (`a.hovers`
+         false) is asked the way it always was: the line names the
+         shape, a beat after the player is told to look at the
+         water. */
+      function () {
+        if (a.hovers) {
+          return Promise.all([
+            hoverIn(round),
+            narrate(e.topbarText, round.shape + 'Arrive', sentences(round.arrive)[0])
+          ]);
+        }
+        return narrate(e.topbarText, 'lookShapes').then(function () { return M.wait(560); });
+      },
 
-      /* no shape's line has a recorded clip, so each is typed at
+      /* no round's line has a recorded clip, so each is typed at
          reading rate (see narrate); `sayKey` is honoured should one
          be added */
-      function () { return narrate(e.topbarText, round.sayKey || round.shape, round.say); },
+      function () {
+        if (!a.hovers) return narrate(e.topbarText, round.sayKey || round.shape, round.say);
+        var rest = sentences(round.arrive).slice(1).join(' ');
+        if (rest) return narrate(e.topbarText, round.shape + 'Look', rest);
+      },
 
       /* --- over to the player, until all three are found --- */
       function (id) { return startRoundPicking(a, id); }
     );
 
-    if (round.shapeOnly) {
+    if (round.shapeOnly || round.visit === 'hunt') {
+      /* the shape question is this visit's whole question. The last
+         split round's (`huntOutro`) keeps its craft and its lens
+         where they are, says what the landings will need, and offers
+         NEXT; one before it goes straight on to the next shape
+         question -- over the same sea, the lens climbs off this site,
+         crosses at height and comes down on that one, with this
+         site's payoff said on the way up (continueTo, arriveFrom). */
+      var onward = round.visit === 'hunt' && !round.huntOutro;
+
       steps.push(
-        /* the shape question is this screen's whole question, so
-           answering it is what earns the way on -- and, as on a
+        /* answering it is what earns the way on -- and, as on a
            landing, the watchdog makes sure that way on arrives */
         function (id) {
           a.solved = true;
@@ -806,15 +948,24 @@
         /* --- the two that never matched go back under, and the
                payoff line plays over them --- */
         function (id) {
+          if (onward) {
+            continueTo(current + 1, { answered: false });
+            return;
+          }
           var said = M.wait(700).then(function () {
             if (live(id)) return narrate(e.topbarText, 'shapeMatch');
           });
           return Promise.all([sinkRoundDecoys(a), said]);
         },
 
-        /* --- NEXT: on to this round's landing, on the next screen --- */
         function (id) {
-          return M.wait(400).then(function () {
+          return Promise.resolve(round.huntOutro &&
+            M.wait(300).then(function () {
+              if (live(id)) return narrate(e.topbarText, round.shape + 'Found', round.huntOutro);
+            })
+          ).then(function () {
+            return M.wait(400);
+          }).then(function () {
             if (live(id)) showRoundAdvance(a);
           });
         }
@@ -850,7 +1001,8 @@
             return narrate(e.topbarText, 'shapeMatch');
           }).then(function () {
             if (!live(id)) return;
-            return fly(round, [siteState('b')], 0);
+            hoverOut(round);
+            return fly(round, [siteState(b)], 0);
           });
         }
 
@@ -862,11 +1014,16 @@
         M.wait(700).then(function () {
           if (live(id)) said = narrate(e.topbarText, 'shapeMatch');
         });
+        /* and the craft heads off for site B as the lens gets going,
+           ahead of it (hoverOut) */
+        M.wait(HOVER_OUT_AT).then(function () {
+          if (live(id)) hoverOut(round);
+        });
 
         altTo(round, 'CLIMB');
         A.duckAmbience(0.22, 1400);
 
-        var top = wideState(round);
+        var top = wideState(round, b);
         M.wait(TRANSIT_MS * 0.40).then(function () {
           if (!live(id)) return;
           altTo(round, 'TRANSIT');
@@ -882,7 +1039,7 @@
           { s: top.s, x: top.x - 6, y: top.y - 3, offset: 0.40, easing: 'linear' },
           { s: top.s, x: top.x + 6, y: top.y + 3, offset: 0.56,
             easing: 'cubic-bezier(.5, 0, .18, 1)' },
-          siteState('b')
+          siteState(b)
         ], TRANSIT_MS, { easing: 'cubic-bezier(.44, .02, .28, 1)' }).then(function () {
           return said;
         });
@@ -898,33 +1055,171 @@
     return sequence(steps.concat(landingSteps(round)));
   }
 
-  /* The first round's landing, on a screen of its own: the survey
-     has just asked its shape question, so this opens with the lens
-     already down on site B, where the three islands that matched
-     break the surface, and goes straight on to the area question. */
-  function runLanding(round) {
-    R = round.sites.b;
+  /* The zoom out from one screen to the next: the lens climbs off
+     whichever site it is down on, back to survey height, and drifts
+     there, the way the crossing starts -- and the next screen
+     dissolves in at that same height and comes down on its own site
+     (runRound). Between two visits on one sea there is no zoom out to
+     a dissolve at all: the lens crosses (arriveFrom). */
+  var LEAVE_MS = 3000;
 
-    return sequence([
-      function () {
-        A.duckAmbience(0.22, 900);
-        return M.wait(M.reduced() ? 200 : 650);
-      },
-      /* site B's three, and nothing else: site A and the islets are
-         empty on this screen */
-      function () { return emerge(round); },
-      function () { return M.wait(300); }
-    ].concat(landingSteps(round)));
+  function climbAway(round, site, id, ms) {
+    var top = wideState(round, site);
+    altTo(round, 'CLIMB');
+    A.duckAmbience(0.22, 1400);
+    M.wait(ms * 0.6).then(function () {
+      if (live(id)) altTo(round, 'TRANSIT');
+    });
+    return fly(round, [
+      { s: top.s, x: top.x - 6, y: top.y - 3, offset: 0.62, easing: 'linear' },
+      { s: top.s, x: top.x + 3, y: top.y + 1.5 }
+    ], ms, { easing: 'cubic-bezier(.44, .02, .28, 1)' });
+  }
+
+  /* On from the last visit to the next site on the same sea, with no
+     cut (continueTo). Whatever the last visit leaves behind goes as
+     the lens climbs off it: a shape question's two wrong islands and
+     its payoff line, where it went straight on without saying it
+     (`from.answered` false); the craft still hovering over its site A,
+     which heads off for its own landing; the hearts, the bar, the
+     confetti. The lens crosses at survey height and comes down on
+     `target`. The visit starts with a clean bar -- its lines shown
+     again, not only heard (`data-said`), and kept up between lines on
+     a shape question -- and a landing with its hearts and stick back
+     to three and away (PILOT.reset); a camera that followed the last
+     landing's craft is eased back to centre on the way up. */
+  function arriveFrom(round, target, from, id) {
+    var e = round.el;
+    var prev = from.round;
+    var said = null;
+
+    if (e.lives) e.lives.classList.remove('is-on');
+    if (e.confetti) M.confettiClear(e.confetti);
+    if (from.visit === 'land' && PILOT) PILOT.centre(prev.sites.b, 1400);
+
+    if (from.visit === 'hunt' && from.answered === false) {
+      var pa = prev.sites.a;
+      sinkRoundDecoys(pa);
+      M.wait(520).then(function () {
+        if (live(id)) pa.el.pads.classList.add('is-cleared');
+      });
+      said = M.wait(700).then(function () {
+        if (live(id)) return narrate(e.topbarText, 'shapeMatch');
+      });
+    } else {
+      e.topbar.classList.remove('is-on');
+      if (from.visit === 'hunt') prev.sites.a.el.pads.classList.add('is-cleared');
+    }
+    M.wait(HOVER_OUT_AT).then(function () {
+      if (live(id)) hoverOut(prev);
+    });
+
+    delete e.topbar.dataset.said;
+    if (target === round.sites.a) e.topbar.removeAttribute('data-step-aside');
+    if (target === round.sites.b && flown(target)) PILOT.reset(target);
+
+    var left = from.visit === 'land' ? prev.sites.b : prev.sites.a;
+    return Promise.all([crossTo(round, left, target, id), said]);
+  }
+
+  /* One crossing, from `left` to `target`, as one flight. Inside one
+     view it is the crossing a whole round makes from its site A to
+     its site B: a climb, a slow drift at survey height along the way
+     it is going, and the descent. From one view to the other (a
+     shared sea's shape questions to its landings) it climbs to the
+     first view's height, glides along the sea at that height to the
+     second's and comes down, TRANSFER_MS in all. The target is
+     bracketed at the top and let go on the way down. */
+  var TRANSFER_MS = 9000;
+
+  function crossTo(round, left, target, id) {
+    if (!airborne) return fly(round, [siteState(target)], 0);
+    if (left && left.mid !== target.mid) return transferTo(round, left, target, id);
+
+    var top = wideState(round, target);
+    var at = M.camRead(round.node);
+    var to = siteState(target);
+    var dx = to.x - at.x, dy = to.y - at.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var ux = dx / len * 6.6, uy = dy / len * 6.6;
+
+    altTo(round, 'CLIMB');
+    A.duckAmbience(0.22, 1400);
+    M.wait(TRANSIT_MS * 0.40).then(function () {
+      if (!live(id)) return;
+      altTo(round, 'TRANSIT');
+      M.camFix(round.node, siteBox(round, target, top), 560);
+      cue('bracket');
+    });
+    M.wait(TRANSIT_MS * 0.58).then(function () { if (live(id)) altTo(round, 'DESCEND'); });
+    M.wait(TRANSIT_MS * 0.80).then(function () {
+      if (live(id)) M.camUnfix(round.node, 560);
+    });
+
+    return fly(round, [
+      { s: top.s, x: top.x - ux, y: top.y - uy, offset: 0.40, easing: 'linear' },
+      { s: top.s, x: top.x + ux, y: top.y + uy, offset: 0.56,
+        easing: 'cubic-bezier(.5, 0, .18, 1)' },
+      to
+    ], TRANSIT_MS, { easing: 'cubic-bezier(.44, .02, .28, 1)' });
+  }
+
+  function transferTo(round, left, target, id) {
+    var from = wideState(round, left);
+    var over = wideState(round, target);
+    var ms = TRANSFER_MS;
+
+    altTo(round, 'CLIMB');
+    A.duckAmbience(0.22, 1400);
+    M.wait(ms * 0.28).then(function () { if (live(id)) altTo(round, 'TRANSIT'); });
+    M.wait(ms * 0.58).then(function () {
+      if (!live(id)) return;
+      M.camFix(round.node, siteBox(round, target, over), 560);
+      cue('bracket');
+    });
+    M.wait(ms * 0.68).then(function () { if (live(id)) altTo(round, 'DESCEND'); });
+    M.wait(ms * 0.86).then(function () {
+      if (live(id)) M.camUnfix(round.node, 560);
+    });
+
+    return fly(round, [
+      { s: from.s, x: from.x, y: from.y, offset: 0.28,
+        easing: 'cubic-bezier(.45, 0, .4, 1)' },
+      { s: over.s, x: over.x, y: over.y, offset: 0.64,
+        easing: 'cubic-bezier(.5, 0, .18, 1)' },
+      siteState(target)
+    ], ms, { easing: 'cubic-bezier(.44, .02, .28, 1)' });
+  }
+
+  /* A round visit taken leave of through its NEXT (leaveTo): the way
+     on goes, and so does what was this visit's -- the bar, the
+     hearts, a craft still hovering over site A, which heads off on
+     its jets -- and the lens zooms out. A landed craft stays on its
+     island. */
+  function leaveRound(round, id) {
+    var e = round.el;
+    e.advance.classList.remove('is-in');
+    e.topbar.classList.remove('is-on');
+    if (e.lives) e.lives.classList.remove('is-on');
+    hoverOut(round);
+    return climbAway(round, round.visit === 'hunt' || round.shapeOnly ? round.sites.a : round.sites.b, id, LEAVE_MS);
   }
 
   /* ═══════════════ the area question, on site B ═══════════════
      Everything from the craft's arrival to NEXT, which a full round
-     plays after its crossing and a landing screen plays on its own. */
+     plays after its crossing and a landing screen plays on its own.
+
+     The lines are Game_Flow_Without_Learning.md's. No lesson has
+     taught the area rules, so every landing names its shape and its
+     rule (`formula`, js/pages.js) before the player works the area
+     out. The first landing (`teach`) leads up to that -- how much
+     space does the craft need -- and is the one that says how to
+     fly. "Choose the exact area" is kept for after a miss. */
   function landingSteps(round) {
     var e = round.el;
     var b = round.sites.b;
 
-    return [
+    var steps = [
       /* --- the craft arrives ---
          It comes down the middle of the frame, which is water by
          construction: the row is across the front and there is
@@ -943,33 +1238,45 @@
             e.topbar.setAttribute('data-step-aside', STEP_ASIDE_MS);
           }
           /* from far off, on its own jets (arrive() in js/pilot.js);
-             the line lands once it is on its station */
-          return PILOT.arrive(b);
+             the line lands once it is on its station. A craft that
+             was seen leaving site A comes in the way it left. */
+          return PILOT.arrive(b, round.sites.a.left ? fromSiteA(round) : null);
         }
         /* the flight in takes 1.55s (shipArrive, css/rounds.css);
            the line lands as it settles onto its station */
         return M.wait(M.reduced() ? 200 : 1250);
-      },
+      }
+    ];
 
-      /* the player has already been told once that these match; what
-         is new is that the three of them are all that is left */
-      function () { return narrate(e.topbarText, 'onlyMatching'); },
+    /* the callouts are drawn on as the line lands: they ARE "how
+       much space it needs" */
+    function drawDims() {
+      M.wait(680).then(function () {
+        if (R === b) b.el.shipDims.classList.add('is-drawn');
+      });
+    }
 
-      /* --- how much space it needs ---
-         the callouts are drawn on as the line lands: they ARE "how
-         much space it needs" */
-      function () {
-        M.wait(680).then(function () {
-          if (R === b) b.el.shipDims.classList.add('is-drawn');
-        });
-        return narrate(e.topbarText, 'spaceNeeded');
-      },
+    if (round.teach) {
+      steps.push(
+        /* --- how much space it needs --- */
+        function () {
+          drawDims();
+          return narrate(e.topbarText, 'spaceNeeded');
+        },
+        function () { return narrate(e.topbarText, round.shape + 'Formula', round.formula); }
+      );
+    } else {
+      steps.push(function () {
+        drawDims();
+        return narrate(e.topbarText, round.shape + 'Formula', round.formula);
+      });
+    }
 
+    steps.push(
       /* --- the three candidates get their areas printed on --- */
       function () { return priceRound(b); },
 
       function () { return narrate(e.topbarText, round.areaKey); },
-      function () { if (b.askExact) return narrate(e.topbarText, 'chooseExact'); },
 
       /* --- over to the player, for as many attempts as it takes ---
          by tapping an island, or on a flown landing by flying there */
@@ -977,13 +1284,155 @@
         return flown(b) ? startPiloting(b, id) : startRoundChoosing(b, id);
       },
 
-      /* --- planted; plantRound() has already said its piece --- */
+      /* --- planted; plantRound() has already said its piece, and a
+             round with a closing line says it before the way on --- */
+      function (id) {
+        if (!round.outro) return;
+        return M.wait(300).then(function () {
+          if (live(id)) return narrate(e.topbarText, round.shape + 'Outro', round.outro);
+        });
+      },
       function (id) {
         return M.wait(600).then(function () {
           if (live(id)) showRoundAdvance(b);
         });
       }
-    ];
+    );
+
+    return steps;
+  }
+
+  /* The bearing the round's site A lies on from its site B's hover
+     point, in the frame's own pixels: the way the craft that left
+     site A for here comes in (hoverOut, and arrive() in js/pilot.js). */
+  function fromSiteA(round) {
+    var W = round.node.clientWidth || 1;
+    var H = round.node.clientHeight || 1;
+    var oa = round.sites.a.offset, ob = round.sites.b.offset;
+    return Math.atan2((oa.y - ob.y) / 100 * H, (oa.x - ob.x) / 100 * W);
+  }
+
+  /* ---------------------------------------------------------- the craft over site A
+     It flies in from past the left edge, swoops low through the
+     middle of the frame and comes up onto its spot -- the path
+     hoverSpot() drew (js/pages.js), flown here on the element's
+     `translate` -- and goes away on the line to site B
+     (css/rounds.css). hoverIn() resolves once it is on its spot. */
+  var HOVER_IN_MS = 3200;            /* and hoverDrop, css/rounds.css */
+  var HOVER_OUT_AT = 1100;           /* into the crossing */
+
+  function hoverIn(round) {
+    var a = round.sites.a;
+    var ship = a.el.hover;
+    ship.classList.remove('is-gone');
+    /* reflow, so the come-down plays from its first frame */
+    void ship.offsetWidth;
+    ship.classList.add('is-in');
+    if (M.reduced() || !a.hoverPath || !ship.animate) return M.wait(200);
+
+    if (a.hoverAnim) a.hoverAnim.cancel();
+    a.hoverAnim = ship.animate(a.hoverPath.map(function (p) {
+      return { translate: p[0] + 'px ' + p[1] + 'px' };
+    }), { duration: HOVER_IN_MS, easing: 'cubic-bezier(.45, .12, .3, 1)' });
+    hoverJets(round, HOVER_IN_MS);
+    cue('flyby', HOVER_IN_MS, -1);
+    return M.wait(HOVER_IN_MS);
+  }
+
+  function hoverOut(round) {
+    var a = round.sites.a;
+    var ship = a.el.hover;
+    if (!a.hovers || !ship.classList.contains('is-in') || ship.classList.contains('is-gone')) return;
+    ship.classList.add('is-gone');
+    /* seen going: the landing's craft comes in the way this one went */
+    a.left = true;
+    if (!M.reduced()) hoverJets(round, HOVER_GONE_MS);
+  }
+
+  /* The jets under the craft over site A, lit off its own motion as
+     the landing's craft is lit off the stick (js/pilot.js): each
+     nozzle burns its share of the push the motion needs -- the way
+     the craft is speeding up or slowing down, plus some of the way it
+     is going, the air it keeps pushing through -- so it runs in on
+     the jets behind it and brakes onto its spot on the ones ahead.
+     Read off the element's own `translate` every frame, whichever of
+     the two flights is moving it, for `ms`; then the fire dies back
+     and the bells are drawn in. */
+  var HOVER_GONE_MS = 2400;          /* hoverOut, css/rounds.css */
+  var JET_PUSH = { l: [1, 0], r: [-1, 0], t: [0, 1], b: [0, -1] };    /* PUSH, js/pilot.js */
+  var JET_DRAG = 1.6;                /* /s: how much of the speed is push */
+  var JET_FULL = 0.9;                /* frame widths /s/s: a full burn */
+  var JET_EASE = 0.2;                /* how fast the reading follows */
+
+  function hoverJets(round, ms) {
+    var a = round.sites.a;
+    var ship = a.el.hover;
+    var jets = {};
+    Object.keys(JET_PUSH).forEach(function (s) {
+      jets[s] = ship.querySelector('.thruster--' + s);
+    });
+    var token = a.jetToken = (a.jetToken || 0) + 1;
+    var W = round.node.clientWidth || 1;
+    var t0 = 0, last = null, v = [0, 0], acc = [0, 0];
+
+    function at() {
+      var t = (global.getComputedStyle(ship).translate || '').split(' ');
+      return [parseFloat(t[0]) || 0, parseFloat(t[1]) || 0];
+    }
+
+    /* a nozzle runs out past one share and is drawn in under a lower
+       one, and the same for its fire, so one sitting at the edge does
+       not flutter */
+    function burn(push) {
+      Object.keys(jets).forEach(function (s) {
+        var jet = jets[s];
+        if (!jet) return;
+        var share = push ? JET_PUSH[s][0] * push[0] + JET_PUSH[s][1] * push[1] : 0;
+        var out = jet.classList.contains('is-out');
+        var lit = jet.classList.contains('is-lit');
+        jet.classList.toggle('is-out', share > (out ? 0.06 : 0.12));
+        jet.classList.toggle('is-lit', share > (lit ? 0.14 : 0.2));
+        jet.style.setProperty('--pow', Math.min(1, Math.max(0.35, share)).toFixed(2));
+      });
+    }
+
+    function frame(now) {
+      if (a.jetToken !== token) return;
+      if (!t0) t0 = now;
+      var p = at();
+      if (last && now > last.t) {
+        var dt = (now - last.t) / 1000;
+        var nv = [(p[0] - last.p[0]) / dt, (p[1] - last.p[1]) / dt];
+        acc = [acc[0] + ((nv[0] - v[0]) / dt - acc[0]) * JET_EASE,
+               acc[1] + ((nv[1] - v[1]) / dt - acc[1]) * JET_EASE];
+        v = [v[0] + (nv[0] - v[0]) * JET_EASE, v[1] + (nv[1] - v[1]) * JET_EASE];
+        var push = [acc[0] + v[0] * JET_DRAG, acc[1] + v[1] * JET_DRAG];
+        var k = Math.hypot(push[0], push[1]) / (W * JET_FULL);
+        burn(k > 0.08 ? [push[0] / (W * JET_FULL), push[1] / (W * JET_FULL)] : null);
+      }
+      last = { t: now, p: p };
+
+      if (now - t0 < ms) return requestAnimationFrame(frame);
+
+      /* there: the fire dies back, and a beat later the bells go in */
+      Object.keys(jets).forEach(function (s) { if (jets[s]) jets[s].classList.remove('is-lit'); });
+      M.wait(300).then(function () {
+        if (a.jetToken !== token) return;
+        Object.keys(jets).forEach(function (s) { if (jets[s]) jets[s].classList.remove('is-out'); });
+      });
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  /* the jets out, wherever they were (clearRound) */
+  function stopJets(site) {
+    site.jetToken = (site.jetToken || 0) + 1;
+    if (!site.el.hover) return;
+    Array.prototype.forEach.call(site.el.hover.querySelectorAll('.thruster'), function (jet) {
+      jet.classList.remove('is-out', 'is-lit');
+      jet.style.removeProperty('--pow');
+    });
   }
 
   /* One flight of the lens, with the altimeter following it. Under
@@ -1015,12 +1464,33 @@
      Seen from survey height the splashes are quiet and pitched up --
      distance does both -- and only the sites' islands throw a front
      into the water: the islets are scenery, and twenty-odd fronts at
-     once would be a storm. */
+     once would be a storm. Played once, after the scan: every later
+     visit finds the land already up (surfaced). */
   function emerge(round) {
     var a = round.sites.a;
-    var b = round.sites.b;
-    var pads = a.el.padList.concat(b.el.padList);
-    var all = round.islets.concat(pads);
+
+    /* only the land in the view the lens is over breaks the surface
+       in sight of it; on a shared sea the other view's is put up at
+       once, out of shot and in silence, before the lens ever gets
+       there */
+    var half = 50 / M.camWide(round.node) + 12;
+    var seen = function (isl) {
+      var x = parseFloat(isl.style.getPropertyValue('--wx'));
+      var y = parseFloat(isl.style.getPropertyValue('--wy'));
+      return !isFinite(x) || !isFinite(y) ||
+        (Math.abs(x - a.mid.x) < half && Math.abs(y - a.mid.y) < half);
+    };
+    var pads = [], away = [];
+    (round.together || [round]).forEach(function (r) {
+      [r.sites.a, r.sites.b].forEach(function (site) {
+        var list = site.mid === a.mid ? pads : away;
+        list.push.apply(list, site.el.padList);
+      });
+    });
+    var islets = round.islets.filter(seen);
+    away = away.concat(round.islets.filter(function (isl) { return !seen(isl); }));
+    away.forEach(function (isl) { isl.classList.add('is-up'); });
+    var all = islets.concat(pads);
 
     var rows = all.map(function (isl) {
       return { el: isl, y: isl.getBoundingClientRect().top + (Math.random() - 0.5) * 40 };
@@ -1045,6 +1515,18 @@
         A.sfx('rock', { volume: 0.13, rate: 1.18 + (i % 4) * 0.05 });
       }
     }, { gap: gap, settle: 900 });
+  }
+
+  /* The same land put up at once, with no splash and no sound, on a
+     screen that cannot be seen yet (resetRound): the sea every visit
+     after the first comes down into. A reset ahead of the dissolve
+     (leaveTo) gives the rise time to be over before it is shown. */
+  function surfaced(round) {
+    var land = round.islets.slice();
+    (round.together || [round]).forEach(function (r) {
+      land = land.concat(r.sites.a.el.padList, r.sites.b.el.padList);
+    });
+    land.forEach(function (isl) { isl.classList.add('is-up'); });
   }
 
   /* Where a site is being SHOWN, for the bracket: the box round its
@@ -1302,6 +1784,7 @@
 
     round.phase = null;         /* 'shape', 'area', or nothing to do */
     round.picked = 0;
+    round.left = false;         /* site A: its craft has been seen leaving */
     round.scolding = false;
     round.landing = false;
     round.solved = false;
@@ -1316,6 +1799,17 @@
       e.ship.style.removeProperty('--lean');
     }
     if (e.shipDims) e.shipDims.classList.remove('is-drawn');
+
+    /* site A's craft, back out of the frame, its flight in stopped
+       where it stands */
+    if (e.hover) {
+      e.hover.classList.remove('is-in', 'is-gone');
+      stopJets(round);
+    }
+    if (round.hoverAnim) {
+      round.hoverAnim.cancel();
+      round.hoverAnim = null;
+    }
 
     /* the helm, on a flown landing: three hearts, the craft back at
        its hover point, the controller away */
@@ -1573,7 +2067,9 @@
   function cinema(site, kind) {
     if (M.reduced()) return null;
     if (SQUARE && SQUARE.has(site, kind)) return SQUARE;
-    if (CINEMA && CINEMA.has(site)) return CINEMA;
+    /* the sheets are the square's: on a sea shared with another
+       round, only the square's landing may fall back to them */
+    if (CINEMA && site.shape === 'square' && CINEMA.has(site)) return CINEMA;
     return null;
   }
 
@@ -1603,9 +2099,11 @@
     round.phase = 'area';
     armPilot(round);
 
-    /* how to fly, once a visit -- typed while the controls are
-       already live, so nobody has to wait for it to finish */
-    if (!round.helm.told) {
+    /* how to fly, on the first landing (`teach`) and once a visit --
+       typed while the controls are already live, so nobody has to
+       wait for it to finish. Later landings leave it to the hand on
+       the joystick (js/pilot.js), for a player who is stuck. */
+    if (round.teach && !round.helm.told) {
       round.helm.told = true;
       narrate(round.el.topbarText, 'pilotHow');
     }
@@ -1857,7 +2355,7 @@
         if (!live(id)) return;
         /* put it back on the rail, callouts and all */
         pad.classList.remove('is-tight', 'is-loose');
-        if (helm) PILOT.home(round);
+        if (helm) PILOT.home(round, REHOME_MS);
         F.resetSpaceship(e.ship);
         e.shipDims.classList.add('is-drawn');
         return helm ? PILOT.arrive(round) : M.wait(760);
@@ -1898,6 +2396,10 @@
      next is not said over it; the controls are live at once either
      way. */
   var CAUTION_MS = 900;
+
+  /* how long the world takes to ease back under the craft's station
+     when it is put back after a miss (PILOT.home) */
+  var REHOME_MS = 900;
 
   function rearm(round) {
     armPilot(round);
@@ -1960,7 +2462,7 @@
          the frame -- flown in on its jets (PILOT.arrive), or dropped
          in (shipArrive) */
       e.ship.style.removeProperty('visibility');
-      if (helm) PILOT.home(round);
+      if (helm) PILOT.home(round, REHOME_MS);
       F.resetSpaceship(e.ship);
       e.shipDims.classList.add('is-drawn');
       back = helm ? PILOT.arrive(round) : M.wait(960);
@@ -2074,14 +2576,39 @@
       return;
     }
 
-    global.GeoPages.build(el.stage, el.screenEnd || el.nav).forEach(function (round) {
+    var rounds = global.GeoPages.build(el.stage, el.screenEnd || el.nav);
+
+    /* The visits, in the order they are played: the `split` rounds'
+       shape questions, then their landings -- square shapes,
+       rectangle shapes, square landing, rectangle landing -- then
+       every other round whole. A split round is two entries on ONE
+       screen, each resetting it to its own visit (resetRound). */
+    var split = rounds.filter(function (round) { return round.split; });
+    var visits = split.map(function (round) { return [round, 'hunt']; })
+      .concat(split.map(function (round) { return [round, 'land']; }))
+      .concat(rounds.filter(function (round) { return !round.split; })
+        .map(function (round) { return [round, 'full']; }));
+
+    visits.forEach(function (v) {
+      var round = v[0];
+      var visit = v[1];
       SCREENS.push({
-        label: round.shape,
+        label: round.shape + (visit === 'hunt' ? ' shapes' : visit === 'land' ? ' landing' : ''),
+        round: round,
+        visit: visit,
         node:  function () { return round.node; },
-        reset: function () { resetRound(round); },
-        run:   function () { return runRound(round); }
+        reset: function () { resetRound(round, visit); },
+        run:   function (opts) { return runRound(round, visit, opts); },
+        leave: function (id) { return leaveRound(round, id); }
       });
+    });
+
+    /* rounds that share a sea share its NEXT button: one listener */
+    var wired = [];
+    rounds.forEach(function (round) {
       wireSites(round);
+      if (wired.indexOf(round.el.advance) >= 0) return;
+      wired.push(round.el.advance);
       round.el.advance.addEventListener('click', onAdvance);
     });
   }
@@ -2093,6 +2620,9 @@
      straight on "mission complete". */
   function addEndScreen() {
     if (!el.screenEnd || SCREENS.length < 2) return;
+    /* here, before runGate(), so the fleet's pictures are counted
+       with everything else the loading bar waits for */
+    if (el.endFleet) el.endFleet.innerHTML = global.GeoPages.fleet();
     SCREENS.push({
       label: 'complete',
       node:  function () { return el.screenEnd; },
@@ -2211,23 +2741,95 @@
     return current < SCREENS.length - 1;
   }
 
-  /* Every NEXT button, on every screen, goes through here. */
+  /* Every NEXT button, on every screen, goes through here: by way of
+     the screen's own leave-taking where it has one (a round visit's
+     zoom out, leaveTo), else straight to the next. */
   function onAdvance() {
+    if (busy || leaving) return Promise.resolve();
+    var here = SCREENS[current];
+    var next = SCREENS[current + 1];
+    if (next && here.round && next.round && next.node() === here.node()) return continueTo(current + 1);
+    if (here.leave) return leaveTo(current + 1);
     return goTo(current + 1);
+  }
+
+  /* On to the next visit on the same sea, with the screen left just as
+     it is: no reset and no dissolve, only the lens crossing over to the
+     next site (arriveFrom). `extra` is told to that visit along with
+     where it comes from. Off this sea, the screen is left as NEXT
+     leaves it (leaveTo). */
+  function continueTo(index, extra) {
+    var from = SCREENS[current];
+    var to = SCREENS[index];
+    if (!to || !from.round || !to.round || to.node() !== from.node()) return leaveTo(index);
+
+    var info = { round: from.round, visit: from.visit };
+    if (extra) Object.keys(extra).forEach(function (k) { info[k] = extra[k]; });
+
+    var btn = from.round.el.advance;
+    btn.classList.remove('is-in');
+    btn.hidden = true;
+
+    current = index;
+    syncNav();
+    return to.run({ from: info });
+  }
+
+  /* The next visit's screen put into its opening state AHEAD of the
+     hand-over, while the one being left is still on and the lens is
+     climbing off it: its land comes up on a screen nobody can see
+     yet, and has finished coming up by the time it dissolves in.
+     Never onto the screen still showing. Says whether it did, which
+     is what goTo's `preset` is told. */
+  function preroll(index) {
+    var to = SCREENS[index];
+    if (!to || to.node() === SCREENS[current].node()) return false;
+    to.reset();
+    return true;
+  }
+
+  /* NEXT on a round visit: the zoom out first (the screen's `leave`),
+     then the dissolve at survey height onto the next visit, already
+     made ready (preroll), which comes down on its own site. A jump
+     made meanwhile (the nav, the debug list) takes over, and this
+     gives way to it. */
+  var leaving = 0;
+
+  function leaveTo(index) {
+    if (busy || leaving || index >= SCREENS.length) return Promise.resolve();
+    var from = SCREENS[current];
+    var id = ++runId;                      // strand what the visit had left
+    leaving = id;
+    var ready = preroll(index);
+
+    return from.leave(id).then(function () {
+      if (leaving !== id) return;
+      leaving = 0;
+      if (!live(id)) return;
+      return goTo(index, { preset: ready });
+    });
   }
 
   /* Jump to a screen: abandon whatever was running, put the target
      back to its opening state, swap, then play its sequence.
      `silent` skips the audio cut, for the scripted launch hand-off
-     that is already mid-cue and should not be clipped. */
+     that is already mid-cue and should not be clipped. `preset`: the
+     target was put into its opening state already (preroll), so it
+     is not reset again over the top of it. */
   function goTo(index, opts) {
     opts = opts || {};
     if (busy || index === current || index < 0 || index >= SCREENS.length) {
       return Promise.resolve();
     }
+    leaving = 0;
 
     var from = SCREENS[current];
     var to = SCREENS[index];
+
+    /* two visits to one screen (the debug list can jump straight
+       from a split round's shapes to its landing): nothing to
+       dissolve to, so it goes the way a replay goes */
+    if (from.node() === to.node()) return replay(index);
 
     busy = true;
     syncNav();
@@ -2239,7 +2841,7 @@
       cue('swish');
     }
 
-    to.reset();
+    if (!opts.preset) to.reset();
 
     return M.swapScreens(from.node(), to.node(), 1150).then(function () {
       current = index;
@@ -2258,10 +2860,12 @@
   /* Play the current screen again from the top. goTo() with no swap:
      there is no other screen to dissolve to, so this one goes soft
      and out (`is-replaying`, css/style.css), is reset while it
-     cannot be seen, and comes back up. */
-  function replay() {
+     cannot be seen, and comes back up. `index`, when given, is
+     another visit to the same screen, played in its place. */
+  function replay(index) {
     if (busy) return Promise.resolve();
 
+    if (index != null) current = index;
     var screen = SCREENS[current];
     var node = screen.node();
 

@@ -122,8 +122,9 @@
     <div class="starfield" id="endStars" aria-hidden="true"></div>
 
     <div class="end">
-      <img class="end__ship" id="endShip" src="assets/images/welcome-screen-ship.webp"
-           alt="" draggable="false">
+      <!-- the five crafts, landed, with their area rules: built from
+           js/pages.js at boot (GeoPages.fleet, addEndScreen) -->
+      <ul class="end__fleet" id="endFleet" aria-label="The five spaceships, landed, and the area of each shape"></ul>
       <h2 class="end__title" id="endTitle">Mission complete!</h2>
       <p class="end__caption" id="endCaption" role="status" aria-live="polite"></p>
     </div>
