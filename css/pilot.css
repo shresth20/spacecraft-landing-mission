@@ -72,6 +72,22 @@
 .ship.is-piloted .ship__img { position: relative; z-index: 1; }
 .ship.is-piloted .ship__dims { z-index: 2; }
 
+/* The callouts are for reading the craft, not for flying it: while
+   a nozzle is out or the craft is still sliding (`is-flying`, kept
+   by js/pilot.js) they fade off, quicker than they came, so the hull
+   and its fire are all there is to look at; settled, they fade back
+   in on their own transition (css/style.css). Never while committed:
+   that rule already has them off for good. */
+.ship.is-flying .ship__dims {
+  opacity: 0;
+  transition-duration: .3s;
+}
+
+/* Coming in from far off (arrive() in js/pilot.js) it is still high
+   over the sea, so the thruster's wash on the water waits until it
+   is down at hover height, and fades in from there. */
+.ship.is-arriving .ship__wash { opacity: 0; }
+
 /* Where each one hangs, and how big it is, come off the craft
    (`noz` and `nozzle` in js/pages.js) for every hull that is not a
    plain box: on a point, or a slanted side, the middle of the
@@ -645,6 +661,46 @@
 }
 
 
+/* ---------------------------------------------------------- the hand
+
+   The shape question's hand (css/rounds.css), on the stick once the
+   controls have sat untouched for a while (THE HAND in js/pilot.js).
+   Its fingertip is on the ring's centre. `.is-nudge-fly`: it presses
+   the knob, drags it out to `--nudge-x/y` -- full throw, towards the
+   nearest island -- holds, and brings it home, and the knob goes with
+   it (an animation, so it wins over the knob's inline translate and
+   lets go of it the moment the class does). `.is-nudge-go`: it taps
+   GO. Mirrored to hang off to the left, the stick being against the
+   frame's right edge. */
+.stick .nudge {
+  --hand: calc(var(--stick) * .42);
+  left: 50%;
+  top: 50%;
+  transform: scaleX(-1);
+}
+
+.stick:is(.is-nudge-fly, .is-nudge-go) .nudge {
+  opacity: 1;
+  transition: opacity .35s ease;
+}
+
+.stick.is-nudge-fly .nudge,
+.stick.is-nudge-fly .stick__knob {
+  animation: stickShow 2.6s ease-in-out infinite;
+}
+
+.stick.is-nudge-fly .nudge__hand { transform: rotate(-16deg) scale(.92); }
+
+.stick.is-nudge-go .nudge__hand { animation: nudgeTap 1.5s cubic-bezier(.45, 0, .3, 1) infinite; }
+.stick.is-nudge-go .nudge__ring { animation: nudgeRing 1.5s ease-out infinite; }
+
+@keyframes stickShow {
+  0%, 16%   { translate: 0 0; }
+  46%, 66%  { translate: var(--nudge-x, 0px) var(--nudge-y, 0px); }
+  92%, 100% { translate: 0 0; }
+}
+
+
 /* ============================================================
    THE HEARTS
 
@@ -824,6 +880,12 @@
   .stick__knob { transition-duration: 0s; }
 
   .life.is-lost .life__half { animation: none; opacity: 0; }
+
+  /* the hand simply points, at the knob or at GO */
+  .stick.is-nudge-fly .nudge,
+  .stick.is-nudge-fly .stick__knob,
+  .stick.is-nudge-go .nudge__ring { animation: none; }
+  .stick.is-nudge-go .nudge__hand { animation: none; transform: rotate(-16deg); }
 }
 
 .is-reduced .ship.is-in .thruster.is-out .thruster__jet i,
@@ -838,3 +900,8 @@
 .is-reduced .stick__knob { transition-duration: 0s; }
 
 .is-reduced .life.is-lost .life__half { animation: none; opacity: 0; }
+
+.is-reduced .stick.is-nudge-fly .nudge,
+.is-reduced .stick.is-nudge-fly .stick__knob,
+.is-reduced .stick.is-nudge-go .nudge__ring { animation: none; }
+.is-reduced .stick.is-nudge-go .nudge__hand { animation: none; transform: rotate(-16deg); }

@@ -46,9 +46,10 @@ here says which kind of view a picture is.
 Listed in ART below. A shape whose source is missing keeps the entry
 and the webps it already has (the square's sources went with
 assets/new4, and its two webps were cut by the tool this one replaces),
-and is reported. A shape with no entry at all -- the parallelogram
-craft, until it is drawn -- is left out of js/landing-assets.js, and
-the page then lands that shape from overhead.
+and is reported. A shape with a piece missing altogether is left out of
+js/landing-assets.js, and the page then lands that shape from overhead
+-- which is how the parallelogram was landed until its craft was drawn
+(2026-10-21). All five shapes have both pictures now.
 
 Writes assets/images/landing/ and js/landing-assets.js.
 """
@@ -90,7 +91,7 @@ ART = {
         'land': ('Perlelogram and rhombus in angle view, land.png', 'black', 'top'),
     },
     'parallelogram': {
-        'craft': ('parallelogram-craft-angle.png', 'alpha', None),
+        'craft': ('Perlelogram in Angleview.png', 'alpha', None),
         'land': ('Perlelogram and rhombus in angle view, land.png', 'black', 'bottom'),
     },
 }

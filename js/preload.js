@@ -18,9 +18,10 @@
        <audio> that has been given one is playing from memory —
        "loaded" means local, not "in the HTTP cache, probably"
      · nothing here can hold the gate. A file that 404s, times out,
-       stalls, or cannot be fetched at all (file://, an old browser)
-       counts as done with its full weight and the element it was for
-       keeps the URL it already had
+       stalls, comes up short of its Content-Length, or cannot be
+       fetched at all (file://, an old browser) counts as done with
+       its full weight and the element it was for keeps the URL it
+       already had
 
    Formats: the artwork is WebP and the audio is Ogg Opus — both
    play in Chrome, Edge, Firefox and recent Safari (WebP 14+, Ogg
@@ -194,7 +195,14 @@
 
           return (function pump() {
             return reader.read().then(function (r) {
-              if (r.done) return new Blob(chunks, { type: type });
+              if (r.done) {
+                /* a transfer the server cut short is not the file: a
+                   picture made of it would decode blank from where it
+                   stops, so it is counted as failed and the element
+                   keeps its own URL */
+                if (cl > 0 && n < cl) throw new Error('short: ' + n + ' of ' + cl);
+                return new Blob(chunks, { type: type });
+              }
               chunks.push(r.value);
               n += r.value.byteLength;
               it.got = n;

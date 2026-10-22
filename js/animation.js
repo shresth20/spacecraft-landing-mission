@@ -741,22 +741,22 @@
   }
 
   /* ---------------------------------------------------------- screen swap */
-  function swapScreens(from, to, veil, ms) {
-    ms = ms || 1250;
+  /* ---------------------------------------------------------- screen swap
+     A dissolve, never a cut to black: the new screen comes up on top
+     while the old one is held under it and then drifts forward and
+     out. The motion is all in the .screen rules (css/style.css);
+     this only hands the two their classes, and resolves once the old
+     one is all the way out, so the caller can reset it unseen. */
+  function swapScreens(from, to, ms) {
+    ms = ms || 1150;
 
-    if (veil) veil.classList.add('is-on');
+    if (from) {
+      from.classList.add('is-leaving');
+      from.classList.remove('is-active');
+    }
+    if (to) to.classList.add('is-active');
 
-    return wait(ms * 0.42).then(function () {
-      if (from) {
-        from.classList.add('is-leaving');
-        from.classList.remove('is-active');
-      }
-      if (to) to.classList.add('is-active');
-      return wait(ms * 0.34);
-    }).then(function () {
-      if (veil) veil.classList.remove('is-on');
-      return wait(ms * 0.5);
-    }).then(function () {
+    return wait(ms).then(function () {
       if (from) from.classList.remove('is-leaving');
     });
   }

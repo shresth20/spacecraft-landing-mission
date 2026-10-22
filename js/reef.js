@@ -18,6 +18,12 @@
                                  way off it, and a few clusters out on the
                                  open water (tools/build_rocks.py)
 
+   and over the rest of the sea the wide shot sees (strewWide): a small
+   rock or two by site A's islands and by some of the islets, and, out on
+   the open water round the two sites, a few clusters, one more island
+   and a few rocks under the water, each kept well apart from the last,
+   so the rock is spread over the whole sea rather than heaped on site B.
+
    The water itself, its shores round all this land and the breach as land
    comes up are drawn by js/reef-water.js, under all of it. */
 (function (global) {
@@ -36,6 +42,13 @@
     /* and the clusters on the open water: how many, and their size */
     clusters: [2, 4], clusterSize: [.08, .13],
     deepSize: [.11, .2],
+    /* the rest of the sea (strewWide): small rocks by each of site A's
+       islands, and by this share of the islets; then, out on the open
+       water, clusters, big islands (a share of the screen's shorter
+       side) and rocks under the water, each at least `spacing` of that
+       side from the last and `clear` of it from any land */
+    wide: { siteA: [1, 2], islets: .5, isletRocks: [1, 2], clusters: [5, 7],
+      islands: 1, islandSize: [.2, .26], deep: 5, spacing: .42, clear: .06 },
     riseMs: 1400, risePx: 14, deepOpacity: .62
   };
   function random(seed) {
@@ -80,13 +93,51 @@
     return out;
   }
 
+  // An error on the picture is not yet the picture missing. The gate
+  // hands every <img> a blob of its file once fetched (swapImg in
+  // js/script.js) and takes it back if the blob is refused; a flaky
+  // or stale copy of the file fails once and is fine the next time. So
+  // the file is asked for again -- at once, then twice more past any
+  // cache -- and only when that fails too is the land marked missing
+  // (the flat placeholder in css/reef.css).
+  var AGAIN_MS = [0, 600, 2400];
+  // A copy cut short does not fail at all in Chrome: it loads, decodes
+  // and paints nothing past where it stops. So a picture that has
+  // loaded with nothing in it is treated as one that failed.
+  var probe = null;
+  function blank(img) {
+    try {
+      if (!img.naturalWidth) return false;
+      probe = probe || doc.createElement('canvas');
+      probe.width = probe.height = 24;
+      var g = probe.getContext('2d', { willReadFrequently: true });
+      g.clearRect(0, 0, 24, 24);
+      g.drawImage(img, 0, 0, 24, 24);
+      var d = g.getImageData(0, 0, 24, 24).data;
+      for (var i = 3; i < d.length; i += 4) if (d[i] > 16) return false;
+      return true;
+    } catch (e) { return false; }
+  }
   function image(meta, parent) {
     var img = node('img', 'env-image', parent);
     img.alt = ''; img.draggable = false; img.width = meta.size[0]; img.height = meta.size[1];
+    var tries = 0;
+    img.addEventListener('load', function () {
+      if (blank(img)) img.dispatchEvent(new Event('error'));
+    });
     img.addEventListener('error', function () {
+      if (tries < AGAIN_MS.length) {
+        var n = tries++;
+        setTimeout(function () {
+          /* a good copy came in the meantime (the gate's blob) */
+          if (img.complete && img.naturalWidth > 0 && !blank(img)) return;
+          img.src = meta.src + (n ? (meta.src.indexOf('?') < 0 ? '?' : '&') + 'again=' + n : '');
+        }, AGAIN_MS[n]);
+        return;
+      }
       missing.add(meta.src); parent.classList.add('is-missing');
       console.warn('Environment artwork unavailable:', meta.src);
-    }, { once: true });
+    });
     img.src = meta.src;
     return img;
   }
@@ -122,9 +173,11 @@
   }
   // A dry object: its artwork, and for land that rises, the water it
   // comes up through: a blue wash that dries off, wet edges that drain
-  // last, a wet shine, and the spray it throws.
-  function dryObject(meta, cls, reveal, waveSeed) {
-    var el = node('div', cls + ' env-object');
+  // last, a wet shine, and the spray it throws. Rock that never rises
+  // may be turned over left to right (`flip`): the art is lit from
+  // above, so a mirror image is just another rock.
+  function dryObject(meta, cls, reveal, waveSeed, flip) {
+    var el = node('div', cls + ' env-object' + (flip && !reveal ? ' is-flip' : ''));
     el.setAttribute('aria-hidden', 'true');
     var art = node('div', 'env-art', el);
     image(meta, art);
@@ -193,6 +246,21 @@
     });
     var state = { screen: screen, site: site, root: root, deep: deep,
       bigs: bigs, clusters: clusters, seed: 0, landing: screen.hasAttribute('data-landing') };
+    // The rest of the sea, on a screen that shows it: its own layer at the
+    // bottom of the camera plate, under the islets and both sites, and a
+    // place for small rocks on each of site A's islands and each islet,
+    // so they come up with that land.
+    var cam = screen.querySelector('.cam');
+    if (cam && !state.landing) {
+      var wide = node('div', 'env-world env-world--wide');
+      wide.setAttribute('aria-hidden', 'true');
+      cam.insertBefore(wide, cam.firstChild);
+      state.cam = cam;
+      state.wide = { root: wide, deep: node('div', 'env-deep', wide), bigs: node('div', 'env-bigs', wide) };
+      screen.querySelectorAll('.site--a .pad, .islet').forEach(function (land) {
+        node('div', 'env-satellites', land);
+      });
+    }
     states.set(screen, state);
     // Resize may suppress a decoration which no longer fits, but never draws
     // a new position or seed. Restoring the size restores the same decoration.
@@ -371,7 +439,140 @@
         occupied.push(db); break;
       }
     }
+    strewWide(s, round, rng);
     s.round = round;
+  }
+  // Where an island's land is (camera plate px): its box cut to the
+  // outline's extent (js/pages.js), not the square box it is laid out in.
+  function footprint(el, host) {
+    var b = box(el, host), w = el.offsetWidth, land = global.GeoPages.land[el.dataset.shape];
+    var e = land ? land.ext : [0, 0, 1, 1];
+    return rect(b.l + e[0] * w, b.t + e[1] * w, (e[2] - e[0]) * w, (e[3] - e[1]) * w);
+  }
+  // The rest of the sea, in the camera plate's own pixels: site A's frame
+  // is its 0..W by 0..H, site B's is a frame right and 45% down, and the
+  // islets lie all round both (js/pages.js). After site B's strew, on the
+  // same seed, and clear of everything on it or hanging off it.
+  function strewWide(s, round, rng) {
+    var wide = s.wide, cfg = CONFIG.wide;
+    if (!wide) return;
+    // site A's frame is the screen's, at rest, so the chrome is where it is
+    var hard = chromeBoxes(round, s.screen);
+    var cam = s.cam, W = cam.clientWidth, H = cam.clientHeight, S = Math.min(W, H);
+    var between = function (lo, hi) { return lo + rng() * (hi - lo); };
+    var count = function (span) { return span[0] + Math.floor(rng() * (span[1] - span[0] + 1)); };
+    var world = global.GeoPages.world || { l: -44, r: 244, t: -68, b: 214 };
+    var bounds = rect(world.l / 100 * W, world.t / 100 * H, (world.r - world.l) / 100 * W, (world.b - world.t) / 100 * H);
+    var inside = function (b) { return b.l >= bounds.l && b.t >= bounds.t && b.r <= bounds.r && b.b <= bounds.b; };
+    var siteA = rect(0, 0, W, H), siteB = box(s.site, cam);
+    siteB = rect(siteB.l, siteB.t, W, H);
+    // everything on site B, and whatever of it hangs off its frame
+    var taken = [siteB];
+    s.site.querySelectorAll('.env-object').forEach(function (el) {
+      if (!el.closest('[hidden]')) taken.push(box(el, cam));
+    });
+    var shown = function (el) { return !el.hidden && el.offsetParent; };
+    var pads = round.sites.a.el.padList.filter(shown);
+    var islets = round.islets.filter(shown).filter(function (el) { return inside(box(el, cam)); });
+    var land = pads.concat(islets).map(function (el) { return footprint(el, cam); });
+    var pick = function (list) { return list[Math.floor(rng() * list.length)]; };
+    var rocks = [];
+    wide.bigs.replaceChildren(); wide.deep.replaceChildren();
+    round.sites.a.el.all.concat(round.islets).forEach(function (el) {
+      var holder = el.querySelector(':scope > .env-satellites');
+      if (holder) holder.replaceChildren();
+    });
+    // A small rock or two lying off the sides of one island, in that
+    // island's own satellites so it comes up with it (css/reef.css): inside
+    // `within`, clear of every other island and of every rock already down.
+    function companions(el, fp, n, within) {
+      var holder = el.querySelector(':scope > .env-satellites');
+      if (!holder) return;
+      var base = box(el, cam), pw = el.offsetWidth;
+      for (var j = 0; j < n; j++) {
+        var m = pick(ART.dry);
+        for (var k = 0; k < CONFIG.attempts; k++) {
+          var w = pw * between(.15, .24), h = w * m.size[1] / m.size[0];
+          var side = Math.floor(rng() * 4), along = between(.2, .8), gap = pw * between(.03, .12);
+          var x = side === 0 ? fp.l - w - gap : side === 1 ? fp.r + gap : fp.l + (fp.r - fp.l) * along - w / 2;
+          var y = side === 2 ? fp.t - h - gap : side === 3 ? fp.b + gap : fp.t + (fp.b - fp.t) * along - h / 2;
+          var b = grow(rect(x, y, w, h), 5);
+          if (!within(b) || taken.some(function (o) { return hits(b, o); }) ||
+              land.some(function (o) { return o !== fp && hits(b, grow(o, 10)); })) continue;
+          var rock = dryObject(m, 'env-satellite', true, s.seed + j * 131 + Math.round(x));
+          rock.style.left = r((x - base.l) / pw * 100) + '%'; rock.style.top = r((y - base.t) / pw * 100) + '%';
+          rock.style.width = r(w / pw * 100) + '%';
+          rock.style.setProperty('--satellite-delay', Math.round(between(80, 160)) + 'ms');
+          holder.appendChild(rock); taken.push(b); break;
+        }
+      }
+    }
+    // site A's islands, inside its frame and clear of the chrome, as site
+    // B's are inside its own
+    pads.forEach(function (pad, i) {
+      companions(pad, land[i], count(cfg.siteA), function (b) {
+        return b.l >= 8 && b.t >= H * .14 && b.r <= W - 8 && b.b <= H - 32 &&
+          !hard.some(function (o) { return hits(b, o); });
+      });
+    });
+    // some of the islets, off both sites' frames
+    islets.forEach(function (el, i) {
+      if (rng() >= cfg.islets) return;
+      companions(el, land[pads.length + i], count(cfg.isletRocks), function (b) {
+        return inside(b) && !hits(b, siteA) && !hits(b, siteB);
+      });
+    });
+    // and out on the open water, biggest first: off both sites' frames,
+    // `clear` of all land and rock, and each at least `apartBy` from the
+    // last of its kind, so none of it heaps up in one place
+    var gap = S * cfg.clear, spacing = S * cfg.spacing, off = [grow(siteA, S * .04)].concat(taken);
+    function strewOpen(m, w, apartBy, spots) {
+      var h = w * m.size[1] / m.size[0];
+      for (var t = 0; t < CONFIG.attempts * 2; t++) {
+        var x = between(bounds.l, bounds.r - w), y = between(bounds.t, bounds.b - h), b = rect(x, y, w, h);
+        if (!inside(b) || off.some(function (o) { return hits(b, o); }) ||
+            land.concat(rocks).some(function (o) { return hits(b, grow(o, gap)); }) ||
+            spots.some(function (p) { return Math.hypot(p.x - x - w / 2, p.y - y - h / 2) < apartBy; })) continue;
+        spots.push({ x: x + w / 2, y: y + h / 2 });
+        return b;
+      }
+      return null;
+    }
+    var big = (ART.big || []).filter(function (m) { return m.large; });
+    var small = (ART.big || []).filter(function (m) { return !m.large; });
+    // site B's own big rocks count as the last ones down: nothing out here
+    // heaps up against them either
+    var spots = Array.prototype.map.call(s.site.querySelectorAll('.env-big:not([hidden])'), function (el) {
+      var b = box(el, cam);
+      return { x: (b.l + b.r) / 2, y: (b.t + b.b) / 2 };
+    });
+    for (var bi = 0; bi < cfg.islands && big.length; bi++) {
+      var bm = pick(big), long = S * between(cfg.islandSize[0], cfg.islandSize[1]);
+      var bw = bm.size[0] >= bm.size[1] ? long : long * bm.size[0] / bm.size[1];
+      var at = strewOpen(bm, bw, spacing, spots);
+      if (!at) continue;
+      var isle = dryObject(bm, 'env-big', false, s.seed + 17 * bi, rng() < .5);
+      place(isle, at.l, at.t, bw, W, H); wide.bigs.appendChild(isle); rocks.push(at);
+    }
+    var want = count(cfg.clusters), start = Math.floor(rng() * small.length);
+    for (var ci = 0; ci < want && small.length; ci++) {
+      var cm = small[(start + ci) % small.length], cw = S * between(CONFIG.clusterSize[0], CONFIG.clusterSize[1]);
+      var cat = strewOpen(cm, cw, spacing, spots);
+      if (!cat) continue;
+      var cluster = dryObject(cm, 'env-big env-big--cluster', false, s.seed + 23 * ci, rng() < .5);
+      place(cluster, cat.l, cat.t, cw, W, H); wide.bigs.appendChild(cluster); rocks.push(cat);
+    }
+    // the rocks under the water: clear of the dry rock too, and apart
+    // from each other
+    var deepSpots = [], first = Math.floor(rng() * ART.deep.length);
+    for (var di = 0; di < cfg.deep; di++) {
+      var dm = ART.deep[(first + di) % ART.deep.length], dw = S * between(CONFIG.deepSize[0], CONFIG.deepSize[1]);
+      var dat = strewOpen(dm, dw, spacing * .8, deepSpots);
+      if (!dat) continue;
+      var deep = node('div', 'env-submerged', wide.deep);
+      deep.dataset.art = dm.src;
+      image(dm, deep); place(deep, dat.l, dat.t, dw, W, H);
+    }
   }
   function fitDecorations(s) {
     if (!s.round) return;
@@ -387,6 +588,22 @@
       var outside = b.r < 0 || b.l > W || b.b < 0 || b.t > H;
       el.hidden = outside || hard.concat(occupied).some(function (other) { return hits(b, other); });
       if (!el.hidden) occupied.push(b);
+    });
+    // The rest of the sea is laid out in per cent of the frame and sized
+    // in vmin, the islets in per cent and --pu: a new shape of window can
+    // walk one onto the other, or onto a site.
+    if (!s.wide) return;
+    var cam = s.cam, landed = [rect(0, 0, cam.clientWidth, cam.clientHeight), box(s.site, cam)];
+    s.round.islets.concat(s.round.sites.a.el.padList).forEach(function (el) {
+      if (!el.hidden && el.offsetParent) landed.push(footprint(el, cam));
+    });
+    // the rock above the water keeps its place before the rock under it
+    var open = Array.from(s.wide.bigs.children).concat(Array.from(s.wide.deep.children));
+    open.forEach(function (el) { el.hidden = false; });
+    open.forEach(function (el) {
+      var b = box(el, cam);
+      el.hidden = landed.some(function (other) { return hits(b, other); });
+      if (!el.hidden) landed.push(b);
     });
   }
   function pause() { states.forEach(function (s) { s.screen.classList.add('env-paused'); }); }

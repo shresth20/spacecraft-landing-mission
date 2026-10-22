@@ -9,6 +9,18 @@
 }
 
 
+/* ---------------------------------------------------------- cruise
+   The cockpit under way (css/style.css "cruise"). One half-swing
+   each, played `alternate`. Separate properties, so they run on
+   their own clocks without overwriting each other. The rock and its
+   counter are mirror images and must keep the same duration: one
+   tilts the cockpit, the other holds the view outside it level. */
+@keyframes cruiseRock    { from { rotate: -.9deg; }           to { rotate: .9deg; } }
+@keyframes cruiseCounter { from { rotate: .9deg; }            to { rotate: -.9deg; } }
+@keyframes cruiseDrift   { from { translate: -.35vw .5vh; }  to { translate: .35vw -.5vh; } }
+@keyframes cruiseNear    { from { scale: 1; }                to { scale: 1.02; } }
+
+
 /* ---------------------------------------------------------- dashboard glass */
 @keyframes dashSheen {
   0%   { transform: translateX(-38%); }
@@ -68,15 +80,6 @@
    js/animation.js, because a CSS animation re-applies its timing
    function between every pair of keyframes and that made the drone
    brake at each stop on its way out. See flyDrone().              */
-
-
-/* ---------------------------------------------------------- veil sweep */
-@keyframes veilScan {
-  0%   { opacity: 0; transform: translateY(0); }
-  20%  { opacity: 1; }
-  80%  { opacity: 1; }
-  100% { opacity: 0; transform: translateY(300%); }
-}
 
 
 /* ---------------------------------------------------------- landing zones
@@ -277,6 +280,10 @@
 @media (prefers-reduced-motion: reduce) {
   .dash__sheen,
   .starfield i,
+  .screen--cockpit,
+  .screen--cockpit .s1-bg,
+  .screen--cockpit .starfield,
+  .cruise,
   .gate__sheen,
   .launch__ring,
   .launch__flash,
@@ -318,7 +325,15 @@
   .ship.is-in .ship__craft,
   .topbar__text.is-typing .tw__caret { animation: none !important; }
 
-  .screen { transition-duration: .3s, .3s, .3s, 0s; }
+  /* the dissolve stays, quicker, without the zoom or the focus pull */
+  .screen,
+  .screen.is-active,
+  .screen.is-leaving,
+  .screen.is-active.is-replaying { transform: none; filter: none; }
+  .screen { transition: opacity .3s ease, visibility 0s linear .3s; }
+  .screen.is-active,
+  .screen.is-active.is-replaying { transition: opacity .3s ease, visibility 0s; }
+  .screen.is-leaving { transition: opacity .3s ease .25s, visibility 0s; }
 }
 
 /* ---------------------------------------------------------- start gate */

@@ -73,6 +73,7 @@ window.GeoManifest = {
   "assets/images/environment/platform.webp": 87730,
   "assets/images/joystick-base.webp": 37020,
   "assets/images/joystick-knob.webp": 27398,
+  "assets/images/landing/parallelogram-craft.webp": 107078,
   "assets/images/landing/parallelogram-land.webp": 81692,
   "assets/images/landing/rectangle-craft.webp": 50264,
   "assets/images/landing/rectangle-land.webp": 95838,

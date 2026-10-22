@@ -853,6 +853,9 @@
      than the 12-unit one. */
   function breach(island) {
     if (!ready || !island) return;
+    /* on a reef screen the reef's water answers every island that
+       comes up, on either site (js/reef-water.js) */
+    if (island.closest('.screen[data-reef]')) return;
     impact(island, centreOf(island), {
       size: waveSize(island, 2.4),
       from: island

@@ -10,23 +10,27 @@
      layer 02  rocks under the water  sampled at each .env-submerged
                                       element's current box, at its opacity
 
-   all through the same slow refraction, then lights them with soft
-   drifting bands of sunlight and a slow shimmer. No caustic net: its
-   lines read as too busy here. Everything dry (platforms, small rocks,
+   all through the same slow refraction and a live rippling surface over
+   it (five sizes of ripple, each rolling its own way, bending the
+   painting under them and shading their own faces), then lights them
+   with soft drifting bands of sunlight and a slow shimmer. No caustic
+   net: its lines read as too busy here. Everything dry (platforms, small rocks,
    edge fragments, their shoreline rings, the craft) is DOM over the
    canvas, so it stays perfectly still.
 
    Round every piece of dry land it draws the shore, from the land's own
-   silhouettes (a distance field over site B and a margin round it):
-   shallows glowing turquoise against it, swell rolling in that only bends
-   the water, and broken foam washing up and drawing back. No outline is
-   drawn.
+   silhouettes (a distance field over all the land in the camera plate:
+   site B's, site A's islands, the islets and the rock strewn between
+   them): shallows glowing turquoise against it, swell rolling in that
+   only bends the water, and broken foam washing up and drawing back. No
+   outline is drawn.
 
-   When land comes up (`.pad.is-up`) the water answers it, in real time
-   rather than on the slow sea clock: a boil of bubbles and a swell over
-   it, then foam pushed off its waterline and three wave rings that
-   follow its shape outward, bending the sea as they pass, with small
-   bubbles rising round it. css/reef.css plays the land's half.
+   When land comes up (`.pad.is-up`, `.islet.is-up`) the water answers it,
+   in real time rather than on the slow sea clock: a boil of bubbles and a
+   swell over it, then foam pushed off its waterline and three wave rings
+   that follow its shape outward, bending the sea as they pass, with small
+   bubbles rising round it, all at the size the camera shows that land.
+   css/reef.css plays the land's half on the reef's own rock.
 
    Effects are in ocean-painting pixels (1672 wide, the reference stage's
    own width), so the water zooms and pans with the ocean plate. Without
@@ -35,23 +39,33 @@
 (function (global) {
   'use strict';
   var doc = document, ART = global.GeoEnvironmentAssets;
-  var MAX_ROCKS = 8, MAX_EVENTS = 12, MAX_LANDS = 64;
+  var MAX_ROCKS = 16, MAX_EVENTS = 32, MAX_LANDS = 128;
   var CONFIG = {
     // the strength of the whole pass; light levels are added brightness
     amplitude: 1, reducedAmplitude: .35, rays: .07, shimmer: .03,
     // how fast the water's clock runs against the reference's (1)
     speed: .4,
+    // the surface itself, on real seconds: ripples of five sizes rolling
+    // across the painting, each one bending what is under it (`refract`,
+    // painting px per unit of slope) and lighting the faces turned to the
+    // sun (`shade`). It only warps and lights the ocean image; nothing is
+    // drawn over it.
+    surfaceSpeed: 1, refract: 11, shade: .3,
     // a breach, in real seconds from the land starting up (css/reef.css
     // envRise): it breaks the surface at `breach`, and its water has
-    // settled by `eventLife`. Small rocks move this share of the water.
-    breach: .45, eventLife: 4.2, rockStrength: .55,
-    // the shore: how far out from land it reaches (site px), and when a
-    // surfacing island's shore comes in (s after it starts up, and over)
-    shoreReach: 64, shoreIn: .35, shoreFade: 1.3,
-    // the shore map runs this share of site B past each of its sides, as
-    // the plates' overscan does (css/reef.css): the piloted camera slides
-    // the part of a big rock that hangs off the frame into it
-    fieldMargin: .08,
+    // settled by `eventLife`. Small rocks move this share of the water,
+    // and seen from further off than `rockZoom` (the camera's scale)
+    // throw none of their own: from on high they are a few pixels across.
+    breach: .45, eventLife: 4.2, rockStrength: .55, rockZoom: .6,
+    // the breach follows the camera's scale down to this and no further:
+    // any smaller, its rings close up into lines and its bubbles into dust
+    breachZoom: .55,
+    // the shore: how far out from land it reaches (camera plate px), when
+    // a surfacing island's shore comes in (s after it starts up, and over)
+    // and how long it takes to go once the island sinks again
+    shoreReach: 64, shoreIn: .35, shoreFade: 1.3, sinkFade: 1.1,
+    // the shore map's cells: at most this many, however big the sea
+    maxCells: 1300000,
     // how strongly the shallows glow, the foam shows and the swell bends
     shoreGlow: .75, shoreFoam: 1, shoreSwell: 1.6,
     // backing pixels never exceed the painting's resolution (times this),
@@ -78,16 +92,18 @@
     'uniform float uRockAlpha;',
     'uniform vec2 uLight;',          // rays, shimmer
     'uniform vec4 uEv[' + MAX_EVENTS + '];',    // breach: centre, half size, canvas px
-    'uniform vec4 uEvT[' + MAX_EVENTS + '];',   // age s, strength (0: unused), corner px, seed
+    'uniform vec4 uEvT[' + MAX_EVENTS + '];',   // age s, strength (0: unused), corner px (< 0: a rhombus), seed
     'uniform float uEvents;',
-    'uniform sampler2D uField;',     // site B: distance to land, outward direction
+    'uniform sampler2D uField;',     // distance to land, outward direction
     'uniform sampler2D uFieldId;',   // which land is nearest (its index / 255)
     'uniform sampler2D uLand;',      // each land's shore strength, in a row
     'uniform vec4 uSite;',           // the field's box, canvas px
-    'uniform float uWorld;',         // canvas px per site px
+    'uniform float uWorld;',         // canvas px per camera plate px
     'uniform float uClock;',         // real seconds (0: still)
     'uniform float uShore;',         // 0 until the field is built
     'uniform vec3 uShoreMix;',       // glow, foam, swell
+    'uniform vec3 uSurf;',           // surface clock (s), refract, shade
+    'uniform float uZoom;',          // the camera's scale (1: a site's frame)
     'const float BREACH = ' + CONFIG.breach.toFixed(3) + ';',
     'const float REACH = ' + CONFIG.shoreReach.toFixed(1) + ';',
     'const float LANDS = ' + MAX_LANDS.toFixed(1) + ';',
@@ -106,6 +122,19 @@
     '  n = sg * (o.x + o.y > 0.0 ? normalize(o + 0.0001) : (a.x > a.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0)));',
     '  return length(o) + min(max(a.x, a.y), 0.0) - r;',
     '}',
+    // and outside a rhombus with half diagonals h (after Inigo Quilez)
+    'float rhomb(vec2 p, vec2 h, out vec2 n) {',
+    '  vec2 q = abs(p), sg = vec2(p.x < 0.0 ? -1.0 : 1.0, p.y < 0.0 ? -1.0 : 1.0);',
+    '  float t = clamp(((h.x - 2.0 * q.x) * h.x - (h.y - 2.0 * q.y) * h.y) / dot(h, h), -1.0, 1.0);',
+    '  vec2 o = q - 0.5 * h * vec2(1.0 - t, 1.0 + t);',
+    '  float side = q.x * h.y + q.y * h.x - h.x * h.y;',
+    '  n = sg * (side > 0.0 ? normalize(o + 0.0001) : normalize(vec2(h.y, h.x)));',
+    '  return length(o) * (side > 0.0 ? 1.0 : -1.0);',
+    '}',
+    // a breach's land: a rounded box, or a rhombus where the corner is < 0
+    'float shapeOf(vec2 p, vec2 h, float r, out vec2 n) {',
+    '  return r < 0.0 ? rhomb(p, h, n) : box(p, h, r, n);',
+    '}',
 
     // One grid of bubbles round a breach. A cell holds at most one, placed
     // by the distance of its own centre so none is cut off; each is born at
@@ -115,7 +144,7 @@
     '  vec2 cell = floor(s / g);',
     '  float h1 = hash(cell + seed), h2 = hash(cell + seed + 17.3), h3 = hash(cell + seed + 41.9);',
     '  vec2 c = (cell + 0.32 + 0.36 * vec2(h3, h2)) * g, n;',
-    '  float dc = box(c - ec, eh, er, n), grow = min(a, 1.6);',
+    '  float dc = shapeOf(c - ec, eh, er, n), grow = min(a, 1.6);',
     '  float density = k * 0.5 * (1.0 - smoothstep(4.0 + 22.0 * grow, 14.0 + 36.0 * grow, dc));',
     '  if (dc < -3.0) density *= 1.0 - smoothstep(0.1, BREACH + 0.2, a);',
     '  if (h1 >= density) return 0.0;',
@@ -142,7 +171,7 @@
     '  float id = floor(texture2D(uFieldId, fuv).r * 255.0 + 0.5);',
     '  float k = texture2D(uLand, vec2((id + 0.5) / LANDS, 0.5)).r;',
     '  if (k <= 0.0) return;',
-    '  float d = f.r * REACH, t = uClock;',             // site px from that land
+    '  float d = f.r * REACH, t = uClock;',             // plate px from that land
     '  vec2 dir = f.gb * 2.0 - 1.0, w = (p - uSite.xy) / uWorld;',
     '  float swell = sin(d * 0.17 + t * 1.3 + id * 1.7) * exp(-d / 30.0) * smoothstep(0.0, 5.0, d);',
     '  disp += dir * swell * uShoreMix.z * k * uWorld / uUnit;',
@@ -160,21 +189,24 @@
     // The water's half of land coming up (css/reef.css has the land's): a
     // boil and a swell over it, then, as it breaks through, foam pushed off
     // its waterline and three wave rings that follow its shape outward,
-    // bending the sea under them, with bubbles rising all round.
-    'void breach(vec2 s, inout vec2 disp, inout float light, inout float foam, inout float bub) {',
+    // bending the sea under them, with bubbles rising all round. Worked out
+    // in painting px over the camera's scale, so from on high it is the same
+    // event as close to, only as small as the land it comes off.
+    'void breach(vec2 p, inout vec2 disp, inout float light, inout float foam, inout float bub) {',
+    '  vec2 s = p / uZoom, moved = vec2(0.0);',
     '  for (int i = 0; i < ' + MAX_EVENTS + '; i++) {',
     '    vec4 e = uEv[i], et = uEvT[i];',
     '    if (et.y <= 0.0) continue;',
-    '    float a = et.x, k = et.y;',
-    '    vec2 ec = (e.xy - uOcean.xy) / uUnit, eh = e.zw / uUnit, n;',
-    '    float er = et.z / uUnit, size = min(eh.x, eh.y);',
-    '    float d = box(s - ec, eh, er, n);',
+    '    float a = et.x, k = et.y, unit = uUnit * uZoom;',
+    '    vec2 ec = (e.xy - uOcean.xy) / unit, eh = e.zw / unit, n;',
+    '    float er = et.z / unit, size = min(eh.x, eh.y);',
+    '    float d = shapeOf(s - ec, eh, er, n);',
     '    if (d > 30.0 + 150.0 * a) continue;',
     '    float pre = k * smoothstep(0.0, 0.18, a) * (1.0 - smoothstep(BREACH, BREACH + 0.45, a));',
     '    float over = 1.0 - smoothstep(-4.0, 26.0, d);',
     '    float churn = noise(s * 0.09 + vec2(a * 3.1, -a * 2.3) + et.w);',
-    '    disp += (vec2(churn, noise(s * 0.09 - vec2(a * 2.7, a * 1.9) + et.w + 5.0)) - 0.5) * 7.0 * pre * over;',
-    '    disp -= n * 5.0 * pre * exp(-max(d, 0.0) / 16.0);',
+    '    moved += (vec2(churn, noise(s * 0.09 - vec2(a * 2.7, a * 1.9) + et.w + 5.0)) - 0.5) * 7.0 * pre * over;',
+    '    moved -= n * 5.0 * pre * exp(-max(d, 0.0) / 16.0);',
     '    light += pre * over * (0.06 + 0.1 * churn);',
     '    float outside = smoothstep(-3.0, 3.0, d);',
     '    for (int j = 0; j < 3; j++) {',
@@ -183,7 +215,7 @@
     '      float front = 3.0 + (125.0 - 16.0 * fj) * tr, wl = 14.0 + 10.0 * tr, x = d - front;',
     '      float amp = k * (1.0 - 0.22 * fj) * exp(-tr * 0.8) * (size + 50.0) / (size + 50.0 + front);',
     '      float w = sin(x / wl * 6.2832) * exp(-x * x / (wl * wl * 0.8)) * amp * outside;',
-    '      disp += n * w * 5.0;',
+    '      moved += n * w * 5.0;',
     '      light += max(w, 0.0) * 0.22 + min(w, 0.0) * 0.12;',
     '    }',
     '    float ta = a - BREACH;',
@@ -200,6 +232,42 @@
     '      bub += bubbles(s, 11.0, a, et.w + 3.1, ec, eh, er, k * 0.6);',
     '    }',
     '  }',
+    '  disp += moved * uZoom;',
+    '}',
+
+    // The moving surface: value noise with its exact slope (quintic, so the
+    // slope has no creases), five sizes of it, each turned its own way and
+    // rolling its own way, so no two line up into a pattern and the sum
+    // keeps changing shape instead of sliding. The big ripples roll faster
+    // than the small ones, as on real water. Returns the surface's slope in
+    // painting px; its height goes to `h` (about 0 to 1).
+    'float hashI(vec2 p) {',
+    '  vec3 p3 = fract(vec3(p.xyx) * 0.1031);',
+    '  p3 += dot(p3, p3.yzx + 33.33);',
+    '  return fract((p3.x + p3.y) * p3.z);',
+    '}',
+    'vec3 noised(vec2 x) {',
+    '  vec2 i = floor(x), f = fract(x);',
+    '  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);',
+    '  vec2 du = 30.0 * f * f * (f * (f - 2.0) + 1.0);',
+    '  float a = hashI(i), b = hashI(i + vec2(1.0, 0.0)), c = hashI(i + vec2(0.0, 1.0)), d = hashI(i + vec2(1.0, 1.0));',
+    '  float k = a - b - c + d;',
+    '  return vec3(a + (b - a) * u.x + (c - a) * u.y + k * u.x * u.y, du * (vec2(b - a, c - a) + k * u.yx));',
+    '}',
+    'void ripple(vec2 s, float size, float turn, vec2 roll, float amp, inout float h, inout vec2 g) {',
+    '  mat2 r = mat2(cos(turn), sin(turn), -sin(turn), cos(turn));',
+    '  vec3 n = noised(r * (s / size) + roll);',
+    '  h += amp * n.x;',
+    '  g += amp * (n.yz * r) / size;',
+    '}',
+    'vec2 surface(vec2 s, float t, out float h) {',
+    '  vec2 g = vec2(0.0); h = 0.0;',
+    '  ripple(s, 92.0, 0.4, vec2(0.11, 0.05) * t, 0.30, h, g);',
+    '  ripple(s, 61.0, 2.1, vec2(-0.09, 0.10) * t, 0.24, h, g);',
+    '  ripple(s, 37.0, 3.7, vec2(0.15, -0.07) * t, 0.20, h, g);',
+    '  ripple(s, 23.0, 5.2, vec2(-0.16, -0.14) * t, 0.15, h, g);',
+    '  ripple(s, 14.0, 1.3, vec2(0.24, 0.12) * t, 0.11, h, g);',
+    '  return g * 30.0;',
     '}',
 
     // refraction: the reference's under-surface terms at mid depth, plus two
@@ -223,6 +291,9 @@
     '  float glow = 0.0;',
     '  if (uShore > 0.5) shore(p, disp, glow, foam);',
     '  if (uEvents > 0.5) breach(s, disp, light, foam, bub);',
+    '  float h;',
+    '  vec2 g = surface(s, uSurf.x, h);',
+    '  disp += g * uSurf.y * uAmp;',
     '  vec2 q = p + (displace(s, t) + disp) * uUnit;',
     '  vec3 color = texture2D(uSea, clamp((q - uOcean.xy) / uOcean.zw, 0.0, 1.0)).rgb;',
     '  for (int i = 0; i < ' + MAX_ROCKS + '; i++) {',
@@ -237,6 +308,10 @@
     '    + 0.7 * pow(max(0.0, sin(s.x * 0.0063 - s.y * 0.0026 + t * 0.17 + 1.7)), 14.0);',
     '  rays *= uLight.x;',
     '  float shimmer = uLight.y * sin(s.x * 0.006 + t * 0.4 + s.y * 0.004);',
+    // the surface's own light: faces tipped toward the sun (upper left)
+    // brighter, the far sides of the ripples and the troughs darker. No
+    // sun glints: off a slope like this they trace thin rings or smudges.
+    '  shimmer += (dot(g, normalize(vec2(-0.6, -0.8))) + (h - 0.5) * 0.25) * uSurf.z;',
     '  color = color * (1.0 + shimmer * uAmp) + vec3(0.75, 0.93, 1.0) * (rays * uAmp + light);',
     '  color = mix(color, vec3(0.33, 0.88, 0.97), clamp(glow * uShoreMix.x, 0.0, 0.6));',
     '  color = mix(color, vec3(0.9, 0.98, 1.0), clamp(foam, 0.0, 0.85));',
@@ -308,7 +383,7 @@
     gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
     s.u = {};
     ['uRes', 'uTime', 'uAmp', 'uOcean', 'uUnit', 'uSea', 'uAtlas', 'uRock', 'uCell', 'uRockAlpha', 'uLight',
-      'uEv', 'uEvT', 'uEvents', 'uField', 'uFieldId', 'uLand', 'uSite', 'uWorld', 'uClock', 'uShore', 'uShoreMix']
+      'uEv', 'uEvT', 'uEvents', 'uField', 'uFieldId', 'uLand', 'uSite', 'uWorld', 'uClock', 'uShore', 'uShoreMix', 'uSurf', 'uZoom']
       .forEach(function (name) { s.u[name] = gl.getUniformLocation(s.prog, name); });
     gl.activeTexture(gl.TEXTURE0); s.seaTex = texture(gl, s.sea, false);
     gl.activeTexture(gl.TEXTURE1); s.atlasTex = texture(gl, s.atlas.canvas, true);
@@ -339,17 +414,36 @@
   }
 
   /* ---------------------------------------------------------- the shores
-     A distance field over site B, in its own (camera-free) pixels, built
-     from the silhouettes of all the dry land on it whenever the land
-     changes: per cell, how far the nearest land is, which way is away
-     from it, and which land that is. Rebuilt on a strew, a resize or a
-     decoration being hidden, never per frame. */
+     A distance field over all the land in the camera plate, in its own
+     (camera-free) pixels, built from the silhouettes of that land
+     whenever it changes: per cell, how far the nearest land is, which way
+     is away from it, and which land that is. Rebuilt on a strew, a resize
+     or land being shown or hidden, never per frame. */
+  // the reef's rock (platforms, small rocks, the big rocks), site A's
+  // islands and the islets (js/pages.js), and the picture each one's
+  // silhouette is read from
+  var LAND = '.env-platform, .env-satellite, .env-big, .site--a .pad, .islet';
+  function pictureOf(el) {
+    return el.querySelector(el.classList.contains('pad') ? ':scope > .pad__img' :
+      el.classList.contains('islet') ? ':scope > .islet__img' : '.env-image');
+  }
+  // an element's box in its host's layout, through no transform: land
+  // mid-rise is drawn where it will stand
+  function layout(el, host) {
+    var x = 0, y = 0, n = el;
+    while (n && n !== host) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return { x: x, y: y, w: el.offsetWidth, h: el.offsetHeight };
+  }
+  // Site B's first: it is where the landing is flown, so it is never the
+  // land left over when there is more than the field can tell apart.
   function landsOf(s) {
-    var out = [];
-    s.site.querySelectorAll('.env-platform, .env-satellite, .env-big').forEach(function (el) {
-      var img = el.querySelector('.env-image');
-      if (out.length >= MAX_LANDS - 1 || !img || el.closest('[hidden]') || el.querySelector('.is-missing')) return;
-      out.push({ el: el, img: img, imgs: el.querySelectorAll('.env-image'), edge: el.classList.contains('env-big') });
+    var out = [], all = Array.prototype.slice.call(s.site.querySelectorAll(LAND));
+    s.cam.querySelectorAll(LAND).forEach(function (el) { if (!s.site.contains(el)) all.push(el); });
+    all.forEach(function (el) {
+      var img = pictureOf(el);
+      if (out.length >= MAX_LANDS - 1 || !img || el.closest('[hidden]') || !img.offsetParent ||
+          el.querySelector(':scope > .env-art.is-missing')) return;
+      out.push({ el: el, img: img, edge: el.classList.contains('env-big'), flip: el.classList.contains('is-flip') });
     });
     return out;
   }
@@ -369,54 +463,81 @@
       d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; arg[q] = v[k];
     }
   }
+  // A picture's silhouette at about the most it is ever drawn at in the
+  // field: scaling the full artwork down on every build was most of the
+  // build's time.
+  var silhouettes = new Map();
+  function silhouette(img) {
+    var key = img.currentSrc || img.src, m = silhouettes.get(key);
+    if (m) return m;
+    var k = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
+    m = doc.createElement('canvas');
+    m.width = Math.max(1, Math.round(img.naturalWidth * k)); m.height = Math.max(1, Math.round(img.naturalHeight * k));
+    m.getContext('2d').drawImage(img, 0, 0, m.width, m.height);
+    silhouettes.set(key, m);
+    return m;
+  }
   function buildField(s) {
-    var site = s.site, W = site.clientWidth, H = site.clientHeight, sr = site.getBoundingClientRect();
-    if (!W || !H || !sr.width) return false;
+    var cam = s.cam, W = cam.clientWidth, H = cam.clientHeight;
+    if (!W || !H) return false;
     var lands = landsOf(s);
-    if (lands.some(function (l) {
-      return Array.prototype.some.call(l.imgs, function (img) { return !img.complete || !img.naturalWidth; });
-    })) return false;
-    var mx = Math.round(W * CONFIG.fieldMargin), my = Math.round(H * CONFIG.fieldMargin);
-    var cell = Math.max(2, W / 512), gw = Math.ceil((W + 2 * mx) / cell), gh = Math.ceil((H + 2 * my) / cell), n = gw * gh;
+    if (lands.some(function (l) { return !l.img.complete || !l.img.naturalWidth; })) return false;
+    // the field covers the land and its shores, and no more of the sea
+    // than the wide shot can see (an islet with nowhere to go is parked
+    // well off it, js/pages.js)
+    var reach = CONFIG.shoreReach + 8, l0 = Infinity, t0 = Infinity, r0 = -Infinity, b0 = -Infinity;
+    lands.forEach(function (l) {
+      var b = l.box = layout(l.img, cam);
+      l0 = Math.min(l0, b.x - reach); t0 = Math.min(t0, b.y - reach);
+      r0 = Math.max(r0, b.x + b.w + reach); b0 = Math.max(b0, b.y + b.h + reach);
+    });
+    l0 = Math.max(l0, -W); t0 = Math.max(t0, -1.2 * H); r0 = Math.min(r0, 3 * W); b0 = Math.min(b0, 2.8 * H);
+    if (!(r0 > l0 && b0 > t0)) { s.field = null; return true; }
+    var cell = Math.max(2, W / 512), cells = (r0 - l0) * (b0 - t0) / (cell * cell);
+    if (cells > CONFIG.maxCells) cell *= Math.sqrt(cells / CONFIG.maxCells);
+    var gw = Math.ceil((r0 - l0) / cell), gh = Math.ceil((b0 - t0) / cell), n = gw * gh;
     var c = s.fieldCanvas || (s.fieldCanvas = doc.createElement('canvas'));
     c.width = gw; c.height = gh;
-    var cx = c.getContext('2d', { willReadFrequently: true }), toCell = W / sr.width / cell;
+    var cx = c.getContext('2d', { willReadFrequently: true });
     var boxes = [];
     lands.forEach(function (l, i) {
-      // the object's own box: its artwork may be mid-rise, but it never moves
-      var b = l.el.getBoundingClientRect();
-      var x = (b.left - sr.left) * toCell + mx / cell, y = (b.top - sr.top) * toCell + my / cell;
-      var w = b.width * toCell, h = b.height * toCell;
-      Array.prototype.forEach.call(l.imgs, function (img) {
-        var ix = x + (img.offsetLeft - l.img.offsetLeft) / cell;
-        cx.drawImage(img, ix, y, w, h);
-        boxes.push([i, Math.max(0, Math.floor(ix)), Math.max(0, Math.floor(y)),
-          Math.min(gw, Math.ceil(ix + w)), Math.min(gh, Math.ceil(y + h))]);
-      });
+      var b = l.box, x = (b.x - l0) / cell, y = (b.y - t0) / cell, w = b.w / cell, h = b.h / cell;
+      if (x + w < 0 || y + h < 0 || x > gw || y > gh) return;
+      var pic = silhouette(l.img);
+      if (l.flip) { cx.save(); cx.translate(x + w, y); cx.scale(-1, 1); cx.drawImage(pic, 0, 0, w, h); cx.restore(); }
+      else cx.drawImage(pic, x, y, w, h);
+      boxes.push([i, Math.max(0, Math.floor(x)), Math.max(0, Math.floor(y)),
+        Math.min(gw, Math.ceil(x + w)), Math.min(gh, Math.ceil(y + h))]);
     });
-    var alpha = cx.getImageData(0, 0, gw, gh).data, owner = new Uint8Array(n), INF = 1e10;
+    var alpha = cx.getImageData(0, 0, gw, gh).data, owner = new Uint8Array(n), land = new Uint8Array(gw), INF = 1e10;
     boxes.forEach(function (b) {
       for (var y = b[2]; y < b[4]; y++) for (var x = b[1]; x < b[3]; x++) {
-        if (alpha[(y * gw + x) * 4 + 3] > 127) owner[y * gw + x] = b[0] + 1;
+        if (alpha[(y * gw + x) * 4 + 3] > 127) { owner[y * gw + x] = b[0] + 1; land[x] = 1; }
       }
     });
+    // Only distances inside the shore's reach are kept, so most of the sea
+    // -- a column with no land in it, a row with none within reach -- is
+    // open water without being measured.
     var m = Math.max(gw, gh), f = new Float64Array(m), d = new Float64Array(m), arg = new Int32Array(m);
-    var v = new Int32Array(m), z = new Float64Array(m + 1);
-    var col = new Float64Array(n), rowOf = new Int32Array(n), x, y, i;
+    var v = new Int32Array(m), z = new Float64Array(m + 1), far = Math.pow(CONFIG.shoreReach / cell + 1, 2);
+    var col = new Float64Array(n).fill(INF), rowOf = new Int32Array(n), x, y, i;
     for (x = 0; x < gw; x++) {
+      if (!land[x]) continue;
       for (y = 0; y < gh; y++) f[y] = owner[y * gw + x] ? 0 : INF;
       edt(f, gh, d, arg, v, z);
-      for (y = 0; y < gh; y++) { col[y * gw + x] = d[y]; rowOf[y * gw + x] = arg[y]; }
+      for (y = 0; y < gh; y++) { col[y * gw + x] = d[y] > far ? INF : d[y]; rowOf[y * gw + x] = arg[y]; }
     }
     var px = new Uint8Array(n * 4), ids = new Uint8Array(n), reach = CONFIG.shoreReach;
+    for (i = 0; i < n; i++) { px[i * 4] = 255; px[i * 4 + 1] = px[i * 4 + 2] = 128; px[i * 4 + 3] = 255; }
     for (y = 0; y < gh; y++) {
-      for (x = 0; x < gw; x++) f[x] = col[y * gw + x];
+      var near = false;
+      for (x = 0; x < gw; x++) { f[x] = col[y * gw + x]; near = near || f[x] < INF; }
+      if (!near) continue;
       edt(f, gw, d, arg, v, z);
       for (x = 0; x < gw; x++) {
         i = y * gw + x;
         var dist = Math.sqrt(d[x]) * cell, sx = arg[x], sy = rowOf[y * gw + sx];
-        px[i * 4 + 3] = 255;
-        if (!(dist < reach) || d[x] >= INF) { px[i * 4] = 255; px[i * 4 + 1] = px[i * 4 + 2] = 128; continue; }
+        if (!(dist < reach) || d[x] >= INF) continue;
         var dx = x - sx, dy = y - sy, len = Math.hypot(dx, dy) || 1;
         px[i * 4] = Math.round(dist / reach * 250);
         px[i * 4 + 1] = Math.round((dx / len * .5 + .5) * 255);
@@ -427,41 +548,50 @@
     var gl = s.gl;
     upload(gl, s.fieldTex, gl.RGBA, gw, gh, px);
     upload(gl, s.idTex, gl.LUMINANCE, gw, gh, ids);
-    s.field = { w: gw * cell, h: gh * cell, mx: mx, my: my, lands: lands };
+    s.field = { x: l0, y: t0, w: gw * cell, h: gh * cell, lands: lands };
     s.landBytes.fill(0); s.landSent = null;
     return true;
   }
   // How much shore each land has now: the big rocks always, an island
-  // from its breach on (css/reef.css times the same rise).
+  // from its breach on (css/reef.css times the same rise) until it sinks.
   function landStates(s) {
     var bytes = s.landBytes, changed = !s.landSent;
     s.field.lands.forEach(function (l, i) {
-      var k = 1, up = l.edge ? 0 : s.upAt.get(l.el);
-      if (!l.edge) {
-        if (up == null) k = 0;
-        else if (!s.reduced) k = Math.min(1, Math.max(0, (s.clock - up - CONFIG.shoreIn) / CONFIG.shoreFade));
-      }
-      var b = Math.round(k * 255);
+      var k = l.edge ? 1 : shoreOf(s, l.el), b = Math.round(k * 255);
       if (bytes[i + 1] !== b) { bytes[i + 1] = b; changed = true; }
     });
     if (changed) { upload(s.gl, s.landTex, s.gl.LUMINANCE, MAX_LANDS, 1, bytes); s.landSent = true; }
   }
+  function clamp01(v) { return Math.min(1, Math.max(0, v)); }
+  function shoreOf(s, el) {
+    var up = s.upAt.get(el), down = s.downAt.get(el);
+    if (up == null) return 0;
+    var k = s.reduced ? 1 : clamp01((s.clock - up - CONFIG.shoreIn) / CONFIG.shoreFade);
+    if (down != null) k *= s.reduced ? 0 : 1 - clamp01((s.clock - down) / CONFIG.sinkFade);
+    return k;
+  }
 
-  // Land coming up: css/reef.css plays the land's half off `.pad.is-up`,
-  // each object after its own --satellite-delay; the water's half is timed
-  // from the same moment, on this pass's real-time clock.
+  // Land coming up: css/style.css and css/reef.css play the land's half off
+  // `.is-up` on an island or an islet, each small rock after its own
+  // --satellite-delay; the water's half is timed from the same moment, on
+  // this pass's real-time clock. A decoy on site A going back under
+  // (`.is-sunk`) takes its shore with it.
   function watch(s) {
     var mo = new MutationObserver(function (records) {
       records.forEach(function (rec) {
-        var pad = rec.target, was = /\bis-up\b/.test(rec.oldValue || '');
-        if (rec.attributeName === 'style') { s.fieldDirty = true; return; }
-        if (pad.classList.contains('is-up') && !was) surface(s, pad);
-        else if (!pad.classList.contains('is-up') && was) rising(pad).forEach(function (el) { s.upAt.delete(el); });
+        var el = rec.target, old = rec.oldValue || '';
+        if (rec.attributeName !== 'class') { s.fieldDirty = true; return; }
+        var up = el.classList.contains('is-up'), was = /\bis-up\b/.test(old);
+        if (up && !was) surface(s, el);
+        else if (!up && was) rising(el).forEach(function (l) { s.upAt.delete(l); });
+        var sunk = el.classList.contains('is-sunk');
+        if (sunk && !/\bis-sunk\b/.test(old)) s.downAt.set(el, s.clock);
+        else if (!sunk) s.downAt.delete(el);
       });
     });
-    s.screen.querySelectorAll('.pad[data-area]').forEach(function (pad) {
-      mo.observe(pad, { attributes: true, attributeFilter: ['class', 'style'], attributeOldValue: true });
-      if (pad.classList.contains('is-up')) rising(pad).forEach(function (el) { s.upAt.set(el, -1e3); });
+    s.cam.querySelectorAll('.pad, .islet').forEach(function (el) {
+      mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden'], attributeOldValue: true });
+      if (el.classList.contains('is-up')) rising(el).forEach(function (l) { s.upAt.set(l, -1e3); });
     });
     // the land itself changing: a strew, or a decoration hidden for room
     new MutationObserver(function (records) {
@@ -469,24 +599,45 @@
         return rec.target.nodeType === 1 && rec.target.matches(
           rec.type === 'childList' ? '.env-satellites, .env-bigs' : '.env-object');
       })) s.fieldDirty = true;
-    }).observe(s.site, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
-    new ResizeObserver(function () { s.fieldDirty = true; }).observe(s.site);
+    }).observe(s.cam, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
+    new ResizeObserver(function () { s.fieldDirty = true; }).observe(s.cam);
   }
-  function rising(pad) {
-    return Array.prototype.slice.call(pad.querySelectorAll('.env-platform, .env-satellite'));
+  // what comes up with an island: site B's platform, or the island or islet
+  // itself, and the small rocks round it
+  function rising(el) {
+    var parts = Array.prototype.slice.call(el.querySelectorAll('.env-platform, .env-satellite'));
+    return el.querySelector('.env-platform') ? parts : [el].concat(parts);
   }
-  function surface(s, pad) {
-    var land = pad.querySelector('.env-platform');
-    rising(pad).forEach(function (el) {
+  function zoomOf(s) {
+    return s.cam.offsetWidth ? s.cam.getBoundingClientRect().width / s.cam.offsetWidth : 1;
+  }
+  // The box a breach follows, as shares of the element's own: an island
+  // laid out in a square box (js/pages.js) breaks the water only where its
+  // outline is. The slanted ones round off more at the corners, and a
+  // rhombus is a rhombus (a corner below 0, for the shader).
+  function outlineOf(el) {
+    if (el.classList.contains('env-satellite')) return { ext: [0, 0, 1, 1], corner: .5 };
+    // site B's platform is its island's shape, filling its own box
+    var platform = el.classList.contains('env-platform') && el.closest('.pad');
+    var shape = (platform || el).dataset.shape;
+    var land = !platform && global.GeoPages && global.GeoPages.land[shape];
+    return { ext: land ? land.ext : [0, 0, 1, 1],
+      corner: shape === 'rhombus' ? -1 : !shape || /^(square|rectangle)$/.test(shape) ? .12 : .4 };
+  }
+  function surface(s, riser) {
+    var far = zoomOf(s) < CONFIG.rockZoom;
+    rising(riser).forEach(function (el) {
       if (el.hidden) return;
       var start = s.clock + (parseFloat(el.style.getPropertyValue('--satellite-delay')) || 0) / 1000;
+      var rock = el.classList.contains('env-satellite');
       s.upAt.set(el, start);
-      if (s.reduced || !s.ok || !s.screen.classList.contains('is-active')) return;
-      s.events.push({ el: el, land: el === land, start: start, seed: Math.random() * 97 });
+      if (s.reduced || !s.ok || !s.screen.classList.contains('is-active') || (rock && far)) return;
+      var shape = outlineOf(el);
+      s.events.push({ el: el, land: !rock, start: start, seed: Math.random() * 97, ext: shape.ext, corner: shape.corner });
     });
     while (s.events.length > MAX_EVENTS) s.events.shift();
   }
-  // Each live breach as the shader reads it: the object's box as it stands
+  // Each live breach as the shader reads it: the land's box as it stands
   // now (it never moves; only its artwork does), its age and strength.
   function events(s, cr, kx, ky) {
     s.ev.fill(0); s.evT.fill(0);
@@ -495,11 +646,13 @@
     });
     var n = 0;
     s.events.forEach(function (e, i) {
-      var age = s.clock - e.start, b = e.el.getBoundingClientRect();
+      var age = s.clock - e.start, b = e.el.getBoundingClientRect(), x = e.ext;
       if (age < 0 || !b.width) return;
-      var hx = b.width / 2 * kx * .96, hy = b.height / 2 * ky * .96;
-      s.ev.set([(b.left + b.width / 2 - cr.left) * kx, (b.top + b.height / 2 - cr.top) * ky, hx, hy], i * 4);
-      s.evT.set([age, e.land ? 1 : CONFIG.rockStrength, Math.min(hx, hy) * (e.land ? .12 : .5), e.seed], i * 4);
+      var l = b.left + x[0] * b.width, t = b.top + x[1] * b.height;
+      var w = (x[2] - x[0]) * b.width, h = (x[3] - x[1]) * b.height;
+      var hx = w / 2 * kx * .96, hy = h / 2 * ky * .96;
+      s.ev.set([(l + w / 2 - cr.left) * kx, (t + h / 2 - cr.top) * ky, hx, hy], i * 4);
+      s.evT.set([age, e.land ? 1 : CONFIG.rockStrength, Math.min(hx, hy) * e.corner, e.seed], i * 4);
       n++;
     });
     return n;
@@ -540,7 +693,7 @@
       var el = s.deep[i], cell = s.atlas.cells[el.dataset.art];
       if (el.hidden || !cell || el.classList.contains('is-missing')) continue;
       var r = el.getBoundingClientRect();
-      if (!r.width) continue;
+      if (!r.width || r.right < cr.left || r.left > cr.right || r.bottom < cr.top || r.top > cr.bottom) continue;
       s.rocks.set([(r.left - cr.left) * kx, (r.top - cr.top) * ky, r.width * kx, r.height * ky], n * 4);
       s.cells.set(cell, n * 4); n++;
     }
@@ -550,19 +703,21 @@
     gl.uniform1f(s.u.uEvents, events(s, cr, kx, ky));
     gl.uniform4fv(s.u.uEv, s.ev);
     gl.uniform4fv(s.u.uEvT, s.evT);
-    // the shores: the field rides site B through the camera
+    // the shores: the field rides the camera plate
     if (s.fieldDirty && buildField(s)) s.fieldDirty = false;
+    var cam = s.cam.getBoundingClientRect(), zoom = s.cam.offsetWidth ? cam.width / s.cam.offsetWidth : 1;
+    gl.uniform1f(s.u.uZoom, Math.max(zoom, CONFIG.breachZoom));
     if (s.field) {
       landStates(s);
-      var sr = s.site.getBoundingClientRect(), world = sr.width / s.site.clientWidth * kx;
-      var worldY = sr.height / s.site.clientHeight * ky;
-      gl.uniform4f(s.u.uSite, (sr.left - cr.left) * kx - s.field.mx * world, (sr.top - cr.top) * ky - s.field.my * worldY,
+      var world = zoom * kx, worldY = (s.cam.offsetHeight ? cam.height / s.cam.offsetHeight : 1) * ky;
+      gl.uniform4f(s.u.uSite, (cam.left - cr.left) * kx + s.field.x * world, (cam.top - cr.top) * ky + s.field.y * worldY,
         s.field.w * world, s.field.h * worldY);
       gl.uniform1f(s.u.uWorld, world);
     }
     gl.uniform1f(s.u.uShore, s.field ? 1 : 0);
     gl.uniform3f(s.u.uShoreMix, CONFIG.shoreGlow, CONFIG.shoreFoam, CONFIG.shoreSwell);
     gl.uniform1f(s.u.uClock, s.reduced ? 0 : s.clock);
+    gl.uniform3f(s.u.uSurf, s.reduced ? 0 : s.clock * CONFIG.surfaceSpeed, CONFIG.refract, CONFIG.shade);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, s.seaTex);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, s.atlasTex);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, s.fieldTex);
@@ -635,9 +790,10 @@
       stencil: false, premultipliedAlpha: false, powerPreference: 'low-power' });
     if (!gl) return;
     var reef = global.GeoReef && global.GeoReef.config;
-    var site = screen.querySelector('.site--b');
-    if (!site) return;
-    var s = { screen: screen, bg: bg, site: site, canvas: canvas, gl: gl, sea: sea, atlas: atlas, upAt: new WeakMap(),
+    var site = screen.querySelector('.site--b'), cam = screen.querySelector('.cam');
+    if (!site || !cam) return;
+    var s = { screen: screen, bg: bg, site: site, cam: cam, canvas: canvas, gl: gl, sea: sea, atlas: atlas,
+      upAt: new WeakMap(), downAt: new WeakMap(),
       deep: screen.getElementsByClassName('env-submerged'),
       rockAlpha: reef ? reef.deepOpacity : .62,
       time: 0, clock: 0, events: [], last: 0, slow: 0, quality: 1, raf: 0, timer: 0, live: false, ok: true };

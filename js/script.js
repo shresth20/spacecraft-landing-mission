@@ -69,6 +69,8 @@
   var M = global.GeoMotion;
   var W = global.GeoWave;
   var T = global.GeoType;
+  /* js/cruise.js -- dust drifting past the cockpit's canopy */
+  var C = global.GeoCruise;
 
   /* js/failure.js — the landing and its two failures, shared by
      screens 3 to 8. Every one of the three outcomes below goes
@@ -152,15 +154,19 @@
        when the hearts run out. No clips for either -- typed at
        reading rate, as the shape lines are (see voice()) */
     pilotHow: 'Drag the joystick to fly the spaceship. Stop over a landing zone and press GO.',
-    autoPilot: 'Out of hearts! Autopilot will land on the zone that fits.'
+    autoPilot: 'Out of hearts! Autopilot will land on the zone that fits.',
+
+    /* the last screen (runEnd); no clip, shown for a reading's length */
+    complete:  'You landed the spaceship safely on every shape. Great work, Space Commander!'
   };
 
   function grab() {
     [
-      'stage', 'screenCockpit', 'starfield',
+      'stage', 'screenCockpit', 'starfield', 'cruiseCanvas',
       'flyDrone', 'flyTrail', 'dash', 'waveCanvas', 'cockpitCaption',
       'launchSlot', 'launchBtn',
-      'veil', 'gate', 'gateBtn', 'gateLoad', 'gateFill',
+      'screenEnd', 'endStars', 'endShip', 'endTitle', 'endCaption', 'endConfetti', 'restartBtn',
+      'gate', 'gateBtn', 'gateLoad', 'gateFill',
       'gateStatus', 'gatePct', 'nav', 'navPrev', 'navNext',
       'navDebug', 'navDebugMenu'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
@@ -344,6 +350,7 @@
 
   function runCockpit() {
     W.start();
+    if (C) C.start();
 
     return sequence([
       function () { return M.wait(700); },
@@ -399,6 +406,62 @@
       A.sfx('glitch', { volume: 0.34 });
       return goTo(1, { silent: true });
     });
+  }
+
+  /* ============================================================
+     MISSION COMPLETE — the last screen
+
+     After the last round's NEXT: the craft, the title, one line,
+     confetti, and RESTART, which takes the mission from the top.
+     Shaped like the cockpit: reset puts every piece back while the
+     screen is still hidden, run brings them in one after another
+     under the generation check, so a jump away mid-sequence strands
+     it the way it strands everything else.
+     ============================================================ */
+  function resetEnd() {
+    if (!el.screenEnd) return;
+    el.endShip.classList.remove('is-in');
+    el.endTitle.classList.remove('is-in');
+    el.endCaption.classList.remove('is-shown');
+    el.endCaption.textContent = '';
+    M.confettiClear(el.endConfetti);
+    el.restartBtn.classList.remove('is-in');
+    el.restartBtn.hidden = true;
+  }
+
+  /* speak() clears its caption unless told it may not: this line stays */
+  function holdCaption() { return false; }
+
+  function runEnd() {
+    return sequence([
+      function () { return M.wait(500); },
+      function () {
+        el.endShip.classList.add('is-in');
+        return M.wait(900);
+      },
+      function () {
+        el.endTitle.classList.add('is-in');
+        A.sfx('correct', { volume: 0.6 });
+        return M.wait(500);
+      },
+      function () {
+        M.confetti(el.endConfetti);
+        A.sfx('cheer', { volume: 0.5 });
+        return speak(el.endCaption, 'complete', holdCaption);
+      },
+      /* the line has no clip, so it is given a reading's length */
+      function () { return M.wait(1600); },
+      function () {
+        el.restartBtn.hidden = false;
+        /* reflow, as showRoundAdvance(): a starting frame to rise from */
+        void el.restartBtn.offsetWidth;
+        el.restartBtn.classList.add('is-in');
+      }
+    ]);
+  }
+
+  function onRestart() {
+    return goTo(0);
   }
 
   /* ============================================================
@@ -542,18 +605,18 @@
     if (flown(b)) P.strewPilot(round);
     else P.dealRow(b);
 
-    /* and the reef under the water, clear of where they now are,
-       on the screen that has one */
-    REEF.strew(round);
-
     /* the rest of the archipelago, strewn again -- over the frame of
        any site this screen never plays, too */
     round.islets.forEach(function (isl) { isl.classList.remove('is-up'); });
     P.strewIslets(e.cam, round.islets, round.plays);
 
+    /* and the reef's rock, above the water and under it, clear of
+       where all of that now is, on the screen that has one */
+    REEF.strew(round);
+
     /* And the lens: PARKED at survey height over the middle of the
-       sea, before the screen is shown. Reset runs under the veil (see
-       goTo), so the screen fades up already high rather than snapping
+       sea, before the screen is shown. Reset runs while the screen is
+       still hidden (see goTo), so it dissolves in already high rather than snapping
        up to height on its first frame.
 
        Parked, not set loitering -- the drift starts in runRound(),
@@ -856,6 +919,9 @@
           if (!e.topbar.hasAttribute('data-step-aside')) {
             e.topbar.setAttribute('data-step-aside', STEP_ASIDE_MS);
           }
+          /* from far off, on its own jets (arrive() in js/pilot.js);
+             the line lands once it is on its station */
+          return PILOT.arrive(b);
         }
         /* the flight in takes 1.55s (shipArrive, css/rounds.css);
            the line lands as it settles onto its station */
@@ -1212,6 +1278,7 @@
     round.scolding = false;
     round.landing = false;
     round.solved = false;
+    dropNudge(round);
 
     /* takes every phase class off the craft and empties both effect
        layers, so a wreck and its scorch go with the reset. A site
@@ -1276,6 +1343,7 @@
       var hit = pad.querySelector('.pad__hit');
       if (hit) hit.tabIndex = 0;
     });
+    armNudge(round);
 
     return new Promise(function (resolve) {
       round.release = resolve;
@@ -1286,6 +1354,7 @@
   function endRoundPicking(round) {
     round.phase = null;
     round.scolding = false;
+    dropNudge(round);
 
     round.el.pads.classList.remove('is-picking');
     roundPads(round).forEach(function (pad) {
@@ -1296,6 +1365,53 @@
     var done = round.release;
     round.release = null;
     if (done) done();
+  }
+
+  /* The hand: a player who has not tapped an island NUDGE_MS after
+     the question was put, or since their last tap, is shown where to
+     -- a hand taps one of the matches still to be found, over and
+     over, until they tap an island themselves. Every tap starts the
+     wait again, so the hand only turns up for someone stuck. The
+     drawing is js/pages.js's, how it taps is css/rounds.css; the
+     landing's own hand, on the joystick, is js/pilot.js. */
+  var NUDGE_MS = 2500;
+
+  function armNudge(round) {
+    dropNudge(round);
+    round.nudgeTimer = setTimeout(function () {
+      round.nudgeTimer = 0;
+      if (R === round && round.phase === 'shape') showNudge(round);
+    }, NUDGE_MS);
+  }
+
+  function showNudge(round) {
+    var pad = roundMatches(round).filter(function (p) {
+      return !p.classList.contains('is-picked');
+    })[0];
+    if (!pad) return;
+
+    var hand = round.el.nudge;
+    if (!hand) {
+      var tpl = document.createElement('div');
+      tpl.innerHTML = global.GeoPages.hand;
+      hand = round.el.nudge = tpl.firstChild;
+    }
+    pad.appendChild(hand);
+
+    /* from the left on the right of the frame, so it stays on screen */
+    var box = pad.getBoundingClientRect();
+    var frame = el.stage.getBoundingClientRect();
+    hand.classList.toggle('is-flip',
+      box.left + box.width / 2 > frame.left + frame.width * 0.62);
+
+    void hand.offsetWidth;      /* so the fade plays on a fresh island */
+    hand.classList.add('is-on');
+  }
+
+  function dropNudge(round) {
+    clearTimeout(round.nudgeTimer);
+    round.nudgeTimer = 0;
+    if (round.el.nudge) round.el.nudge.classList.remove('is-on');
   }
 
   /* The wrong shape: a red coast, a buzzer, and one "try again" at
@@ -1321,6 +1437,10 @@
 
   function onRoundShapePick(round, pad) {
     if (pad.classList.contains('is-picked')) return;
+
+    /* right or wrong, the player is at it: the hand goes, and the
+       wait for it starts over */
+    armNudge(round);
 
     /* --- the wrong shape --- */
     if (pad.dataset.shape !== round.shape) return refuseShape(round, pad);
@@ -1681,8 +1801,9 @@
 
     /* A flown landing pays a heart for the miss, on the frame the
        craft hits the rock or the water, and flies the next attempt
-       from the middle of the frame again -- the craft drops back in
-       there (shipArrive), and the controls wait until it has. */
+       from the middle of the frame again -- the craft flies back in
+       there on its jets (PILOT.arrive), and the controls wait until
+       it has. */
     var helm = flown(round);
 
     return failFlight(e.ship, pad, ref, tight, round.geo, id, function () {
@@ -1696,7 +1817,7 @@
         if (helm) PILOT.home(round);
         F.resetSpaceship(e.ship);
         e.shipDims.classList.add('is-drawn');
-        return M.wait(helm && !M.reduced() ? 1300 : 760);
+        return helm ? PILOT.arrive(round) : M.wait(760);
       })
       .then(function () {
         if (!live(id)) return;
@@ -1725,6 +1846,7 @@
     var e = round.el;
     var helm = flown(round);
     var said = null;
+    var back = null;
 
     /* built now, inside the GO press, and fired on the frame of
        impact -- see failFlight() */
@@ -1759,17 +1881,19 @@
     }).then(function () {
       if (!live(id)) return;
       /* the lens is all the way out: the craft is put back on its
-         rail, and the player sees it drop in at the middle of the
-         frame (shipArrive) */
+         rail, and the player sees it come back in to the middle of
+         the frame -- flown in on its jets (PILOT.arrive), or dropped
+         in (shipArrive) */
       e.ship.style.removeProperty('visibility');
       if (helm) PILOT.home(round);
       F.resetSpaceship(e.ship);
       e.shipDims.classList.add('is-drawn');
+      back = helm ? PILOT.arrive(round) : M.wait(960);
       return said;
     }).then(function () {
       if (!live(id)) return;
       /* the controls wait until it is on its station */
-      return M.wait(helm ? 1460 : 960);
+      return back;
     }).then(function () {
       if (!live(id)) return;
       round.landing = false;
@@ -1848,7 +1972,7 @@
   ];
 
   /* Screens 2 to 6 are built from js/pages.js at boot and appended
-     here, so the nav, the veil, the NEXT button and goTo() pick them
+     here, so the nav, the NEXT button and goTo() pick them
      up with no special case: as far as everything below is
      concerned they are five more entries in this list.
 
@@ -1868,7 +1992,7 @@
       return;
     }
 
-    global.GeoPages.build(el.stage, el.veil).forEach(function (round) {
+    global.GeoPages.build(el.stage, el.screenEnd || el.nav).forEach(function (round) {
       SCREENS.push({
         label: round.shape,
         node:  function () { return round.node; },
@@ -1878,6 +2002,22 @@
       wireSites(round);
       round.el.advance.addEventListener('click', onAdvance);
     });
+  }
+
+  /* Screen 7, after the rounds -- so the last round's NEXT has
+     somewhere to go (canAdvance()), and the arrows and the debug
+     list find it where they find everything else. Only behind the
+     rounds: with js/pages.js missing, LAUNCH would otherwise land
+     straight on "mission complete". */
+  function addEndScreen() {
+    if (!el.screenEnd || SCREENS.length < 2) return;
+    SCREENS.push({
+      label: 'complete',
+      node:  function () { return el.screenEnd; },
+      reset: resetEnd,
+      run:   runEnd
+    });
+    el.restartBtn.addEventListener('click', onRestart);
   }
 
   /* One listener per site rather than five per site; which question
@@ -2015,7 +2155,7 @@
 
     to.reset();
 
-    return M.swapScreens(from.node(), to.node(), el.veil, 1300).then(function () {
+    return M.swapScreens(from.node(), to.node(), 1150).then(function () {
       current = index;
       busy = false;
       syncNav();
@@ -2030,13 +2170,14 @@
   }
 
   /* Play the current screen again from the top. goTo() with no swap:
-     the same veil, timed as swapScreens() times it, and the reset
-     done while the veil covers the frame. */
+     there is no other screen to dissolve to, so this one goes soft
+     and out (`is-replaying`, css/style.css), is reset while it
+     cannot be seen, and comes back up. */
   function replay() {
     if (busy) return Promise.resolve();
 
     var screen = SCREENS[current];
-    var ms = 1300;
+    var node = screen.node();
 
     busy = true;
     syncNav();
@@ -2044,13 +2185,13 @@
     runId++;                               // strand the running sequence
     A.stopAll();
 
-    el.veil.classList.add('is-on');
+    node.classList.add('is-replaying');
 
-    return M.wait(ms * 0.42).then(function () {
+    return M.wait(520).then(function () {
       screen.reset();
-      return M.wait(ms * 0.34);
+      node.classList.remove('is-replaying');
+      return M.wait(650);
     }).then(function () {
-      el.veil.classList.remove('is-on');
       busy = false;
       syncNav();
       return screen.run();
@@ -2096,13 +2237,19 @@
   /* Point an <img> at the blob the gate fetched. Decoded off-screen
      first, so the swap on an image that is already showing (the
      gate's own craft) is between two decoded copies of the same
-     pixels and never blinks. If the blob is ever refused the element
-     goes back to its file URL, once. */
+     pixels and never blinks. A blob that will not decode (a short or
+     stale copy of the file) is never handed over: the element keeps
+     its file URL, which is the picture it already shows. If the blob
+     is refused after all, the element goes back to its file URL,
+     once. */
   function swapImg(img, original, blobUrl) {
     var probe = new Image();
     probe.src = blobUrl;
-    var decoded = probe.decode ? probe.decode().catch(function () {}) : Promise.resolve();
-    decoded.then(function () {
+    var decoded = probe.decode
+      ? probe.decode().then(function () { return true; }, function () { return false; })
+      : Promise.resolve(true);
+    decoded.then(function (ok) {
+      if (!ok) return;
       img.addEventListener('error', function onErr() {
         img.removeEventListener('error', onErr);
         if (img.src === blobUrl) img.src = original;
@@ -2356,12 +2503,15 @@
     if (M.reduced()) document.body.classList.add('is-reduced');
 
     M.starfield(el.starfield, 150);
+    if (el.endStars) M.starfield(el.endStars, 150);
     W.init(el.waveCanvas);
+    if (C) C.init(el.cruiseCanvas, el.screenCockpit);
 
     /* before runGate(), so the islands and craft on screens 2-6 are
        already in document.images when the loading bar works out what
        it has to fetch */
     addRoundScreens();
+    addEndScreen();
     buildDebug();
 
     /* and after both, because every island on every screen needs a

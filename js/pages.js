@@ -334,8 +334,10 @@
      ("parallelogram-craft.png" is a trapezium and the other way
      round); the files here are named after what they ARE.
 
-     Each pair of callouts stands off past where its nozzles run out
-     to, to the left and underneath. */
+     Each pair of callouts stands just off the hull, 8 units out, to
+     the left and underneath. They need not clear where a nozzle runs
+     out to: they are only up while the craft is settled with every
+     nozzle stowed (`is-flying` takes them off, css/pilot.css). */
   var CRAFT = {
     /* hull x 18.0..82.0, y 20.2..79.8 — 64.0 across by 59.6 down, so
        the drawn square is still 7% wider than it is tall. Both sides
@@ -346,8 +348,8 @@
       hull: [18.0, 20.2, 82.0, 79.8],
       alt: 'Square spaceship, each side 5 units',
       dims:
-        across({ x1: 18.0, x2: 82.0, y: 106, ty: 120, text: '5 units' }) +
-        beside({ x: -10, y1: 20.2, y2: 79.8, text: '5 units' })
+        across({ x1: 18.0, x2: 82.0, y: 88, ty: 102, text: '5 units' }) +
+        beside({ x: 10, y1: 20.2, y2: 79.8, text: '5 units' })
     },
 
     /* hull x 18.0..82.0, y 32.4..67.6: 1.82 to 1, the 2 to 1 of its
@@ -360,8 +362,8 @@
       noz: { t: [50.0, 32.4], r: [82.0, 50.0], b: [50.0, 67.6], l: [18.0, 50.0] },
       alt: 'Rectangular spaceship, 8 units long and 4 units wide',
       dims:
-        across({ x1: 18.0, x2: 82.0, y: 92, ty: 107, text: '8 units' }) +
-        beside({ x: -8, y1: 32.4, y2: 67.6, text: '4 units' })
+        across({ x1: 18.0, x2: 82.0, y: 76, ty: 90, text: '8 units' }) +
+        beside({ x: 10, y1: 32.4, y2: 67.6, text: '4 units' })
     },
 
     /* Top edge y 31.2 from x 39.3 to 82.5, bottom edge y 68.6 from
@@ -369,8 +371,7 @@
        unit down. The height callout is the PERPENDICULAR one — that
        is the whole point of the shape — so it is dropped through the
        middle as well as measured down the side. The slant side is
-       measured on the right-hand one, standing off it past where the
-       right nozzle runs out to. */
+       measured on the right-hand one, standing just off it. */
     parallelogram: {
       img: 'parallelogram-craft.webp', fill: 16.233, cx: 0.5017, cy: 0.5003,
       hull: [18.0, 31.2, 82.0, 68.8],
@@ -380,15 +381,15 @@
       alt: 'Parallelogram spaceship, base 7 units, height 5 units, slant side 6 units',
       dims:
         perp(50, 31.2, 68.6) +
-        across({ x1: 17.5, x2: 61.1, y: 92, ty: 107, text: '7 units' }) +
-        beside({ x: -8, y1: 31.2, y2: 68.6, text: '5 units' }) +
-        along({ a: [61.1, 68.6], b: [82.5, 31.2], off: -16, text: '6 units' })
+        across({ x1: 17.5, x2: 61.1, y: 77, ty: 91, text: '7 units' }) +
+        beside({ x: 10, y1: 31.2, y2: 68.6, text: '5 units' }) +
+        along({ a: [61.1, 68.6], b: [82.5, 31.2], off: -9, text: '6 units' })
     },
 
     /* Top edge y 31.5 from x 35.0 to 65.1 (30.1 across), bottom edge
        y 68.4 from x 17.6 to 82.3 (64.7 across), 36.9 apart — 8 : 17.2
        : 9.8 against its numbers' 8 : 12 : 5. The short side's callout
-       goes over the top nozzle, clear of where it runs out to. */
+       goes over the top. */
     trapezium: {
       img: 'trapezium-craft.webp', fill: 17.507, cx: 0.5003, cy: 0.5226,
       hull: [18.0, 31.5, 82.0, 68.5],
@@ -398,9 +399,9 @@
       alt: 'Trapezium spaceship, parallel sides 8 and 12 units, height 5 units',
       dims:
         perp(50, 31.5, 68.4) +
-        across({ x1: 35.0, x2: 65.1, y: 20, ty: 15.5, text: '8 units' }) +
-        across({ x1: 17.6, x2: 82.3, y: 92, ty: 107, text: '12 units' }) +
-        beside({ x: -8, y1: 31.5, y2: 68.4, text: '5 units' })
+        across({ x1: 35.0, x2: 65.1, y: 24, ty: 19.5, text: '8 units' }) +
+        across({ x1: 17.6, x2: 82.3, y: 77, ty: 91, text: '12 units' }) +
+        beside({ x: 10, y1: 31.5, y2: 68.4, text: '5 units' })
     },
 
     /* Vertices (50.1, 17.7) (76.6, 50.9) (50.0, 82.2) (23.3, 50.8).
@@ -427,10 +428,9 @@
         path('dim__line', 'M23.3 50.8H76.6') +
         path('dim__tip', 'M23.3 47.2V54.4M76.6 47.2V54.4') +
         num(35, 66.5, '6 units') +
-        beside({ x: -8, y1: 17.7, y2: 82.2, text: '8 units' }) +
-        /* the side: the upper right one, standing off it past the
-           top and right nozzles */
-        along({ a: [76.6, 50.9], b: [50.1, 17.7], off: -14, text: '5 units' })
+        beside({ x: 15, y1: 17.7, y2: 82.2, text: '8 units' }) +
+        /* the side: the upper right one, standing just off it */
+        along({ a: [76.6, 50.9], b: [50.1, 17.7], off: -9, text: '5 units' })
     }
   };
 
@@ -555,7 +555,7 @@
          others, in css/rounds.css */
       say: 'The spaceship is a rhombus. Select all the rhombus landing zones.',
       areaKey: 'calcArea',
-      row: [48, 20, 24],              /* 48 is the half forgotten; 20 the perimeter */
+      row: [30, 20, 24],              /* 30 is side x short diagonal; 20 the perimeter */
       decoyPool: ['rectangle', 'parallelogram', 'trapezium']   /* a square IS a rhombus */
     }
   ];
@@ -1416,6 +1416,23 @@
       lifeHTML() + lifeHTML() + lifeHTML() +
     '</div>';
 
+  /* The hand that shows a stuck player what to do: it taps an island
+     on the shape question (js/script.js) and works the joystick on a
+     landing (js/pilot.js). How it looks and moves is css/rounds.css
+     and css/pilot.css; the fingertip is (28, 4) of the 64 x 80. */
+  var HAND =
+    '<span class="nudge" aria-hidden="true">' +
+      '<i class="nudge__ring"></i>' +
+      '<svg class="nudge__hand" viewBox="0 0 64 80">' +
+        '<path fill="#fff" stroke="#123a5e" stroke-width="3" stroke-linejoin="round"' +
+          ' d="M22 36V9a6 6 0 0 1 12 0v22a5 5 0 0 1 10 0v2a5 5 0 0 1 9.5 1v2' +
+          'a4.5 4.5 0 0 1 9 1V56c0 10-7 18-17 18H37c-6 0-10-2.6-13.6-7.4' +
+          'L10.5 49.5a5 5 0 0 1 7.6-6.4L22 47Z" />' +
+        '<path fill="none" stroke="#123a5e" stroke-width="2.4" stroke-linecap="round"' +
+          ' d="M34 31v9M44 33v8M53.5 36v6" />' +
+      '</svg>' +
+    '</span>';
+
   /* The joystick: the ring, the knob dragged round inside it, and GO,
      which takes the knob's place once the craft is settled over an
      island (tools/build_joystick.py cuts the ring and the knob).
@@ -1433,6 +1450,7 @@
         '<span class="stick__go-word">GO</span>' +
       '</button>' +
       '<span class="stick__auto" aria-hidden="true">AUTOPILOT</span>' +
+      HAND +
     '</div>';
 
   /* the craft, from its CRAFT entry. .ship__cast and .ship__wash are
@@ -1588,6 +1606,6 @@
     build: build,
     scatter: scatter, dealRow: dealRow, strewPilot: strewPilot,
     arrangeSite: arrangeSite, drawPair: drawPair, strewIslets: strewIslets,
-    rounds: ROUNDS, land: LAND
+    rounds: ROUNDS, land: LAND, world: WORLD, hand: HAND
   };
 })(window);

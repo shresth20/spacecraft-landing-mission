@@ -64,6 +64,9 @@
     <!-- drifting stars seen through the canopy -->
     <div class="starfield" id="starfield" aria-hidden="true"></div>
 
+    <!-- dust drifting past the glass: the ship is under way (js/cruise.js) -->
+    <canvas class="cruise" id="cruiseCanvas" aria-hidden="true"></canvas>
+
     <!-- the drone flies out through the canopy: sits BELOW the cockpit frame -->
     <div class="flyout" aria-hidden="true">
       <div class="flyout__drone" id="flyDrone">
@@ -105,13 +108,40 @@
 
   <!-- Screens 2 to 6 -- the five rounds, the square's first with the
        drone's dark-and-scan opening in front of it -- are built here by
-       js/pages.js at boot, one screen per shape. -->
+       js/pages.js at boot, one screen per shape, in front of screen 7. -->
 
-  <!-- ══════════════════════════ TRANSITION VEIL ══════════════════════════ -->
-  <div class="veil" id="veil" aria-hidden="true">
-    <span class="veil__scan"></span>
-  </div>
 
+  <!-- ══════════════════════════ SCREEN 7 — MISSION COMPLETE ══════════════════════════
+       After the last round's NEXT: deep space again, the craft the
+       mission was about, the title, one line, and RESTART, which
+       takes the mission from the top (the cockpit). -->
+  <section class="screen screen--end" id="screenEnd">
+
+    <!-- deep space, as the cockpit saw it, without the cockpit -->
+    <div class="layer layer--bg s1-bg" aria-hidden="true"></div>
+    <div class="starfield" id="endStars" aria-hidden="true"></div>
+
+    <div class="end">
+      <img class="end__ship" id="endShip" src="assets/images/welcome-screen-ship.webp"
+           alt="" draggable="false">
+      <h2 class="end__title" id="endTitle">Mission complete!</h2>
+      <p class="end__caption" id="endCaption" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="confetti" id="endConfetti" aria-hidden="true"></div>
+
+    <!-- in the NEXT button's clothes and place: that is where the
+         player has been pressing to go on all along -->
+    <div class="advance">
+      <button class="advance__btn advance__btn--restart" id="restartBtn" type="button" hidden>
+        <svg class="advance__arrow" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 12a8 8 0 1 1-2.4-5.7" /><path d="M20 4v5h-5" />
+        </svg>
+        <span class="advance__label">RESTART</span>
+      </button>
+    </div>
+
+  </section>
 
   <!-- ══════════════════════════ SCREEN NAV ══════════════════════════ -->
   <nav class="nav" id="nav" aria-label="Screen navigation">
@@ -215,6 +245,7 @@
 <script src="js/preload.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/waveform.js"></script>
+<script src="js/cruise.js"></script>
 <script src="js/typewriter.js"></script>
 <script src="js/animation.js"></script>
 <!-- the landing and its two failures. After animation.js (it uses

@@ -136,6 +136,13 @@
              shipBob 3.6s ease-in-out 1.55s infinite;
 }
 
+/* A flown craft is brought in by the helm instead: from far off,
+   in past any edge of the frame on its own jets (arrive() in
+   js/pilot.js). So here it only keeps its idle bob. */
+.screen--round .ship.is-piloted.is-in:not(.is-committed) .ship__craft {
+  animation: shipBob 3.6s ease-in-out infinite;
+}
+
 /* the fade is what used to announce the craft; the flight does it
    now, so the opacity is only there to keep it off the frame's edge
    for the first frame or two */
@@ -200,6 +207,82 @@
     drop-shadow(0 0 0 3px rgba(120, 220, 255, .95))
     drop-shadow(0 0 30px rgba(120, 220, 255, .7));
 }
+
+
+/* --- the hand ---
+   A player who goes NUDGE_MS (js/script.js) without tapping an
+   island is shown one of the matches still to be found, and the hand
+   goes again with their next tap. The 0x0 box is the island's centre
+   of area -- the point its printed area uses -- and the fingertip
+   is held exactly on it: the hand hangs off it down and to the
+   right, or down and to the left on the right of the frame
+   (`.is-flip`) so it never leaves the screen, and taps: in, press,
+   out, with a ring off the fingertip on the press. */
+.nudge {
+  --hand: clamp(54px, 9vmin, 104px);
+  position: absolute;
+  left: var(--ax, 49.9%);
+  top: var(--ay, 63.4%);
+  z-index: 6;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* faded in, cut out: it is gone the moment the player taps */
+.nudge.is-on {
+  opacity: 1;
+  transition: opacity .35s ease;
+}
+
+.nudge.is-flip { transform: scaleX(-1); }
+
+/* the fingertip is (28, 4) of the drawing's 64 x 80 */
+.nudge__hand {
+  position: absolute;
+  left: calc(var(--hand) * -.4375);
+  top: calc(var(--hand) * -.0625);
+  width: var(--hand);
+  overflow: visible;
+  transform: translate(34%, 26%) rotate(-16deg);
+  transform-origin: 43.75% 5%;
+  filter: drop-shadow(0 6px 8px rgba(2, 26, 52, .45));
+}
+
+.nudge__ring {
+  position: absolute;
+  left: calc(var(--hand) * -.4);
+  top: calc(var(--hand) * -.4);
+  width: calc(var(--hand) * .8);
+  aspect-ratio: 1;
+  border: 3px solid rgba(255, 255, 255, .9);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.nudge.is-on .nudge__hand { animation: nudgeTap 1.5s cubic-bezier(.45, 0, .3, 1) infinite; }
+.nudge.is-on .nudge__ring { animation: nudgeRing 1.5s ease-out infinite; }
+
+@keyframes nudgeTap {
+  0%, 100% { transform: translate(34%, 26%) rotate(-16deg); }
+  42%      { transform: translate(0, 0) rotate(-16deg); }
+  52%      { transform: translate(0, 0) rotate(-16deg) scale(.86); }
+  64%      { transform: translate(0, 0) rotate(-16deg); }
+}
+
+@keyframes nudgeRing {
+  0%, 48%   { opacity: 0; transform: scale(.25); }
+  54%       { opacity: 1; }
+  90%, 100% { opacity: 0; transform: scale(1.25); }
+}
+
+/* reduced motion: the hand simply points */
+.is-reduced .nudge.is-on .nudge__hand {
+  animation: none;
+  transform: rotate(-16deg);
+}
+.is-reduced .nudge.is-on .nudge__ring { animation: none; }
 
 
 /* Accepted: a firm press-in and it settles a touch forward. The

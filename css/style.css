@@ -92,34 +92,66 @@ button { font: inherit; color: inherit; }
 }
 
 
-/* ---------------------------------------------------------- screens */
+/* ---------------------------------------------------------- screens
+   One screen gives way to the next as a dissolve, never a cut to
+   black (swapScreens() in js/animation.js only swaps the classes;
+   the whole motion is here). The new screen comes up ON TOP, out of
+   a soft focus and settling from a touch too close; the old one is
+   held underneath at full strength for a beat while that happens,
+   and only then fades, drifting on forward as it goes -- so at no
+   point is the frame half-empty and dipping to the dark between
+   them. Both are out of the way in a little over a second. */
 .screen {
   position: absolute;
   inset: 0;
   opacity: 0;
   visibility: hidden;
   transform: scale(1.04);
-  filter: blur(10px) saturate(0.7);
+  filter: blur(8px);
   transition:
-    opacity 1s cubic-bezier(.4, 0, .2, 1),
-    transform 1.25s cubic-bezier(.22, 1, .36, 1),
-    filter 1s cubic-bezier(.4, 0, .2, 1),
-    visibility 0s linear 1.25s;
+    opacity .6s ease,
+    transform 1.1s cubic-bezier(.22, 1, .36, 1),
+    filter .6s ease,
+    visibility 0s linear .6s;
   will-change: opacity, transform, filter;
 }
 
 .screen.is-active {
+  z-index: 2;
   opacity: 1;
   visibility: visible;
   transform: scale(1);
-  filter: blur(0) saturate(1);
-  transition-delay: 0s;
+  filter: blur(0);
+  transition:
+    opacity .75s cubic-bezier(.4, 0, .2, 1),
+    transform 1.15s cubic-bezier(.22, 1, .36, 1),
+    filter .8s cubic-bezier(.4, 0, .2, 1),
+    visibility 0s;
 }
 
-/* screen being pushed out — pull it forward instead of back */
+/* the screen being left: under the new one, and pulled forward
+   rather than back */
 .screen.is-leaving {
-  transform: scale(1.12);
-  filter: blur(16px) saturate(0.5) brightness(1.15);
+  z-index: 1;
+  opacity: 0;
+  visibility: visible;
+  transform: scale(1.06);
+  filter: blur(6px);
+  transition:
+    opacity .55s ease .45s,
+    transform 1.1s cubic-bezier(.45, 0, .55, 1),
+    filter .9s ease .15s,
+    visibility 0s;
+}
+
+/* played again where it stands (replay() in js/script.js): there is
+   no other screen to dissolve to, so it goes soft and out, is reset
+   while it cannot be seen, and comes back up */
+.screen.is-active.is-replaying {
+  opacity: 0;
+  transform: scale(1.03);
+  filter: blur(8px);
+  transition: opacity .45s ease, transform .5s ease, filter .45s ease;
 }
 
 /* ---------------------------------------------------------- windowing
@@ -133,8 +165,8 @@ button { font: inherit; color: inherit; }
    blank for a frame or two, on real machines, with nothing in
    devtools to say why.
 
-   So only the screen in view, and the one on its way out under the
-   veil, keep their layers. Every other screen is already
+   So only the screen in view, and the one dissolving out under it,
+   keep their layers. Every other screen is already
    `visibility: hidden` (the base rule above), and this hands its
    will-change back too, so the layers are released rather than
    held. It re-applies itself on every navigation for free: the
@@ -194,6 +226,57 @@ button { font: inherit; color: inherit; }
   background: #fff;
   opacity: 0;
   animation: twinkle var(--dur, 4s) ease-in-out var(--delay, 0s) infinite;
+}
+
+
+/* ---------------------------------------------------------- cruise
+   The ship is flying, so the view outside the canopy is never quite
+   still. Space, its stars and the dust drifting past (js/cruise.js)
+   ride one slow sway together: a few pixels of drift and a breath
+   of scale, each on its own period so they never line up into a
+   visible loop. Ease-in-out-sine and `alternate`, so every swing
+   turns round without a stop.
+
+   And the ship rocks like a seesaw: the whole cockpit tilts on its
+   centre, left side up and right side down, then back, six seconds
+   each way. The view outside tilts the other way by exactly as much
+   on the same clock (cruiseCounter), so space holds level while the
+   ship rocks in front of it; the drift and the breath above are all
+   the outside does on its own. Everything painted on the cockpit
+   (the readout, the caption, LAUNCH) rocks with it as one piece, so
+   none of it slides off its panel. */
+.screen--cockpit {
+  /* a little oversized, so the tilted corners never lift off the
+     stage: covers a 0.9deg tilt on screens up to 2.2:1 either way */
+  scale: 1.035;
+  animation: cruiseRock 6s cubic-bezier(.37, 0, .63, 1) infinite alternate;
+}
+
+.cruise {
+  position: absolute;
+  inset: 0;
+  z-index: 2;                 /* over the stars, under the drone and the frame */
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* a little oversized, so the sway never shows the art's edge
+   through the side windows */
+.screen--cockpit .s1-bg {
+  inset: -3%;
+  width: 106%;
+  height: 106%;
+}
+
+.screen--cockpit .s1-bg,
+.screen--cockpit .starfield,
+.cruise {
+  animation:
+    cruiseCounter 6s cubic-bezier(.37, 0, .63, 1) infinite alternate,
+    cruiseDrift 19s cubic-bezier(.37, 0, .63, 1) infinite alternate,
+    cruiseNear  33s cubic-bezier(.37, 0, .63, 1) infinite alternate;
 }
 
 
@@ -341,6 +424,105 @@ button { font: inherit; color: inherit; }
   opacity: 1;
   transform: translateX(-50%) translateY(-8px);
 }
+
+
+/* ============================================================
+   MISSION COMPLETE  (screen 7, after the last round)
+
+   Deep space again, as the cockpit saw it, without the cockpit:
+   the craft the mission was about, the title, one line in the
+   subtitle's voice, and RESTART in the NEXT button's own clothes
+   and place, since that is where the player has been pressing to
+   go on all along. js/script.js (runEnd) brings them in one after
+   another; the confetti frame is the rounds' (.confetti, below).
+   ============================================================ */
+.screen--end { --advance-h: clamp(38px, 3vw, 52px); }
+
+.end {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vh, 20px);
+  padding: 0 16px calc(var(--advance-h) + 5vh);
+  text-align: center;
+  pointer-events: none;
+}
+
+.end__ship {
+  width: min(36%, 400px);
+  max-height: 36vh;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, .65));
+  opacity: 0;
+  transform: translateY(28px) scale(.86);
+  transition: opacity .9s ease, transform 1.2s cubic-bezier(.22, 1, .36, 1);
+}
+
+/* the hover starts once the arrival has settled, from where it ends */
+.end__ship.is-in {
+  opacity: 1;
+  transform: none;
+  animation: endHover 4.2s ease-in-out 1.2s infinite;
+}
+
+@keyframes endHover {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+.end__title {
+  margin: 0;
+  font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  font-weight: 800;
+  font-size: clamp(24px, 4.4vw, 68px);
+  letter-spacing: .06em;
+  line-height: 1.1;
+  color: #f0fbff;
+  text-shadow:
+    0 3px 22px rgba(0, 0, 0, .9),
+    0 0 34px rgba(30, 150, 255, .6);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .6s ease, transform .7s cubic-bezier(.22, 1, .36, 1);
+}
+
+.end__title.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.end__caption {
+  width: min(70%, 820px);
+  margin: 0;
+  font-size: clamp(12px, 1.65vw, 27px);
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1.35;
+  color: #f0fbff;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, .9),
+    0 0 26px rgba(30, 150, 255, .5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.22, 1, .36, 1);
+}
+
+.end__caption.is-shown {
+  opacity: 1;
+  transform: none;
+}
+
+/* a touch bigger than NEXT: it is the one thing on the screen */
+.advance__btn--restart {
+  font-size: clamp(12px, 1.3vw, 19px);
+  padding: 0 1.5em 0 1.3em;
+}
+
+.is-reduced .end__ship.is-in { animation: none; }
 
 
 /* ============================================================
@@ -1428,6 +1610,10 @@ button { font: inherit; color: inherit; }
 
 .pad.is-up .pad__img {
   opacity: 1;
+  /* where the rise ends, for when it is taken off -- under reduced
+     motion the beckon that follows it is `animation: none`, which
+     would otherwise drop the island back to the rise's first frame */
+  transform: none;
   animation: padRise 1.15s cubic-bezier(.2, .9, .3, 1) forwards;
 }
 
@@ -1725,38 +1911,6 @@ button { font: inherit; color: inherit; }
 
 
 /* ============================================================
-   TRANSITION VEIL
-   ============================================================ */
-.veil {
-  position: absolute;
-  inset: 0;
-  z-index: 40;
-  background: #000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .55s ease;
-  overflow: hidden;
-}
-.veil.is-on { opacity: 1; }
-
-.veil__scan {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: -20%;
-  height: 40%;
-  background: linear-gradient(to bottom,
-    rgba(120, 220, 255, 0),
-    rgba(160, 235, 255, .18) 45%,
-    rgba(255, 255, 255, .32) 50%,
-    rgba(160, 235, 255, .18) 55%,
-    rgba(120, 220, 255, 0));
-  opacity: 0;
-}
-.veil.is-on .veil__scan { animation: veilScan 1.1s ease-in-out; }
-
-
-/* ============================================================
    SCREEN NAV  (bottom-left, clear of the joystick's corner)
    ============================================================ */
 .nav {
@@ -1764,7 +1918,7 @@ button { font: inherit; color: inherit; }
   /* percentages alone left only ~9px of margin on a phone */
   left: max(14px, 2.2%);
   bottom: max(14px, 2.6%);
-  z-index: 30;             /* over both screens, under the veil */
+  z-index: 30;             /* over both screens, under the start gate */
   display: flex;
   gap: clamp(6px, .7vw, 12px);
   opacity: 0;
@@ -2484,6 +2638,10 @@ button { font: inherit; color: inherit; }
 
 .is-reduced .dash__sheen,
 .is-reduced .starfield i,
+.is-reduced .screen--cockpit,
+.is-reduced .screen--cockpit .s1-bg,
+.is-reduced .screen--cockpit .starfield,
+.is-reduced .cruise,
 .is-reduced .gate__sheen,
 .is-reduced .launch__ring,
 .is-reduced .launch__flash,

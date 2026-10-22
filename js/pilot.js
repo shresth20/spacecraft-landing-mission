@@ -38,7 +38,10 @@
        the landing chain in css/failure.css puts on the same element
        composes on top of it rather than replacing it), and `is-out`
        / `is-lit` on each nozzle that is run out / burning, and how
-       hard it burns (`--pow`)
+       hard it burns (`--pow`); and `is-flying` on .ship while any
+       nozzle is out or the craft is still under way, which is what
+       takes the dimension callouts off it (css/pilot.css) so it flies
+       clean, and brings them back once it has settled
      · the joystick and the keys
      · which island the craft is over, and GO
      · the hearts
@@ -63,16 +66,16 @@
 
      In shares of the frame's SHORTER side, so a tap carries the
      craft the same part of the sea on a phone as on a monitor. Tuned
-     so a tap nudges it about a twelfth of that — well under the
+     so a tap nudges it about a tenth of that — well under the
      width of the smallest island, so it can always be put down on
-     one — a held control crosses half the frame in a second and a
-     half, and a craft that has been let go is at rest within about
-     a second. */
-  var THRUST = 2.4;          /* per second², while a jet is pushing   */
+     one — a held control crosses half the frame in about two
+     seconds, unhurried, and a craft that has been let go is at rest
+     within about a second. */
+  var THRUST = 1.8;          /* per second², while a jet is pushing   */
   var DRAG = 2.6;            /* per second, proportional              */
   var GRIP = 0.26;           /* per second², a constant brake once the
                                 jets are cut, so it does come to rest */
-  var TOP = 0.62;            /* per second, never faster than this    */
+  var TOP = 0.44;            /* per second, never faster than this    */
   var SETTLE = 0.04;         /* per second: slow enough for GO to come
                                 up -- the last of the drift, which the
                                 grip has out of it a beat later       */
@@ -119,6 +122,24 @@
   var BELL = 0.075;
   var EDGE = 6;              /* px of daylight at the frame's edge    */
 
+  /* The way in (arrive): from far off, out past the frame's edge on
+     a bearing picked at random, onto the hover point, on the
+     craft's own jets. */
+  var ARRIVE_MS = 2500;      /* out of sight to on its station, for a
+                                run in 0.8 of the frame's shorter
+                                side; a longer one takes a little
+                                longer, so the speed holds            */
+  var CRUISE = 0.4;          /* the share of that spent running in
+                                under power; the rest is the braking
+                                burn                                  */
+  var ALTITUDE = 0.2;        /* how much bigger it starts: higher up,
+                                nearer the lens -- smaller is lower,
+                                as the landing has it                 */
+  var FAR = 0.08;            /* how far past the frame's edge it
+                                starts, in shares of its shorter side */
+  var TURN = 70;             /* degrees: never in on nearly the
+                                bearing the last one came in on       */
+
   /* the nozzle that has to burn to go each way: the one on the
      opposite side of the hull */
   var JET = { left: 'r', right: 'l', up: 'b', down: 't' };
@@ -143,6 +164,11 @@
   var DEAD = 0.12;
   var LIGHT = 0.08;
   var GO_SLOP = 0.1;
+
+  /* how long the controls sit untouched, with the craft at rest,
+     before the hand comes to show how (THE HAND, below) -- the same
+     wait as the shape question's (js/script.js) */
+  var NUDGE_MS = 2500;
 
   var KEYS = {
     ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down',
@@ -267,6 +293,14 @@
       maxX: W - EDGE - (hr - scx + bell) * w - hx,
       minY: EDGE + (scy - ht + bell) * w - hy,
       maxY: H - EDGE - (hb - scy + bell) * w - hy,
+      /* how far the craft reaches from its centre of area, out to
+         the farthest corner, bell and all -- what has to clear the
+         frame's edge for it to be out of sight (arrive) */
+      reach: w * Math.max(
+        Math.hypot(scx - hl + bell, scy - ht + bell),
+        Math.hypot(hr - scx + bell, scy - ht + bell),
+        Math.hypot(scx - hl + bell, hb - scy + bell),
+        Math.hypot(hr - scx + bell, hb - scy + bell)),
       /* the painted hull's outline, from the hover point */
       hull: outline,
       hullArea: polyArea(outline),
@@ -485,7 +519,8 @@
      so a nozzle is drawn in even after the loop has stopped. */
   function paint(h) {
     var now = clock();
-    var want = h.want = h.auto ? h.auto.want : steer(h, now);
+    var flight = h.auto || h.arrival;
+    var want = h.want = flight ? flight.want : steer(h, now);
     var s;
 
     var lit = {};
@@ -510,6 +545,11 @@
       h.outKey = okey;
     }
 
+    /* under way: a nozzle out, or still sliding faster than GO would
+       accept. The callouts go while it is, and come back when it is
+       not -- the same moment GO comes up over an island. */
+    setFlying(h, okey !== '' || (!!h.geo && Math.hypot(h.vx, h.vy) > SETTLE * h.geo.S));
+
     var key = Object.keys(lit).sort().join('');
     if (key !== h.litKey) {
       for (s in h.jets) h.jets[s].classList.toggle('is-lit', !!lit[s]);
@@ -521,7 +561,7 @@
        never less than 0.4 of the full one so it still reads as fire.
        In twentieths, so a steady thumb writes nothing. */
     for (s in lit) {
-      var pw = h.auto ? 1 : Math.round((0.4 + 0.6 * Math.min(1, h.noz[s].pow)) * 20) / 20;
+      var pw = flight ? (flight.pow && flight.pow[s]) || 1 : Math.round((0.4 + 0.6 * Math.min(1, h.noz[s].pow)) * 20) / 20;
       if (pw !== h.noz[s].shown) {
         h.jets[s].style.setProperty('--pow', pw);
         h.noz[s].shown = pw;
@@ -605,6 +645,45 @@
     var land = h.onLand;
     disarm(h.site);
     if (land) land(pad);
+  }
+
+
+  /* ============================================================
+     THE HAND
+
+     The controls live, and nothing touched or moving for NUDGE_MS:
+     the hand (js/pages.js) comes down on the knob and drags it out
+     towards the nearest island and back, over and over -- or, with
+     GO up, taps GO. Only the knob goes with it, never the craft
+     (css/pilot.css). The stick or a key taken puts it away, and the
+     wait starts over. Which island is nearest says nothing about
+     which one fits: that is still the player's to work out.
+     ============================================================ */
+
+  function nudge(h, mode) {
+    if (mode === h.nudging) return;
+    h.nudging = mode;
+    if (mode === 'fly') {
+      var d = towards(h);
+      h.stick.style.setProperty('--nudge-x', (d[0] * h.throwPx).toFixed(1) + 'px');
+      h.stick.style.setProperty('--nudge-y', (d[1] * h.throwPx).toFixed(1) + 'px');
+    }
+    h.stick.classList.toggle('is-nudge-fly', mode === 'fly');
+    h.stick.classList.toggle('is-nudge-go', mode === 'go');
+  }
+
+  /* the way to the nearest island from the craft, as a unit vector */
+  function towards(h) {
+    var g = h.geo || measure(h);
+    var x = g.hx + h.x;
+    var y = g.hy + h.y;
+    var best = null, bd = Infinity;
+    g.pads.forEach(function (p) {
+      var d = Math.hypot(p.cx - x, p.cy - y);
+      if (d < bd) { bd = d; best = p; }
+    });
+    if (!best || !bd) return [0, -1];
+    return [(best.cx - x) / bd, (best.cy - y) / bd];
   }
 
 
@@ -694,11 +773,18 @@
     h.cameraAt = null;
   }
 
+  function setFlying(h, on) {
+    if (on === h.flying) return;
+    h.flying = on;
+    h.ship.classList.toggle('is-flying', on);
+  }
+
   /* Returns whether there is anything left to animate. */
   function frame(h, dt, now) {
     var g = h.geo || measure(h);
     var S = g.S;
 
+    if (h.arrival) return arriveFrame(h, dt);
     if (h.auto) return autoFrame(h, dt);
 
     /* --- the jets: each pushes once its nozzle is out and its fire
@@ -771,10 +857,175 @@
       showGo(h, pad);
     }
 
+    /* --- the hand: the wait starts over on anything held, burning
+       or moving, a finger resting on GO included --- */
+    if (!h.armed || held || h.grab || any || h.vx || h.vy) h.idleFrom = now;
+    nudge(h, now - h.idleFrom < NUDGE_MS ? null : (h.go ? 'go' : 'fly'));
+
 
     /* keep going while anything can still change: the controls are
        live, a jet is lit, or the craft is still moving */
     return h.armed || any || Math.hypot(h.vx, h.vy) > 0;
+  }
+
+
+  /* ============================================================
+     THE WAY IN
+
+     The craft does not pop up at its hover point: it comes in from
+     far off, out past the frame's edge on a bearing picked at random
+     -- any side, any corner, never nearly the one it came in on last
+     time -- on the same nozzles the player flies it with. The jets
+     behind it burn while it runs in; then the ones ahead of it are
+     run out and lit, and brake it onto its station. Off a diagonal
+     that is two of each, each as hard as its share of the push. It
+     starts a little bigger, higher up and nearer the lens, its
+     shadow wide and pale on the water, and both draw in as it comes
+     down to hover height. The wash on the water waits until it is
+     there.
+
+     The speed is steady while it runs in and eases off to nothing
+     under the braking burn (arrivePath), with no jump where the one
+     hands over to the other. A longer run in (across the wide side
+     of the frame) takes a little longer, so the speed holds. The
+     clock is the loop's own capped one, so a hidden tab holds the
+     flight where it is.
+     ============================================================ */
+
+  /* how far along the way in, 0..1, at u of the clock */
+  function arrivePath(u) {
+    var v0 = 3 / (1 + 2 * CRUISE);
+    if (u <= CRUISE) return v0 * u;
+    var s = (u - CRUISE) / (1 - CRUISE);
+    return v0 * CRUISE + v0 * (1 - CRUISE) * (1 - Math.pow(1 - s, 3)) / 3;
+  }
+
+  /* k: how high it still is, 1 at the start and 0 on station */
+  function altitude(h, k) {
+    var a = h.arrival;
+    if (a.craft) a.craft.style.scale = (1 + ALTITUDE * k).toFixed(4);
+    if (a.cast) {
+      a.cast.style.scale = (1 + 0.5 * k).toFixed(4);
+      a.cast.style.opacity = (1 - 0.6 * k).toFixed(3);
+    }
+  }
+
+  function arriveFrame(h, dt) {
+    var a = h.arrival;
+    a.t += dt * 1000;
+    var u = clamp(0, a.t / a.ms, 1);
+    var p = arrivePath(u);
+
+    h.x = a.sx * (1 - p);
+    h.y = a.sy * (1 - p);
+    place(h);
+    altitude(h, 1 - p);
+
+    /* the jets behind it while it runs in; the ones ahead of it
+       called for DEPLOY_MS before the hand-over, so they are out and
+       lit as the push turns round; and all cut just short of the stop */
+    a.want = u < CRUISE - DEPLOY_MS / a.ms ? a.run : (u < 0.93 ? a.brake : {});
+    paint(h);
+
+    if (u < 1) return true;
+
+    var done = a.done;
+    endArrival(h);
+    done();
+    return false;
+  }
+
+  /* off the craft, whether it got there or was called away */
+  function endArrival(h) {
+    var a = h.arrival;
+    if (!a) return;
+    h.arrival = null;
+    h.ship.classList.remove('is-arriving');
+    if (a.craft) a.craft.style.removeProperty('scale');
+    if (a.cast) {
+      ['scale', 'opacity', 'transition'].forEach(function (p) {
+        a.cast.style.removeProperty(p);
+      });
+    }
+    paint(h);
+  }
+
+  function cancelArrival(h) {
+    if (!h.arrival) return;
+    var done = h.arrival.done;
+    endArrival(h);
+    done();
+  }
+
+  /* a bearing to come in on, in radians, screen-wise (y down): at
+     random, but at least TURN away from the last one */
+  function bearing(h) {
+    var b = Math.random() * Math.PI * 2;
+    for (var i = 0; i < 12 && h.bearing != null; i++) {
+      var off = Math.abs(b - h.bearing) % (Math.PI * 2);
+      if (Math.min(off, Math.PI * 2 - off) >= TURN * Math.PI / 180) break;
+      b = Math.random() * Math.PI * 2;
+    }
+    h.bearing = b;
+    return b;
+  }
+
+  /* Brings the craft in onto its hover point. Resolves once it is
+     there, which is when the flow can go on. */
+  function arrive(site) {
+    var h = site.helm;
+    if (!h) return Promise.resolve();
+
+    cancelArrival(h);
+    sleep(h);
+    h.x = h.y = h.vx = h.vy = 0;
+    place(h);
+    if (reduced()) return wait(300);
+
+    var g = measure(h);
+    var b = bearing(h);
+    var ux = Math.cos(b), uy = Math.sin(b);       /* out from the station */
+
+    /* out along it to the frame's edge, then the whole craft at its
+       starting size past that, and FAR again */
+    var tx = ux > 1e-6 ? (g.W - g.hx) / ux : (ux < -1e-6 ? g.hx / -ux : Infinity);
+    var ty = uy > 1e-6 ? (g.H - g.hy) / uy : (uy < -1e-6 ? g.hy / -uy : Infinity);
+    var dist = Math.min(tx, ty) + g.reach * (1 + ALTITUDE) + g.S * FAR;
+
+    /* which nozzles push it in along the way it travels (-u), which
+       brake it, and how hard: each its share of the push, and never
+       so little that it stops reading as fire */
+    var run = {}, brake = {}, pow = {};
+    for (var s in h.noz) {
+      var share = -(PUSH[s][0] * ux + PUSH[s][1] * uy);
+      if (share > 0.25) run[s] = true;
+      else if (share < -0.25) brake[s] = true;
+      else continue;
+      pow[s] = Math.round(Math.max(0.55, Math.abs(share)) * 20) / 20;
+    }
+
+    var cast = h.ship.querySelector('.ship__cast');
+    if (cast) cast.style.transition = 'none';
+
+    return new Promise(function (resolve) {
+      h.arrival = {
+        t: 0,
+        ms: clamp(2200, ARRIVE_MS * (0.6 + 0.5 * dist / g.S), 3200),
+        sx: ux * dist,
+        sy: uy * dist,
+        run: run, brake: brake, pow: pow,
+        want: {},
+        craft: h.ship.querySelector('.ship__craft'),
+        cast: cast,
+        done: resolve
+      };
+      h.ship.classList.add('is-arriving');
+      h.x = h.arrival.sx;
+      h.y = h.arrival.sy;
+      place(h);
+      altitude(h, 1);
+      wake(h);
+    });
   }
 
 
@@ -930,6 +1181,7 @@
     h.cameraPlates = cameraPlates(h);
     h.onLand = onLand;
     h.armed = true;
+    h.idleFrom = clock();
     live = h;
 
     h.stick.classList.add('is-on', 'is-live');
@@ -948,6 +1200,7 @@
     if (live === h) live = null;
     releaseAll(h);
     hideGo(h);
+    nudge(h, null);
     unlock(h);
     setUnder(h, null);
     knobTo(h, 0, 0);
@@ -967,11 +1220,13 @@
   function home(site) {
     var h = site.helm;
     if (!h) return;
+    cancelArrival(h);
     sleep(h);
     h.x = h.y = h.vx = h.vy = 0;
     h.placed = null;
     h.geo = null;
     place(h);
+    setFlying(h, false);
     resetCamera(h);
   }
 
@@ -992,6 +1247,7 @@
       h.auto = null;
       done();
     }
+    cancelArrival(h);
     /* every nozzle straight back in, with no stow to wait out */
     for (var s in h.noz) {
       h.noz[s] = freshNozzle();
@@ -1052,15 +1308,18 @@
       throwPx: 0,
       armed: false,
       auto: null,
+      arrival: null, bearing: null,
       raf: 0, last: 0,
       geo: null,
       cameraPlates: [], cameraScreen: null, cameraWaiting: false,
       cameraX: 0, cameraY: 0, cameraAt: null,
       under: null, lockPad: null, go: null,
+      idleFrom: 0, nudging: null,   /* THE HAND: untouched since, and what it shows */
       onLand: null,
       hearts: 3,
       told: false,
-      litKey: null, outKey: null, placed: null, knobAt: null
+      litKey: null, outKey: null, placed: null, knobAt: null,
+      flying: false
     };
     site.helm = h;
 
@@ -1205,6 +1464,7 @@
     home: home,
     show: show,
     reset: reset,
+    arrive: arrive,
     flyTo: flyTo,
     loseLife: loseLife,
     lives: lives

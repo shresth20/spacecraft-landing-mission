@@ -33,10 +33,12 @@
   /* ---------------------------------------------------------- sizing */
   function resize() {
     if (!canvas) return;
-    var r = canvas.getBoundingClientRect();
     dpr = Math.min(global.devicePixelRatio || 1, 2);
-    w = Math.max(1, Math.round(r.width));
-    h = Math.max(1, Math.round(r.height));
+    /* the layout size, not getBoundingClientRect(): the cockpit
+       rocks (css/style.css "cruise"), and a tilted panel measures
+       taller than it is, which would squash the trace */
+    w = Math.max(1, canvas.clientWidth);
+    h = Math.max(1, canvas.clientHeight);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

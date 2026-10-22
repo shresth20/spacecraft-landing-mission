@@ -30,6 +30,9 @@
 .env-object, .env-submerged { position: absolute; }
 .env-world [hidden], .env-satellites [hidden] { display: none; }
 .env-image { display: block; width: 100%; height: auto; max-width: none; user-select: none; }
+/* rock turned over left to right (js/reef.js dryObject); js/reef-water.js
+   reads its shore off the same mirror image */
+.env-object.is-flip .env-art { scale: -1 1; }
 
 /* ---------------------------------------------------------- under the water */
 .env-submerged { z-index: 0; opacity: var(--env-deep-alpha); }
@@ -68,7 +71,7 @@
    same clock. */
 .env-art { position: relative; z-index: 2; }
 .env-platform .env-art, .env-satellite .env-art { opacity: 0; transform: translateY(var(--env-lift)) scale(.9); }
-.pad.is-up :is(.env-platform, .env-satellite) .env-art {
+:is(.pad, .islet).is-up :is(.env-platform, .env-satellite) .env-art {
   animation: envRise var(--env-rise) ease-in-out var(--satellite-delay, 0ms) both;
 }
 @keyframes envRise {
@@ -87,9 +90,9 @@
   background: linear-gradient(115deg, transparent 38%, rgba(225, 250, 255, .32) 46%,
     rgba(255, 255, 255, .55) 50%, rgba(225, 250, 255, .32) 54%, transparent 62%) 0 0 / 300% 100% no-repeat;
 }
-.pad.is-up .env-wet { animation: envDry calc(var(--env-rise) * .6) ease-out var(--satellite-delay, 0ms) both; }
-.pad.is-up .env-wet--edge { animation: envDrain calc(var(--env-rise) * 1.6) ease-in var(--satellite-delay, 0ms) both; }
-.pad.is-up .env-wet--sheen {
+:is(.pad, .islet).is-up .env-wet { animation: envDry calc(var(--env-rise) * .6) ease-out var(--satellite-delay, 0ms) both; }
+:is(.pad, .islet).is-up .env-wet--edge { animation: envDrain calc(var(--env-rise) * 1.6) ease-in var(--satellite-delay, 0ms) both; }
+:is(.pad, .islet).is-up .env-wet--sheen {
   animation: envSheen var(--env-rise) ease-in-out calc(var(--satellite-delay, 0ms) + var(--env-rise) * .4) both;
 }
 @keyframes envDry { 0% { opacity: .45; } 40% { opacity: .28; } 100% { opacity: 0; } }
@@ -110,7 +113,7 @@
   background: radial-gradient(circle at 36% 34%, #fff 0 22%, rgba(205, 246, 255, .92) 42%, rgba(120, 214, 255, 0) 72%);
   transform: translate(-50%, -50%) translate(0, 0) scale(.4);
 }
-.pad.is-up .env-drop {
+:is(.pad, .islet).is-up .env-drop {
   animation: envDrop var(--drop-time) cubic-bezier(.2, .7, .4, 1)
     calc(var(--satellite-delay, 0ms) + var(--env-rise) * .34 + var(--drop-delay)) both;
 }
@@ -120,6 +123,45 @@
   45% { transform: translate(-50%, -50%) translate(calc(var(--tx) * .55), calc(var(--ty) * .55)) scale(1.35); }
   80% { opacity: .85; }
   100% { opacity: 0; transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(.55); }
+}
+
+/* ---------------------------------------------------------- the other land
+   Site A's islands and the islets stand in the same sea as site B's: their
+   shores, and the water they throw up as they surface, are js/reef-water.js's
+   too. So js/water.js's drawn shore round site A's islands (shallows,
+   ripple rings, waterline, bubbles, the light on the rock) and the islets'
+   wake and splash stand down here, and neither wears the dark halo that
+   would sit over the foam. The answer's border (.shock) and the tap
+   target's own glow on hover and focus stay. */
+.screen[data-reef] .site--a .pad :is(.shore, .lap, .surf, .spray, .wash),
+.screen[data-reef] :is(.islet__wake, .islet__splash) { display: none; }
+[data-reef] .site--a .pad__img, [data-reef] .islet__img { filter: none; }
+[data-reef] .site--a .pad.is-up .pad__img { animation-name: padRiseReef; }
+[data-reef] .islet.is-up .islet__img { animation-name: zoneRiseReef; }
+/* padRise and zoneRise (css/animation.css), ending on no shadow */
+@keyframes padRiseReef {
+  0%   { opacity: 0; transform: scale(.72); filter: blur(6px) brightness(.5); }
+  60%  { opacity: 1; transform: scale(1.04); filter: none; }
+  82%  { transform: scale(.994); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+@keyframes zoneRiseReef {
+  0%   { opacity: 0; transform: scale(.34); filter: blur(9px) brightness(.34) saturate(.5); }
+  18%  { opacity: .5; transform: scale(.56); filter: blur(6px) brightness(.5) saturate(.62); }
+  58%  { opacity: 1; transform: scale(1.055); filter: blur(1.4px) brightness(.94) saturate(.96); }
+  80%  { transform: scale(.985); filter: none; }
+  92%  { transform: scale(1.008); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+/* Under reduced motion the islands on offer do not beckon, and the shore
+   that brightened in its place is gone: a still glow marks them instead. */
+@media (prefers-reduced-motion: reduce) {
+  :where([data-reef] .site--a) .pads.is-picking .pad.is-up:not(.is-picked) .pad__img {
+    filter: drop-shadow(0 0 14px rgba(120, 220, 255, .55));
+  }
+}
+:where(.is-reduced [data-reef] .site--a) .pads.is-picking .pad.is-up:not(.is-picked) .pad__img {
+  filter: drop-shadow(0 0 14px rgba(120, 220, 255, .55));
 }
 
 /* Loading failure remains legible and never blocks the landing calculation. */
@@ -133,9 +175,9 @@
 .screen[data-reef].env-paused :is(.env-world, .env-platform, .env-satellites) * { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   .screen[data-reef] :is(.env-world, .env-platform, .env-satellites) * { animation: none !important; transition: none !important; }
-  .screen[data-reef] .pad.is-up .env-art { opacity: 1; transform: none; }
+  .screen[data-reef] :is(.pad, .islet).is-up .env-art { opacity: 1; transform: none; }
   .screen[data-reef] .env-wet { display: none; }
 }
 .is-reduced .screen[data-reef] :is(.env-world, .env-platform, .env-satellites) * { animation: none !important; transition: none !important; }
-.is-reduced .screen[data-reef] .pad.is-up .env-art { opacity: 1; transform: none; }
+.is-reduced .screen[data-reef] :is(.pad, .islet).is-up .env-art { opacity: 1; transform: none; }
 .is-reduced .screen[data-reef] .env-wet { display: none; }
