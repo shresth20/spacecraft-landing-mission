@@ -46,6 +46,12 @@
      · which island the craft is over, and GO
      · the hearts
      · the autopilot
+     · how all of that sounds: the burn (thrust() in js/audio.js),
+       placed across the stereo field by where its nozzles are, and
+       the cues (js/sound.js) -- the stick taken and let go, a ping
+       off an island coming under the craft, the lock as GO comes up
+       and the blip as it goes, GO itself, a knock off the frame's
+       edge, and the craft's way in
 
    It knows nothing about shapes or areas. The flow — when the helm
    is handed over, what a landing means, what is said — is js/script.js.
@@ -197,10 +203,41 @@
 
   function clamp(lo, v, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-  function sound(n) {
+  function sound(n, pan) {
     var A = global.GeoAudio;
-    if (A && A.thrust) A.thrust(n);
+    if (A && A.thrust) A.thrust(n, pan);
   }
+
+  /* Where a burn is heard: the lit nozzles' side of the hull, and
+     the craft's own place across the frame. A burn on the right-hand
+     nozzle of a craft out on the left of the sea is heard left of
+     centre, a little to the right of the craft. */
+  var SIDE = { l: -1, r: 1, t: 0, b: 0 };
+
+  function panOf(h, lit) {
+    var n = 0, s = 0;
+    for (var k in lit) { s += SIDE[k] || 0; n++; }
+    var g = h.geo;
+    var across = g && g.W ? (g.hx + h.x) / g.W * 2 - 1 : 0;
+    return clamp(-0.8, (n ? s / n : 0) * 0.3 + across * 0.45, 0.8);
+  }
+
+  /* one of the synthesised cues (js/sound.js): the stick, the lock
+     on an island, GO, the frame's edge, the craft's way in */
+  function cue(name, a, b) {
+    var S = global.GeoSound;
+    if (S && S[name]) S[name](a, b);
+  }
+
+  /* how fast the craft has to meet the frame's edge to be heard
+     hitting it, in shares of the frame per second (TOP is 0.44), and
+     how long before it can be heard again */
+  var BUMP = 0.12;
+  var BUMP_MS = 300;
+
+  /* an island pinged as the craft comes over it is not pinged again
+     for this long, so a craft riding the coast does not chatter */
+  var PING_MS = 900;
 
   /* GO's tap tick: the game-wide one (onTap in js/script.js) never
      hears it, because the press is read off the stick's pointer and
@@ -446,6 +483,7 @@
   function letGoStick(h) {
     var g = h.grab;
     if (!g) return;
+    if (!g.onGo && h.armed) cue('release');
     h.grab = null;
     h.aim = [0, 0];
     h.stick.classList.remove('is-held');
@@ -554,7 +592,7 @@
     if (key !== h.litKey) {
       for (s in h.jets) h.jets[s].classList.toggle('is-lit', !!lit[s]);
       h.litKey = key;
-      sound(key.length);
+      sound(key.length, panOf(h, lit));
     }
 
     /* the flame's length: a stick pushed a little is a short burn,
@@ -597,7 +635,14 @@
     if (pad === h.under) return;
     if (h.under) h.under.classList.remove('is-under');
     h.under = pad;
-    if (pad) pad.classList.add('is-under');
+    if (!pad) return;
+    pad.classList.add('is-under');
+
+    /* a ping off the island coming under it */
+    var t = clock();
+    if (pad !== h.pinged || t - h.pingAt > PING_MS) cue('under');
+    h.pinged = pad;
+    h.pingAt = t;
   }
 
   function lock(h, pad) {
@@ -616,6 +661,7 @@
   function showGo(h, pad) {
     h.go = pad;
     lock(h, pad);
+    cue('lockOn');
     h.stick.classList.add('is-go');
     if (h.goBtn) {
       h.goBtn.tabIndex = 0;
@@ -641,6 +687,7 @@
     var pad = h.go;
     if (!h.armed || !pad) return;
     tap();
+    cue('engage');
     /* taken before disarm(), which lets go of it */
     var land = h.onLand;
     disarm(h.site);
@@ -662,6 +709,7 @@
 
   function nudge(h, mode) {
     if (mode === h.nudging) return;
+    if (mode && !h.nudging) cue('hint');
     h.nudging = mode;
     if (mode === 'fly') {
       var d = towards(h);
@@ -832,11 +880,17 @@
     h.x += h.vx * dt;
     h.y += h.vy * dt;
 
-    /* --- the frame's edge: stop dead against it, with a little give --- */
-    if (h.x < g.minX) { h.x = g.minX; if (h.vx < 0) h.vx *= -0.2; }
-    if (h.x > g.maxX) { h.x = g.maxX; if (h.vx > 0) h.vx *= -0.2; }
-    if (h.y < g.minY) { h.y = g.minY; if (h.vy < 0) h.vy *= -0.2; }
-    if (h.y > g.maxY) { h.y = g.maxY; if (h.vy > 0) h.vy *= -0.2; }
+    /* --- the frame's edge: stop dead against it, with a little give,
+       and a knock if it came in fast --- */
+    var hitAt = 0;
+    if (h.x < g.minX) { h.x = g.minX; if (h.vx < 0) { hitAt = Math.max(hitAt, -h.vx); h.vx *= -0.2; } }
+    if (h.x > g.maxX) { h.x = g.maxX; if (h.vx > 0) { hitAt = Math.max(hitAt, h.vx); h.vx *= -0.2; } }
+    if (h.y < g.minY) { h.y = g.minY; if (h.vy < 0) { hitAt = Math.max(hitAt, -h.vy); h.vy *= -0.2; } }
+    if (h.y > g.maxY) { h.y = g.maxY; if (h.vy > 0) { hitAt = Math.max(hitAt, h.vy); h.vy *= -0.2; } }
+    if (hitAt > BUMP * S && now - (h.bumpAt || 0) > BUMP_MS) {
+      h.bumpAt = now;
+      cue('edge', Math.min(1, hitAt / (TOP * S)));
+    }
 
     place(h);
     stepCamera(h, dt, false);
@@ -851,7 +905,10 @@
 
     var held = holding(h);
     if (h.go) {
-      if (held || pad !== h.go || cover(h, rec) < COVER - 0.05) hideGo(h);
+      if (held || pad !== h.go || cover(h, rec) < COVER - 0.05) {
+        hideGo(h);
+        cue('lockOff');
+      }
     } else if (h.armed && pad && !held && !any &&
                Math.hypot(h.vx, h.vy) < SETTLE * S && cover(h, rec) >= COVER) {
       showGo(h, pad);
@@ -1024,6 +1081,8 @@
       h.y = h.arrival.sy;
       place(h);
       altitude(h, 1);
+      /* heard coming in from the side it comes in from */
+      cue('flyby', h.arrival.ms, ux);
       wake(h);
     });
   }
@@ -1314,6 +1373,7 @@
       cameraPlates: [], cameraScreen: null, cameraWaiting: false,
       cameraX: 0, cameraY: 0, cameraAt: null,
       under: null, lockPad: null, go: null,
+      pinged: null, pingAt: 0, bumpAt: 0,   /* the cues' own clocks */
       idleFrom: 0, nudging: null,   /* THE HAND: untouched since, and what it shows */
       onLand: null,
       hearts: 3,
@@ -1361,6 +1421,7 @@
         return;
       }
       stick.classList.add('is-held');
+      cue('grab');
       aimAt(h, ev.clientX, ev.clientY);
     });
 

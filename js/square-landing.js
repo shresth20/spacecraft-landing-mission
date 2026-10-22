@@ -36,17 +36,19 @@
    ── THE CINEMATIC ─────────────────────────────────────────────
    Shot exactly as the other landings' cut-scene is (js/cinematic.js):
    the same overlay (it wears .cine, so css/cinematic.css dresses it),
-   the letterbox, the vignette, and the same cut in -- the overhead
-   view dives at the craft and the close-up resolves out of a radial
-   zoom blur with its colours split, prism streaks, a burst of energy
-   and its shock ring. Then a slow push in, the engine juddering the
+   the letterbox, the vignette -- but a cut in of its own, a slow
+   cross-zoom: the overhead view, still on the island the lens came
+   down onto (js/close-up.js), pushes on in at the craft and softens
+   away, while the close-up comes up through it out of a soft zoom
+   blur, its craft where the overhead one was, and eases back to its
+   own framing. Nothing flashes. Then a slow push in, the engine juddering the
    hull while the jets burn, a smear on the fast part of the drop, the
    landing guide on the rock, and at touchdown a jolt of the lens, the
    ring of light, the seam lit edge for edge, the match drawn round
    and the sparks -- with the same synthesised sounds.
 
-   ── THE TIMELINE (ms) ─────────────────────────────────────────
-     0      the cut (0.5s), over the hover: long flickering jets
+   ── THE TIMELINE (shot ms, played at RATE: x1.43 on the clock) ─
+     0      the cut (0.76s), over the hover: long flickering jets
      800    the descent, slowing all the way; the jets shorten
      1600   the jets reach the rock: smoke rolls out over it
      2000   touchdown: a little compression, the jets go out,
@@ -55,11 +57,12 @@
      2600   down and still; the smoke spreads and clears
      4000   the cut back to the sea
 
-   One clock, `run.t`, which stops with the rest of the mission while
-   the tab is away (js/lifecycle.js). The craft, the jets, the light
-   and the shadow are worked out from t every frame; the smoke is an
-   anime.js timeline that is never played, only SEEKED to t; the
-   sounds and the hooks are cues fired off the same t.
+   One clock, `run.t`, which runs at RATE of the frame's and stops
+   with the rest of the mission while the tab is away
+   (js/lifecycle.js). The craft, the jets, the light and the shadow
+   are worked out from t every frame; the smoke is a timeline of
+   anime.js tweens that is never played, only SEEKED to t (timeline(),
+   below); the sounds and the hooks are cues fired off the same t.
 
    ── THE CONTRACT ──────────────────────────────────────────────
    create(site, hooks) returns a player with play(), pause(),
@@ -129,10 +132,16 @@
   var END = 4000;
   var FADE = 560;               /* the cut back, after END (css/cinematic.css) */
 
-  /* the cut, as js/cinematic.js plays it */
-  var WARP = 500;
-  var DIVE = .5;                /* how far the overhead view zooms in */
-  var DIVE_BLUR = 4;
+  /* The shot's clock against the frame's. Every beat, here and in the
+     shots played through this one (js/square-crash.js), is in shot ms,
+     and they are played this much slower than they are written, so the
+     drop, the touchdown and the wreck can be followed by eye. */
+  var RATE = .7;
+
+  /* the cut: a slow cross-zoom (cut(), below) */
+  var WARP = 760;
+  var DIVE = .45;               /* how far the overhead view pushes on in */
+  var DIVE_BLUR = 6;
   var WIN = ['#8dffc0', '#c6ffe0', '#ffe27a', '#7ff6ff'];
 
   var ease = {
@@ -223,6 +232,56 @@
 
   function pts(list) {
     return list.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+  }
+
+  /* A shot's timeline: anime.js tweens, each set at its own moment on
+     the shot's clock, never played, only seeked. anime's own timeline
+     did this, but it seeks every tween it holds over again on each
+     add(), and a strew of a few hundred froze the screen for most of a
+     second between the lens coming down and the cut. Same add(params,
+     at) and seek(t); `duration` is where the last tween ends. */
+  function timeline() {
+    var A = global.anime;
+    var kids = [];
+    var now = 0;
+    var tl = {
+      duration: 0,
+      add: function (params, at) {
+        if (at == null) at = tl.duration;
+        openOn(params);
+        var ins = A(Object.assign({ easing: 'linear', duration: 1000 }, params, { autoplay: false }));
+        kids.push({ at: at, ins: ins });
+        tl.duration = Math.max(tl.duration, at + ins.duration);
+        return tl;
+      },
+      /* in the order they were added going on, the other way going
+         back, as anime's does */
+      seek: function (t) {
+        var back = t < now, n = kids.length;
+        now = t;
+        for (var i = 0; i < n; i++) {
+          var k = kids[back ? n - 1 - i : i];
+          k.ins.seek(t - k.at);
+        }
+      }
+    };
+    return tl;
+  }
+
+  /* A tween's opening opacity, put on its elements before anime looks
+     for it: anime reads an element's own style before its computed
+     one, and a computed style asked for just after the element was
+     made costs a restyle of the page -- one for every particle. anime
+     sets the same value itself as soon as the tween is made. */
+  function openOn(params) {
+    var v = params.opacity;
+    if (Array.isArray(v) && v[0] && v[0].value !== undefined) v = v[0].value;
+    if (!Array.isArray(v) || typeof v[0] !== 'number') return;
+    var els = params.targets;
+    els = els && els.length !== undefined && !els.nodeType ? els : [els];
+    for (var i = 0; i < els.length; i++) {
+      if (els[i] && els[i].style && !els[i].style.opacity) els[i].style.opacity = v[0];
+    }
   }
 
 
@@ -689,20 +748,19 @@
 
 
   /* ============================================================
-     THE LENS — as js/cinematic.js films it
+     THE LENS
 
-     The camera: diving in through the cut, then a slow push in on the
-     island, and a jolt and a shake at touchdown. The cut: the overhead
-     view dives at the craft while the close-up fades in over it, the
-     close-up first drawn on a canvas from a snapshot of its opening
-     frame -- smeared out radially from the craft, its red, green and
-     blue pulled apart -- then sharp and handing over to the live
-     scene, with prism streaks, a burst and a shock ring over the top.
+     The camera: easing back out through the cut, then a slow push in
+     on the island, and a jolt and a shake at touchdown. The cut: the
+     overhead view pushes on in at the craft and blurs while the
+     close-up dissolves in over it, the close-up first drawn on a
+     canvas from a snapshot of its opening frame -- softly smeared out
+     from the craft -- then sharpening and handing over to the live
+     scene.
      ============================================================ */
 
   function calm() {
-    return { veil: 1, dive: 0, zoom: 1, shift: 0, blur: 0, split: 0, snap: 0,
-             streak: 0, burst: 0, ring: 0 };
+    return { veil: 1, dive: 0, zoom: 1, shift: 0, blur: 0, snap: 0 };
   }
 
   /* what the lens is centred on, in frame px: over the island, or
@@ -810,7 +868,7 @@
 
   /* The close-up's opening frame, drawn once with the camera at rest:
      the sea (with its bleed past the frame), the island, the craft at
-     its hover. Then the same split into red, green and blue. */
+     its hover. */
   function snapshot(st, run) {
     var w = run.warp;
     if (!w) return;
@@ -842,42 +900,17 @@
       return;     /* nothing to resolve from: the cut is a plain fade */
     }
 
-    w.chans = ['#f00', '#0f0', '#00f'].map(function (col) {
-      var cv = canvasOf(sw, sh), y = cv.getContext('2d');
-      y.drawImage(shot, 0, 0);
-      y.globalCompositeOperation = 'multiply';
-      y.fillStyle = col;
-      y.fillRect(0, 0, sw, sh);
-      return cv;
-    });
     w.shot = shot;
     w.buf = canvasOf(cw, ch);
     w.q = q;
     w.M = M;
-    w.D = Math.hypot(W, H);
-    w.streaks = prism();
     st.warp.width = cw;
     st.warp.height = ch;
     st.warp.hidden = false;
     w.ctx = st.warp.getContext('2d');
   }
 
-  /* the streaks: all the way round, each its own colour of the
-     spectrum by the way it points, so together they are a prism */
-  function prism() {
-    var out = [], n = 56;
-    for (var i = 0; i < n; i++) {
-      var a = (i + Math.random() * .8) / n * Math.PI * 2;
-      out.push({
-        a: a,
-        hue: Math.round((a / (Math.PI * 2) * 360 + rand(-18, 18) + 360) % 360),
-        r0: rand(.03, .26), v: rand(.5, 1.1), len: rand(.12, .34), w: rand(1.5, 5), o: rand(.45, 1)
-      });
-    }
-    return out;
-  }
-
-  /* One frame of the cut, exactly as js/cinematic.js draws it. */
+  /* One frame of the cut. */
   function warp(st, run, t) {
     var fx = run.fx;
     if (st.root.classList.contains('is-warping')) {
@@ -893,7 +926,7 @@
 
     var w = run.warp;
     if (!w || !w.ctx) return;
-    if (fx.snap < .004 && fx.streak < .004 && fx.burst < .004) {
+    if (fx.snap < .004) {
       if (t > WARP / 2) unwarp(st, run);
       return;
     }
@@ -902,10 +935,10 @@
     var z = cam.z, F = cam.F, off = cam.off;
     var O = [F[0] + (w.C[0] - F[0]) * z + off[0], F[1] + (w.C[1] - F[1]) * z + off[1]];
     var M = w.M;
-    var lens = function (b, k2, lat) {
+    var lens = function (b, k2) {
       var s = z * k2;
       b.setTransform(s, 0, 0, s,
-        q * (O[0] * (1 - k2) + k2 * (F[0] * (1 - z) + off[0]) + lat - s * M[0]),
+        q * (O[0] * (1 - k2) + k2 * (F[0] * (1 - z) + off[0]) - s * M[0]),
         q * (O[1] * (1 - k2) + k2 * (F[1] * (1 - z) + off[1]) - s * M[1]));
     };
 
@@ -914,82 +947,27 @@
     g.globalAlpha = 1;
     g.clearRect(0, 0, st.warp.width, st.warp.height);
 
-    if (fx.snap > .004) {
-      if (fx.blur > .01 || fx.split > .01) {
-        var b = w.buf.getContext('2d'), N = 5;
-        b.setTransform(1, 0, 0, 1, 0, 0);
-        b.globalCompositeOperation = 'source-over';
-        b.globalAlpha = 1;
-        b.fillStyle = '#000';
-        b.fillRect(0, 0, w.buf.width, w.buf.height);
-        b.globalCompositeOperation = 'lighter';
-        b.globalAlpha = 1 / N;
-        for (var ch = 0; ch < 3; ch++) {
-          var cs = 1 + (1 - ch) * .022 * fx.split;
-          var lat = (1 - ch) * 7 * fx.split;
-          for (var i = 0; i < N; i++) {
-            lens(b, cs * (1 + .16 * fx.blur * i / (N - 1)), lat);
-            b.drawImage(w.chans[ch], 0, 0);
-          }
-        }
-        g.globalAlpha = fx.snap;
-        g.drawImage(w.buf, 0, 0);
-      } else {
-        g.globalAlpha = fx.snap;
-        lens(g, 1, 0);
-        g.drawImage(w.shot, 0, 0);
-        g.setTransform(1, 0, 0, 1, 0, 0);
+    if (fx.blur > .01) {
+      /* the zoom blur: copies of it, each a little further in about
+         the craft, averaged */
+      var b = w.buf.getContext('2d'), N = 5;
+      b.setTransform(1, 0, 0, 1, 0, 0);
+      b.globalCompositeOperation = 'source-over';
+      b.globalAlpha = 1;
+      b.fillStyle = '#000';
+      b.fillRect(0, 0, w.buf.width, w.buf.height);
+      b.globalCompositeOperation = 'lighter';
+      b.globalAlpha = 1 / N;
+      for (var i = 0; i < N; i++) {
+        lens(b, 1 + .16 * fx.blur * i / (N - 1));
+        b.drawImage(w.shot, 0, 0);
       }
-    }
-
-    g.setTransform(q, 0, 0, q, 0, 0);
-    g.globalCompositeOperation = 'lighter';
-    g.globalAlpha = 1;
-    var D = w.D;
-
-    if (fx.streak > .004) {
-      var u = t / WARP;
-      w.streaks.forEach(function (sk) {
-        var r1 = (sk.r0 + u * sk.v * .5) * D;
-        var r2 = r1 + sk.len * D * (.35 + .65 * fx.streak);
-        var cx = Math.cos(sk.a), cy = Math.sin(sk.a);
-        var x1 = O[0] + cx * r1, y1 = O[1] + cy * r1;
-        var x2 = O[0] + cx * r2, y2 = O[1] + cy * r2;
-        var hw = sk.w * (1 + 1.5 * u) / 2;
-        var grad = g.createLinearGradient(x1, y1, x2, y2);
-        grad.addColorStop(0, 'hsla(' + sk.hue + ',100%,60%,0)');
-        grad.addColorStop(.55, 'hsla(' + sk.hue + ',100%,55%,' + (fx.streak * sk.o).toFixed(3) + ')');
-        grad.addColorStop(1, 'hsla(' + ((sk.hue + 40) % 360) + ',100%,75%,0)');
-        g.fillStyle = grad;
-        g.beginPath();
-        g.moveTo(x1, y1);
-        g.lineTo(x2 - cy * hw, y2 + cx * hw);
-        g.lineTo(x2 + cy * hw, y2 - cx * hw);
-        g.closePath();
-        g.fill();
-      });
-    }
-
-    if (fx.burst > .004) {
-      var R = D * (.04 + .3 * fx.ring), a = fx.burst;
-      var rg = g.createRadialGradient(O[0], O[1], 0, O[0], O[1], R);
-      rg.addColorStop(0, 'rgba(255,255,255,' + (.95 * a).toFixed(3) + ')');
-      rg.addColorStop(.22, 'rgba(170,240,255,' + (.7 * a).toFixed(3) + ')');
-      rg.addColorStop(.5, 'rgba(210,130,255,' + (.32 * a).toFixed(3) + ')');
-      rg.addColorStop(1, 'rgba(255,120,200,0)');
-      g.fillStyle = rg;
-      g.fillRect(O[0] - R, O[1] - R, R * 2, R * 2);
-    }
-
-    if (fx.ring > 0 && fx.ring < 1) {
-      var rr = D * .55 * fx.ring;
-      g.lineWidth = 14 * (1 - fx.ring);
-      ['rgba(255,80,120,', 'rgba(120,255,170,', 'rgba(110,170,255,'].forEach(function (col, i) {
-        g.strokeStyle = col + (.5 * (1 - fx.ring)).toFixed(3) + ')';
-        g.beginPath();
-        g.arc(O[0], O[1], rr * (1 + (i - 1) * .025), 0, Math.PI * 2);
-        g.stroke();
-      });
+      g.globalAlpha = fx.snap;
+      g.drawImage(w.buf, 0, 0);
+    } else {
+      g.globalAlpha = fx.snap;
+      lens(g, 1);
+      g.drawImage(w.shot, 0, 0);
     }
   }
 
@@ -999,7 +977,7 @@
     run.warp = null;
     st.warp.hidden = true;
     st.warp.width = st.warp.height = 1;
-    [w.shot, w.buf].concat(w.chans || []).forEach(function (cv) {
+    [w.shot, w.buf].forEach(function (cv) {
       if (cv) cv.width = cv.height = 0;
     });
   }
@@ -1055,7 +1033,7 @@
     var A = global.anime;
     if (!A) return null;
     var geo = st.geo, view = geo.view;
-    var tl = A.timeline({ autoplay: false, easing: 'linear' });
+    var tl = timeline();
 
     /* the island's edges, as seen: the front ones (the walls facing
        the camera) and the rest, behind */
@@ -1149,27 +1127,28 @@
     return tl;
   }
 
-  /* The cut's tweens, as js/cinematic.js times them */
+  /* The cut's tweens: a slow cross-zoom, all of it eased in and out,
+     so it starts from the lens at rest and nothing in it jumps. The
+     overhead view pushes on in and blurs over the whole of the cut;
+     the close-up dissolves in over it, from well in on the craft --
+     in far enough that its craft can be laid right over the overhead
+     one, wherever on the frame the lens left that (dive()) -- back
+     out to its own framing, its zoom blur clearing on the way, and is
+     wholly in before the overhead view stops moving under it. */
   function cut(run, tl) {
     var fx = run.fx;
+    var from = 1.45;
     fx.veil = 0;
-    fx.zoom = 1.32;
+    fx.zoom = from;
     fx.shift = 1;
-    fx.blur = 1;
-    fx.split = 1;
+    fx.blur = .8;
     fx.snap = 1;
-    tl.add({ targets: fx, dive: [0, 1], duration: 340, easing: 'easeInCubic' }, 0)
-      .add({ targets: fx, veil: [0, 1], duration: 190, easing: 'easeOutQuad' }, 70)
-      .add({ targets: fx, zoom: [1.32, 1], duration: 560, easing: 'easeOutCubic' }, 0)
-      .add({ targets: fx, shift: [1, 0], duration: 560, easing: 'easeOutCubic' }, 0)
-      .add({ targets: fx, blur: [1, 0], duration: 360, easing: 'easeOutQuad' }, 130)
-      .add({ targets: fx, split: [1, 0], duration: 340, easing: 'easeOutSine' }, 110)
-      .add({ targets: fx, snap: [1, 0], duration: 200 }, 300)
-      .add({ targets: fx, streak: [{ value: 1, duration: 150, easing: 'easeOutQuad' },
-                                   { value: 0, duration: 330, easing: 'easeInQuad' }] }, 0)
-      .add({ targets: fx, burst: [{ value: 1, duration: 90, easing: 'easeOutQuad' },
-                                  { value: 0, duration: 300, easing: 'easeInSine' }] }, 150)
-      .add({ targets: fx, ring: [0, 1], duration: 420, easing: 'easeOutCubic' }, 160);
+    tl.add({ targets: fx, dive: [0, 1], duration: WARP, easing: 'easeInOutSine' }, 0)
+      .add({ targets: fx, veil: [0, 1], duration: 640, easing: 'easeInOutSine' }, 40)
+      .add({ targets: fx, zoom: [from, 1], duration: 1200, easing: 'easeInOutSine' }, 0)
+      .add({ targets: fx, shift: [1, 0], duration: 1200, easing: 'easeInOutSine' }, 0)
+      .add({ targets: fx, blur: [.8, 0], duration: 620, easing: 'easeOutSine' }, 140)
+      .add({ targets: fx, snap: [1, 0], duration: 320, easing: 'easeInOutSine' }, 440);
   }
 
   /* The fit, seen, as the cut-scene shows it: a ring of light out over
@@ -1301,8 +1280,8 @@
      the sea on every side, furthest at the front left, so the red
      footprint dwarfs the rock under it before it is even down.
 
-     ── THE TIMELINE (ms) ─────────────────────────────────────────
-       0      the cut (0.5s), over the hover; the guide comes up red
+     ── THE TIMELINE (shot ms, played at RATE) ─────────────────────
+       0      the cut (0.76s), over the hover; the guide comes up red
        650    the descent: the jets that miss the island blast the sea
        1450   down, part on: it judders, the jets over the drop choke
        2100   it tips over the island's front-left edge and slides off
@@ -2126,7 +2105,7 @@
   function misfitStrew(st, run) {
     var A = global.anime;
     if (!A) return null;
-    var tl = A.timeline({ autoplay: false, easing: 'linear' });
+    var tl = timeline();
     cut(run, tl);
     spray(st, tl);
     splash(st, tl);
@@ -2501,7 +2480,7 @@
            jumping it on; frozen with the mission while the tab is away */
         var dt = run.last ? Math.min(50, now - run.last) : 0;
         run.last = now;
-        if (!(global.GeoLife && global.GeoLife.isPaused())) run.t += dt;
+        if (!(global.GeoLife && global.GeoLife.isPaused())) run.t += dt * RATE;
         st.frame(st, run);
         if (run.t >= st.end + FADE) return end(true);
         run.raf = global.requestAnimationFrame(step);
@@ -2674,7 +2653,7 @@
     WARP: WARP, FADE: FADE, KEYS: KEYS, ease: ease,
     artOf: artOf, kOf: kOf, viewOf: viewOf, edgeOf: edgeOf, hull: hull, faceWidth: faceWidth,
     node: node, image: image, px: px, ms: ms, clamp: clamp, seg: seg, mix: mix, rand: rand,
-    pick: pick, svgOf: svgOf, svgDefs: svgDefs, pts: pts, across: across,
+    pick: pick, svgOf: svgOf, svgDefs: svgDefs, pts: pts, across: across, timeline: timeline,
     homography: homography, project: project, matrix3d: matrix3d, polygon: polygon,
     affine: affine, layout: layout, rigOf: rigOf, litOf: litOf, shellOf: shellOf,
     lensOf: lensOf, shotsOf: shotsOf, fit: fit, emit: emit, once: once, call: call,

@@ -15,8 +15,8 @@
    settle edge for edge on, the craft wanders on its jets as it comes
    down, the jets choke, and it drops onto the rock far too fast.
 
-   ── THE TIMELINE (ms) ─────────────────────────────────────────
-     0      the cut (0.5s), over the hover: four long jets
+   ── THE TIMELINE (shot ms, played at the player's RATE) ────────
+     0      the cut (0.76s), over the hover: four long jets
      700    the descent: no edge to lock on to, it starts to wander
      1250   the jets choke and sputter; it falls
             (only ever the four jets burn: in the air, then flaring out
@@ -637,7 +637,7 @@
     var A = global.anime;
     if (!A) return null;
     var geo = st.geo;
-    var tl = A.timeline({ autoplay: false, easing: 'linear' });
+    var tl = kit.timeline();
     run.rocks = [];
 
     /* a billow parked at `at`, rolled out by `d`, on a layer */

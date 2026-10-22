@@ -42,7 +42,7 @@
   --far-y: 36%;
 
   --ship-y: 31%;
-  --advance-h: clamp(32px, 2.5vw, 42px);
+  --advance-h: clamp(50px, 4.6vw, 76px);
 
   /* --ship-k, --scx and --scy come from the section's own style
      attribute — they are computed from the artwork at load */

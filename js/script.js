@@ -116,6 +116,14 @@
      the cut-scene, and back up to where it was once it has finished */
   var CLOSE = global.GeoCloseUp || null;
 
+  /* js/sound.js -- the synthesised half of the mix: the controls'
+     answers, the warnings, the weight of a touchdown. Called by name,
+     so without the module every cue is simply silence. */
+  function cue(name, a, b) {
+    var S = global.GeoSound;
+    if (S && S[name]) S[name](a, b);
+  }
+
   var el = {};
   var launched = false;
 
@@ -361,6 +369,7 @@
       function () {
         el.launchBtn.classList.add('is-shown');
         el.launchSlot.classList.add('is-armed');
+        cue('arm');
         return M.wait(420);
       },
       /* the prompt plays over the button appearing — the player can
@@ -388,6 +397,7 @@
     el.cockpitCaption.classList.add('is-shown');
 
     A.duckAmbience(0.11, 700);
+    cue('latch');
     A.sfx('launch', { volume: 0.9 });
 
     /* hold the plate down for a beat, then let it fade — it has done
@@ -439,9 +449,15 @@
         el.endShip.classList.add('is-in');
         return M.wait(900);
       },
-      function () {
+      /* the title comes in on the fanfare, with the music drawn back
+         under it for its length and brought up again after */
+      function (id) {
         el.endTitle.classList.add('is-in');
-        A.sfx('correct', { volume: 0.6 });
+        A.duckAmbience(0.1, 300);
+        cue('fanfare');
+        M.wait(2400).then(function () {
+          if (live(id)) A.duckAmbience(0.22, 1600);
+        });
         return M.wait(500);
       },
       function () {
@@ -456,6 +472,7 @@
         /* reflow, as showRoundAdvance(): a starting frame to rise from */
         void el.restartBtn.offsetWidth;
         el.restartBtn.classList.add('is-in');
+        cue('advance');
       }
     ]);
   }
@@ -671,7 +688,11 @@
         function () { return narrate(e.topbarText, 'tooDark'); },
         function () { return M.wait(220); },
         function () { return narrate(e.topbarText, 'startScan'); },
-        function () { return M.sweep(e.scanner, { legs: 2, legMs: 1150 }); },
+        function () {
+          /* heard leg for leg: M.sweep's own length for each */
+          cue('scan', 2, M.reduced() ? 420 : 1150);
+          return M.sweep(e.scanner, { legs: 2, legMs: 1150 });
+        },
 
         /* --- lights up: ocean 0 → 1, and the camera bezel steps aside ---
            And it lights up HIGH. What the scan clears the dark to is
@@ -688,6 +709,7 @@
           e.bg.classList.add('is-lit');
           e.blackout.classList.add('is-clear');
           e.bezel.classList.add('is-retired');
+          cue('lightsUp');
           altTo(round, 'SURVEY');
           e.topbar.classList.remove('is-on');
           return M.wait(1500);
@@ -849,6 +871,7 @@
           if (!live(id)) return;
           altTo(round, 'TRANSIT');
           M.camFix(round.node, siteBox(round, b, top), 560);
+          cue('bracket');
         });
         M.wait(TRANSIT_MS * 0.58).then(function () { if (live(id)) altTo(round, 'DESCEND'); });
         M.wait(TRANSIT_MS * 0.80).then(function () {
@@ -1009,6 +1032,7 @@
       M.wait(gap * Math.round(rows.length * 0.55)).then(function () {
         if (R === a) {
           M.camFix(round.node, siteBox(round, a, M.camRead(round.node)), 620);
+          cue('bracket');
         }
       });
     }
@@ -1109,7 +1133,10 @@
     var e = round.el;
     if (!e.alt || !airborne) return;
     e.alt.classList.add('is-on');
-    if (e.altState) e.altState.textContent = state;
+    if (!e.altState) return;
+    /* a new reading: the instrument chirps (js/sound.js) */
+    if (e.altState.textContent !== state) cue('altitude', state);
+    e.altState.textContent = state;
   }
 
   /* one reading off the lens, marker and (if it is time) digits */
@@ -1406,6 +1433,7 @@
 
     void hand.offsetWidth;      /* so the fade plays on a fresh island */
     hand.classList.add('is-on');
+    cue('hint');
   }
 
   function dropNudge(round) {
@@ -1428,10 +1456,11 @@
     M.wait(620).then(function () { pad.classList.remove('is-wrong'); });
 
     /* one nudge at a time — tapping both decoys must not stack two
-       voice lines on top of each other */
+       voice lines on top of each other. Off the radio: it is said
+       over the buzzer, and the channel's tones would land in it. */
     if (!round.scolding) {
       round.scolding = true;
-      A.say('tryAgain').then(function () { round.scolding = false; });
+      A.say('tryAgain', { radio: false }).then(function () { round.scolding = false; });
     }
   }
 
@@ -1493,6 +1522,7 @@
         if (R !== round) return;
         pad.classList.add('is-priced');
         A.sfx('click', { volume: 0.3, rate: [1.06, 1, 1.12][i % 3] });
+        cue('readout', i);
 
         /* the label carried the shape while the shape was the
            question; now it carries the number too */
@@ -1553,11 +1583,14 @@
      own `done`, so a long one is never cut short. `alive` stops either
      dead. Without the module the shot simply plays as it always has. */
   function closeIn(site, pad, alive) {
-    return CLOSE ? CLOSE.zoomIn(site, pad, { alive: alive }) : Promise.resolve(true);
+    if (!CLOSE) return Promise.resolve(true);
+    cue('zoom', true);
+    return CLOSE.zoomIn(site, pad, { alive: alive });
   }
 
   function closeOut(site, alive) {
     if (!CLOSE || !alive()) return Promise.resolve(false);
+    cue('zoom', false);
     return CLOSE.zoomOut(site, { alive: alive });
   }
 
@@ -1666,6 +1699,12 @@
         /* down for good: the controller has nothing left to fly */
         if (flown(round)) PILOT.stow(round);
 
+        /* the weight coming on: the mass of it, the struts, the
+           hydraulics letting go, and the engines winding down */
+        cue('touchdown', 1);
+        cue('hydraulics', 1);
+        cue('spoolDown');
+
         A.sfx('correct', { volume: 0.6 });
 
         /* a beat after the chime, so the two sounds read as one
@@ -1724,6 +1763,10 @@
         alive: alive,
         onTouchdown: function () {
           if (flown(round)) PILOT.stow(round);
+          /* the shot rings the metal and lets the gas go
+             (js/cinematic-sfx.js); this is the weight under it */
+          cue('touchdown', 0.8);
+          cue('spoolDown');
           A.sfx('correct', { volume: 0.6 });
           M.wait(220).then(function () {
             if (!live(id)) return;
@@ -1808,7 +1851,7 @@
 
     return failFlight(e.ship, pad, ref, tight, round.geo, id, function () {
       said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
-    }, helm ? function () { PILOT.loseLife(round); } : null)
+    }, helm ? function () { loseLife(round, id); } : null)
       .then(function () { return said; })
       .then(function () {
         if (!live(id)) return;
@@ -1823,12 +1866,44 @@
         if (!live(id)) return;
         round.landing = false;
         if (helm && PILOT.lives(round) <= 0) return autopilotRound(round, ref, id);
+        var warned = null;
         if (!round.solved) {
-          if (helm) armPilot(round);
+          if (helm) warned = rearm(round);
           else armRound(round);
         }
-        if (round.askExact) return narrate(e.topbarText, 'chooseExact');
+        if (round.askExact) {
+          return Promise.resolve(warned).then(function () {
+            if (live(id)) return narrate(e.topbarText, 'chooseExact');
+          });
+        }
       });
+  }
+
+  /* A heart paid for a miss, on the frame of impact, and its alert a
+     beat behind -- so the crash is heard first and the warning over
+     the tail of it. */
+  var ALERT_MS = 380;
+
+  function loseLife(round, id) {
+    PILOT.loseLife(round);
+    M.wait(ALERT_MS).then(function () {
+      if (live(id)) cue('hit');
+    });
+  }
+
+  /* The controls handed back after a miss -- with the caution chime
+     if this is the last heart: what is said over the crash is the
+     verdict, so the warning waits for the moment the player can act
+     on it. Resolves once the chime is out of the way, so a line said
+     next is not said over it; the controls are live at once either
+     way. */
+  var CAUTION_MS = 900;
+
+  function rearm(round) {
+    armPilot(round);
+    if (PILOT.lives(round) !== 1) return M.wait(0);
+    cue('caution');
+    return M.wait(CAUTION_MS);
   }
 
   /* ---------------------------------------------------------- it does not, close up
@@ -1866,7 +1941,7 @@
           said = narrate(e.topbarText, tight ? 'tooSmall' : 'tooLarge');
         },
         onImpact: function () {
-          if (helm) PILOT.loseLife(round);
+          if (helm) loseLife(round, id);
           bang({ volume: tight ? 0.75 : 0.85 });
         },
         /* the craft is lost: the shot fades back onto the island
@@ -1898,11 +1973,16 @@
       if (!live(id)) return;
       round.landing = false;
       if (helm && PILOT.lives(round) <= 0) return autopilotRound(round, ref, id);
+      var warned = null;
       if (!round.solved) {
-        if (helm) armPilot(round);
+        if (helm) warned = rearm(round);
         else armRound(round);
       }
-      if (round.askExact) return narrate(e.topbarText, 'chooseExact');
+      if (round.askExact) {
+        return Promise.resolve(warned).then(function () {
+          if (live(id)) return narrate(e.topbarText, 'chooseExact');
+        });
+      }
     });
   }
 
@@ -1914,6 +1994,7 @@
      is then the ordinary one -- outline, chime, confetti, NEXT. */
   function autopilotRound(round, ref, id) {
     var e = round.el;
+    cue('autopilot');
     var said = narrate(e.topbarText, 'autoPilot');
 
     round.landing = true;
@@ -1961,6 +2042,7 @@
        from instead of snapping straight to the end */
     void btn.offsetWidth;
     btn.classList.add('is-in');
+    cue('advance');
   }
 
 
@@ -2151,7 +2233,11 @@
     syncNav();
 
     runId++;                               // strand the running sequence
-    if (!opts.silent) A.stopAll();
+    if (!opts.silent) {
+      A.stopAll();
+      /* the dissolve, heard; the launch's hand-off has its glitch */
+      cue('swish');
+    }
 
     to.reset();
 
@@ -2184,6 +2270,7 @@
 
     runId++;                               // strand the running sequence
     A.stopAll();
+    cue('swish');
 
     node.classList.add('is-replaying');
 
@@ -2445,6 +2532,8 @@
     M.wait(900).then(function () { el.gate.hidden = true; });
 
     A.unlock();
+    /* the mission's systems coming up, on the press that starts it */
+    cue('boot');
     A.startAmbience(0.24);
 
     resetCockpit();
@@ -2494,6 +2583,25 @@
     A.sfx('click', { volume: 0.4, keep: true });
   }
 
+  /* And the mouse coming over a control: a tick so faint it is felt
+     more than heard, once for each control entered. The mouse only --
+     a finger is already pressing by the time it is "over" anything --
+     and only once the mission has started, so nothing asks for sound
+     before the START press has allowed it. Pressable is decided as
+     for the tap: by the CSS, which keeps a dead control from ever
+     being under the pointer. */
+  var overHit = null;
+
+  function onOver(e) {
+    if (e.pointerType !== 'mouse' || !el.gate.classList.contains('is-gone')) return;
+    var node = e.target;
+    var hit = node && node.closest ? node.closest(TAPPABLE) : null;
+    if (hit === overHit) return;
+    overHit = hit;
+    if (!hit || hit.disabled || hit.getAttribute('aria-disabled') === 'true') return;
+    cue('tick');
+  }
+
   function boot() {
     grab();
 
@@ -2537,6 +2645,7 @@
     /* first, and in the capture phase, so every control below is
        audible without knowing anything about this */
     document.addEventListener('click', onTap, true);
+    document.addEventListener('pointerover', onOver, true);
 
     el.gateBtn.addEventListener('click', begin, { once: true });
     el.launchBtn.addEventListener('click', onLaunch);

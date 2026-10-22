@@ -8,6 +8,9 @@
      pollute the readout
    · say() resolves when the line finishes, which is what the
      flow in script.js is sequenced on
+   · every line comes in over mission control's radio
+     (js/sound.js): the channel's tone is heard first, so a line
+     that opens it is held that long before it plays
    · if the analyser comes back silent (file:// pages taint the
      media element in most browsers) we transparently fall back
      to a procedural, speech-shaped envelope keyed to playback
@@ -267,7 +270,13 @@
     el.volume = opts.volume == null ? 1 : opts.volume;
 
     active = el;
-    if (analyserAlive === null) probeUntil = performance.now() + 700;
+
+    /* Mission control's channel (js/sound.js), opened for the line.
+       `lead` is how long to hold the voice so the tone the channel
+       opens on is heard first: 0 when it is already open from the
+       line before. `radio: false` is a line said off the air. */
+    var S = opts.radio === false ? null : global.GeoSound;
+    var lead = S ? S.radioOn() : 0;
 
     return new Promise(function (resolve) {
       var done = false;
@@ -275,10 +284,12 @@
       function finish() {
         if (done) return;
         done = true;
+        el._geoHeld = false;
         el.removeEventListener('ended', finish);
         el.removeEventListener('error', onError);
         el.removeEventListener('loadedmetadata', tighten);
         if (active === el) active = null;
+        if (S) S.radioOff();
         resolve();
       }
 
@@ -302,26 +313,44 @@
       if (el.readyState >= 1) tighten();
       else el.addEventListener('loadedmetadata', tighten);
 
-      /* Hand the element over before playback starts, so a caption
-         can clock itself off currentTime instead of guessing at a
-         typing speed. play() clears `paused` synchronously, so the
-         typewriter's first frame already sees a live clock. */
-      if (opts.onPlay) {
-        try { opts.onPlay(el); } catch (e) { /* caption only — never stall the line */ }
+      function start() {
+        el._geoHeld = false;
+        if (done) return;                 /* stopped inside the hold */
+        if (analyserAlive === null) probeUntil = performance.now() + 700;
+
+        /* Hand the element over before playback starts, so a caption
+           can clock itself off currentTime instead of guessing at a
+           typing speed. play() clears `paused` synchronously, so the
+           typewriter's first frame already sees a live clock -- which
+           is why this waits out the hold with the play() rather than
+           going before it: a caption handed a parked clock would read
+           it as a line cut short. */
+        if (opts.onPlay) {
+          try { opts.onPlay(el); } catch (e) { /* caption only — never stall the line */ }
+        }
+
+        el._geoFellBack = false;
+        var p = el.play();
+        if (p && p.catch) {
+          p.catch(function () {
+            /* the blob was refused and guard() has already restarted
+               the line from its file: `ended` (or the watchdog) will
+               see it out, so this is not the end of the line */
+            if (el._geoFellBack) { el._geoFellBack = false; return; }
+            /* blocked or missing — do not stall the flow, give the
+               readout a beat of life then move on */
+            later(900).then(finish);
+          });
+        }
       }
 
-      el._geoFellBack = false;
-      var p = el.play();
-      if (p && p.catch) {
-        p.catch(function () {
-          /* the blob was refused and guard() has already restarted
-             the line from its file: `ended` (or the watchdog) will
-             see it out, so this is not the end of the line */
-          if (el._geoFellBack) { el._geoFellBack = false; return; }
-          /* blocked or missing — do not stall the flow, give the
-             readout a beat of life then move on */
-          later(900).then(finish);
-        });
+      /* held for the channel's tone; stopVoice() and stopAll() settle
+         a held line as well as a playing one (`_geoHeld`) */
+      if (lead) {
+        el._geoHeld = true;
+        later(lead).then(start);
+      } else {
+        start();
       }
 
       /* hard safety net so a broken file can never freeze the mission */
@@ -336,7 +365,8 @@
   function stopVoice() {
     Object.keys(voices).forEach(function (k) {
       var el = voices[k];
-      if (!el.paused) {
+      if (!el.paused || el._geoHeld) {
+        el._geoHeld = false;
         el.pause();
         /* say() resolves on 'ended'; pausing never fires it, so
            settle the promise by hand instead of leaving the flow
@@ -354,7 +384,8 @@
   function stopAll() {
     Object.keys(voices).forEach(function (k) {
       var el = voices[k];
-      if (!el.paused) {
+      if (!el.paused || el._geoHeld) {
+        el._geoHeld = false;
         el.pause();
         el.dispatchEvent(new Event('ended'));
       }
@@ -370,6 +401,8 @@
     active = null;
     held = [];
     thrust(0);
+    /* and mission control's radio with it (js/sound.js) */
+    if (global.GeoSound) global.GeoSound.hush();
   }
 
   /* ---------------------------------------------------------- one-shots */
@@ -619,10 +652,29 @@
 
      `jets` is how many are lit. Each one opens the filter a little,
      so two at once (a diagonal) are louder and brighter than one.
+     Over the rumble rides the fire's crackle, on the same gain, and
+     the whole burn is placed across the stereo field by `pan` (-1
+     left .. 1 right): where the lit nozzles are, which js/pilot.js
+     works out. A caller that does not say is heard dead centre.
 
      Needs the AudioContext, which this module only builds over
      http(s) (see CAN_ANALYSE), so a file:// run flies in silence. */
   var burner = null;
+
+  /* a loop of sparse, very short ticks: the crackle of the burn */
+  function sparks(c) {
+    var len = Math.floor(c.sampleRate * 2);
+    var buf = c.createBuffer(1, len, c.sampleRate);
+    var d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) {
+      if (Math.random() >= 0.0012) continue;
+      var amp = 0.3 + Math.random() * 0.7;
+      for (var k = 0; k < 60 && i + k < len; k++) {
+        d[i + k] += amp * Math.exp(-k / 9) * (Math.random() * 2 - 1);
+      }
+    }
+    return buf;
+  }
 
   function burnerOf(c) {
     if (burner !== null) return burner;
@@ -646,16 +698,37 @@
       gain.gain.value = 0;
       src.connect(tone);
       tone.connect(gain);
-      gain.connect(c.destination);
+
+      var crackle = c.createBufferSource();
+      crackle.buffer = sparks(c);
+      crackle.loop = true;
+      var bite = c.createBiquadFilter();
+      bite.type = 'bandpass';
+      bite.frequency.value = 2600;
+      bite.Q.value = 0.8;
+      var grit = c.createGain();
+      grit.gain.value = 0.35;
+      crackle.connect(bite);
+      bite.connect(grit);
+      grit.connect(gain);
+
+      var pan = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (pan) {
+        gain.connect(pan);
+        pan.connect(c.destination);
+      } else {
+        gain.connect(c.destination);
+      }
       src.start();
-      burner = { tone: tone, gain: gain, jets: 0 };
+      crackle.start();
+      burner = { tone: tone, gain: gain, pan: pan, jets: 0 };
     } catch (e) {
       burner = false;
     }
     return burner;
   }
 
-  function thrust(jets) {
+  function thrust(jets, pan) {
     jets = Math.max(0, jets | 0);
     var c = ensureContext();
     if (!c) return;
@@ -679,6 +752,7 @@
       g.setTargetAtTime(level, now, jets ? 0.06 : 0.1);
     }
     b.tone.frequency.setTargetAtTime(jets ? 900 + 300 * jets : 400, now, 0.07);
+    if (b.pan && jets) b.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan || 0)), now, 0.08);
     b.jets = jets;
   }
 

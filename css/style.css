@@ -436,7 +436,7 @@ button { font: inherit; color: inherit; }
    go on all along. js/script.js (runEnd) brings them in one after
    another; the confetti frame is the rounds' (.confetti, below).
    ============================================================ */
-.screen--end { --advance-h: clamp(38px, 3vw, 52px); }
+.screen--end { --advance-h: clamp(54px, 5vw, 82px); }
 
 .end {
   position: absolute;
@@ -516,9 +516,9 @@ button { font: inherit; color: inherit; }
   transform: none;
 }
 
-/* a touch bigger than NEXT: it is the one thing on the screen */
+/* a touch bigger than NEXT (its --advance-h, above): it is the one
+   thing on the screen */
 .advance__btn--restart {
-  font-size: clamp(12px, 1.3vw, 19px);
   padding: 0 1.5em 0 1.3em;
 }
 
@@ -1848,11 +1848,13 @@ button { font: inherit; color: inherit; }
   gap: .55em;
   height: var(--advance-h);
   padding: 0 1.2em 0 1.45em;
-  border: 0;
+  /* the white rim is what lifts a blue button off a blue sea */
+  border: max(2px, calc(var(--advance-h) * .045)) solid rgba(255, 255, 255, .92);
   border-radius: 999px;
   font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
-  font-weight: 700;
-  font-size: clamp(11px, 1.15vw, 17px);
+  font-weight: 800;
+  /* sized off the button, so the word fills it at every size */
+  font-size: calc(var(--advance-h) * .4);
   letter-spacing: .18em;
   color: #04121f;
   cursor: pointer;
